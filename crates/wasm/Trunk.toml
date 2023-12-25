@@ -1,0 +1,3 @@
+[build]
+release = true
+public_url = "/midi_bpm_detection/"

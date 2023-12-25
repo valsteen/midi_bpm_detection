@@ -1,0 +1,12 @@
+[package]
+name = "build"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lazy_static = "1.4.0"
+directories = "5.0.1"
+chrono = "0.4"
+
+[lints]
+workspace = true

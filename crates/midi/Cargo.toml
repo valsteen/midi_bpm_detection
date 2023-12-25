@@ -1,0 +1,36 @@
+[package]
+name = "midi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+itertools = "0.12.0"
+midir = "0.9.1"
+derivative = "2.2.0"
+wmidi = "4.0.10"
+num-traits = "0.2.17"
+statrs = "0.16.0"
+once_cell = "1.19.0"
+
+errors = { path = "../errors" }
+build = { path = "../build" }
+sync = { path = "../sync" }
+serde = { version = "1.0.195", features = ["derive"] }
+parameter = { path = "../parameter"}
+log = "0.4.20"
+instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+
+arraydeque = "0.5.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+coremidi-hotplug-notification = "0.1.3"
+coremidi = "0.8.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version="0.4.34" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+chrono = { version="0.4.34", features = ["wasmbind"]}
+
+[lints]
+workspace = true

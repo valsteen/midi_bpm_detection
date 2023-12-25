@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tui",
+    "crates/errors",
+    "crates/build",
+    "crates/midi",
+    "crates/gui",
+    "crates/sync",
+    "crates/parameter",
+    "crates/wasm",
+    "crates/midi-bpm-detector-plugin",
+    "crates/midi-bpm-detector-plugin/xtask"
+]
+default-members = ["crates/tui"]
+
+[workspace.lints.clippy]
+pedantic = "forbid"
+
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 4

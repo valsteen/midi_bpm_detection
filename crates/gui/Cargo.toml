@@ -1,0 +1,39 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+errors = { path = "../errors" }
+build = { path = "../build" }
+sync = { path = "../sync" }
+parameter = { path = "../parameter" }
+midi = { path = "../midi" }
+
+egui_extras = { path = "../../../egui/crates/egui_extras", features = ["all_loaders"] }
+egui_plot = { path = "../../../egui/crates/egui_plot" }
+
+serde = { version = "1.0.195", features = ["derive"] }
+atomic_refcell = "0.1.13"
+derivative = "2.2.0"
+atomic_float = "0.1.0"
+num-traits = "0.2.17"
+
+
+itertools = "0.12.0"
+log = "0.4.20"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+eframe = { path = "../../../egui/crates/eframe", default-features = false, features = ["wgpu", "persistence", "default_fonts"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+eframe = { path = "../../../egui/crates/eframe", default-features = false, features = ["default_fonts", "glow"] }
+
+
+[build-dependencies]
+build = { path = "../build" }
+
+[lints]
+workspace = true

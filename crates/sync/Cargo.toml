@@ -1,0 +1,16 @@
+[package]
+name = "sync"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.196" }
+atomic = "0.6.0"
+num-traits = "0.2.18"
+bytemuck = "1.14.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+parking_lot = { version = "0.12.1" }
+
+[lints]
+workspace = true
