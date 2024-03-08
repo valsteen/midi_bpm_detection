@@ -4,13 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+sync = { path = "../sync" }
+build = { path = "../build" }
+
 color-eyre = "0.6.2"
 backtrace = "0.3.69"
 strip-ansi-escapes = "0.2.0"
 better-panic = "0.3.0"
 tracing-error = "0.2.0"
-sync = { path = "../sync" }
-build = { path = "../build" }
 env_logger = "0.11.1"
 log = "0.4.20"
 

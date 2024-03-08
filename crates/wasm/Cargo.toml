@@ -5,18 +5,19 @@ edition = "2021"
 default-run = "beat-detector"
 
 [dependencies]
-atomic_float = "0.1"
-num-traits = "0.2.18"
 gui = { path = "../gui" }
 midi = { path = "../midi" }
 errors = { path = "../errors" }
+sync = { path = "../sync" }
+parameter = { path = "../parameter" }
+
+atomic_float = "0.1"
+num-traits = "0.2.18"
 midir = "0.9.1"
 serde = { version = "1.0.196", features = ["derive"] }
 toml = "0.8.9"
 crossbeam = "0.8.4"
 ringbuf = "0.3.3"
-sync = { path = "../sync" }
-parameter = { path = "../parameter" }
 atomic_refcell = "0.1.13"
 wasm-bindgen = "0.2"
 getrandom = { version = "0.2", features = ["js"] }
