@@ -202,7 +202,7 @@ impl Plugin for MidiBpmDetector {
         {
             let duration_since_change = sample_to_duration(
                 self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed) - static_bpm_detection_parameters_changed_at,
+                self.current_sample.load(Ordering::Relaxed).saturating_sub(static_bpm_detection_parameters_changed_at),
             );
             if duration_since_change > Duration::milliseconds(50) {
                 context.execute_background(Task::StaticBPMDetectionParameters(UpdateOrigin::Daw));
@@ -214,7 +214,7 @@ impl Plugin for MidiBpmDetector {
         {
             let duration_since_change = sample_to_duration(
                 self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed) - dynamic_bpm_detection_parameters_changed_at,
+                self.current_sample.load(Ordering::Relaxed).saturating_sub(dynamic_bpm_detection_parameters_changed_at),
             );
             if duration_since_change > Duration::milliseconds(50) {
                 context.execute_background(Task::DynamicBPMDetectionParameters(UpdateOrigin::Daw));
