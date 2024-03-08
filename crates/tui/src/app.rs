@@ -20,7 +20,6 @@ use crate::{
 
 use crate::{
     action::Action,
-    components::home::Home,
     config::Config,
     lifecycle::signals::spawn_signal_task,
     mode::Mode,
@@ -96,7 +95,7 @@ pub async fn run_tui(
         })
     });
 
-    let mut components = [Home::box_new(), SelectDevice::box_new(), MidiDisplay::box_new()];
+    let mut components = [SelectDevice::box_new(), MidiDisplay::box_new()];
     for component in &mut components {
         component.register_config_handler(config.clone())?;
     }

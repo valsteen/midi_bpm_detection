@@ -34,17 +34,10 @@ nanos = 730000000
 "<down>" = "Down"
 "<r>" = "MIDIRestart"
 
-[styles.Home.default.fg]
-Rgb = [250, 200, 200]
-
-[styles.Home.default]
-bg = "Black"
-
-[styles.DeviceView.default.fg]
-Rgb = [255, 255, 255]
-
 [styles.DeviceView.default]
-bg = "Black"
+fg = "#ffffff"
+add_modifier = ""
+sub_modifier = ""
 
 [static_bpm_detection_parameters]
 bpm_range = 40

@@ -1,4 +1,3 @@
-pub mod home;
 pub mod midi_display;
 pub mod select_device;
 
