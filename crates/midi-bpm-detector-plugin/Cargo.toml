@@ -19,8 +19,9 @@ midi = { path = "../midi" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 
-nih_plug = { path = "../../../nih-plug", features = ["assert_process_allocs", "standalone"] }
-nih_plug_egui = { path = "../../../nih-plug/nih_plug_egui" }
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "15e1520d78ba681a9565162657cda1b8ab3aa2b9", features = ["assert_process_allocs", "standalone"] }
+nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "15e1520d78ba681a9565162657cda1b8ab3aa2b9" }
+
 
 atomic_float = "0.1"
 atomic_refcell = "0.1.13"
