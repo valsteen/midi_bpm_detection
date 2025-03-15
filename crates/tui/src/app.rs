@@ -145,7 +145,7 @@ pub async fn run_tui(
                                 info!("Got action: {action:?}");
                                 action_tx.send(action.clone())?;
                             }
-                        };
+                        }
                     }
                 }
                 Event::Init

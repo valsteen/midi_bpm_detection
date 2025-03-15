@@ -89,7 +89,7 @@ where
         .try_for_each_concurrent(None, |component| async {
             if let Some(action) = f(component, event)? {
                 action_tx.send(action)?;
-            };
+            }
             Ok::<_, Report>(())
         })
         .await?;

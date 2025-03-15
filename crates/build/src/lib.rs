@@ -2,7 +2,6 @@
 #![allow(clippy::missing_panics_doc)]
 
 use directories::ProjectDirs;
-use lazy_static::lazy_static;
 use std::{
     env,
     fs::File,
@@ -12,13 +11,12 @@ use std::{
 
 pub const PROJECT_NAME: &str = "BPM_DETECTION";
 
-lazy_static! {
-    pub static ref DATA_FOLDER: Option<PathBuf> = std::env::var(format!("{PROJECT_NAME}_DATA")).ok().map(PathBuf::from);
-    pub static ref CONFIG_FOLDER: Option<PathBuf> =
-        std::env::var(format!("{PROJECT_NAME}_CONFIG")).ok().map(PathBuf::from);
-    pub static ref LOG_ENV: String = format!("{PROJECT_NAME}_LOGLEVEL");
-    pub static ref LOG_FILE: String = format!("{PROJECT_NAME}.log");
-}
+pub static DATA_FOLDER: std::sync::LazyLock<Option<PathBuf>> =
+    std::sync::LazyLock::new(|| env::var(format!("{PROJECT_NAME}_DATA")).ok().map(PathBuf::from));
+pub static CONFIG_FOLDER: std::sync::LazyLock<Option<PathBuf>> =
+    std::sync::LazyLock::new(|| env::var(format!("{PROJECT_NAME}_CONFIG")).ok().map(PathBuf::from));
+pub static LOG_ENV: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| format!("{PROJECT_NAME}_LOGLEVEL"));
+pub static LOG_FILE: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| format!("{PROJECT_NAME}.log"));
 
 #[must_use]
 pub fn get_data_dir() -> PathBuf {
@@ -57,7 +55,7 @@ pub fn create_build_info() {
 
     // Tell cargo to rebuild if the head or any relevant refs change.
     if let Some(git_dir) = git_dir {
-        let git_path = std::path::Path::new(git_dir);
+        let git_path = Path::new(git_dir);
         let refs_path = git_path.join("refs");
         if git_path.join("HEAD").exists() {
             println!("cargo:rerun-if-changed={git_dir}/HEAD");

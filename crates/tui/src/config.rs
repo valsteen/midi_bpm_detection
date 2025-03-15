@@ -135,7 +135,7 @@ impl Serialize for KeyBindings {
                         ser::Error::custom(Report::msg(format!("can't serialize main entry {key}:{action:?} ({e:?})")))
                     })?;
                 }
-            };
+            }
         }
 
         main_map.end()
@@ -189,7 +189,7 @@ impl<'de> Deserialize<'de> for KeyBindings {
                         (KeyOrMode::Mode(mode), KeyMappingsOrAction::Action(action)) => {
                             return Err(format!("{mode} is a mode and cannot be assigned to an action ( {action} )"));
                         }
-                    };
+                    }
 
                     Ok(keybindings)
                 },
@@ -225,7 +225,7 @@ fn extract_modifiers(raw: &str) -> (&str, KeyModifiers) {
                 current = &rest[6..];
             }
             _ => break, // break out of the loop if no known prefix is detected
-        };
+        }
     }
 
     (current, modifiers)

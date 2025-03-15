@@ -16,11 +16,11 @@ env_logger = "0.11.1"
 log = "0.4.20"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-minitrace = { version = "0.6.3" }
+minitrace = { version = "0.6.7" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-minitrace = { version = "0.6.3", features = ["enable"] }
-human-panic = "1.0.3"
+minitrace = { version = "0.6.7", features = ["enable"] }
+human-panic = "2.0.2"
 
 [build-dependencies]
 serde_json = { version = "1.0.108", features = [] }

@@ -8,13 +8,9 @@ use midi::{
 use nih_plug::params::Param;
 use nih_plug_egui::egui::mutex::RwLock;
 use parameter::OnOff;
-use ringbuf::{
-    ring_buffer::{RbReadCache, RbWrap},
-    Consumer, SharedRb,
-};
+use ringbuf::{consumer::Consumer, storage::Array, wrap::frozen::Frozen, SharedRb};
 use std::{
     io::Write,
-    mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
     sync::{atomic::Ordering, Arc},
     time::Duration,
@@ -44,7 +40,7 @@ pub struct TaskExecutor {
     pub gui_remote: Option<GuiRemote>,
     pub params: Arc<MidiBpmDetectorParams>,
     pub gui_remote_receiver: Arc<AtomicCell<Option<GuiRemote>>>,
-    pub events_receiver: Consumer<Event, RbWrap<RbReadCache<Event, Arc<SharedRb<Event, [MaybeUninit<Event>; 1000]>>>>>,
+    pub events_receiver: Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true>,
     pub config: Arc<RwLock<Config>>,
     // when gui_must_update_config is set, GUI loads up this config
     pub gui_must_update_config: ArcAtomicBool,
@@ -115,7 +111,7 @@ impl TaskExecutor {
                             if must_close {
                                 self.daw_connection = None;
                             }
-                        };
+                        }
                     }
 
                     if self.params.editor_state.is_open() {
@@ -166,7 +162,7 @@ impl TaskExecutor {
                         // TODO GUI has a delay + bpm recompute mechanism on its side, but when it's daw,
                         // note receiver delays but recompute happens here, which is hard to follow
                     }
-                };
+                }
             }
             Task::DynamicBPMDetectionParameters(origin) => {
                 match origin {

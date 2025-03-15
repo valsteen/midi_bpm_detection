@@ -19,11 +19,14 @@ use eframe::{egui, egui::Context};
 
 #[cfg(target_arch = "wasm32")]
 use eframe::Theme;
-
+#[cfg(not(target_arch = "wasm32"))]
+use errors::MakeReportExt;
+#[cfg(not(target_arch = "wasm32"))]
 use log::info;
+
 use sync::Mutex;
 
-use errors::{MakeReportExt, Result};
+use errors::Result;
 use midi::bpm::max_histogram_data_buffer_size;
 
 pub use crate::application_parameters::BPMDetectionParameters;
@@ -47,6 +50,8 @@ pub fn create_gui<P: BPMDetectionParameters>(bpm_detection_parameters: P) -> (Gu
     let keys_sender = Arc::new(Mutex::new(None));
     let weak_keys_sender = Arc::downgrade(&keys_sender);
     let gui_exit_callback = Arc::new(Mutex::new(None));
+
+    #[cfg(not(target_arch = "wasm32"))]
     let weak_on_gui_exit_callback = Arc::downgrade(&gui_exit_callback);
 
     let histogram_data_points = Arc::new(AtomicRefCell::new(HistogramDataPoints::default()));

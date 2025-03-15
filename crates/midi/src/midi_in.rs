@@ -267,7 +267,7 @@ where
         self.commands_sender.send(Box::new(move |midi_in, midi_input_connection| {
             if let Err(e) = result_sender.send(command(midi_in, midi_input_connection)) {
                 error_backtrace!("could not send back result : {e:?}");
-            };
+            }
         }))?;
         result_receiver.recv()?
     }

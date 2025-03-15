@@ -132,7 +132,7 @@ where
                         Err(err) => {
                             error!("error while selecting device : {err:?}");
                         }
-                    };
+                    }
                     Ok(())
                 })?;
             }
@@ -180,7 +180,7 @@ where
                 Ok(SysExCommand::Stop) => self.playing = false,
                 Ok(SysExCommand::Play) => self.playing = true,
                 _ => (),
-            };
+            }
             return Ok(None);
         }
         if event == &Event::DeviceChangeDetected {

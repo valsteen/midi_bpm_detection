@@ -156,7 +156,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
         }
     });
 
-    start_gui(gui_builder).unwrap();
+    start_gui(gui_builder)?;
 
     Ok(GuiRemoteWrapper { gui_remote, redraw_sender })
 }

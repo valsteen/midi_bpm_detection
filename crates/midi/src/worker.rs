@@ -94,36 +94,30 @@ where
                             evaluate_bpm = true;
                             bpm_detection.receive_midi_message(midi_message);
                         }
-                        WorkerEvent::TimingClock => {
-                            continue;
-                        }
+                        WorkerEvent::TimingClock => {}
                         WorkerEvent::Play => {
                             if let Err(err) = self.playback_sender.send(Playback::Play) {
                                 error!("could not send play to clock thread : {err:?}");
-                            };
-                            continue;
+                            }
                         }
                         WorkerEvent::Stop => {
                             if let Err(err) = self.playback_sender.send(Playback::Stop) {
                                 error!("could not send stop to clock thread : {err:?}");
-                            };
-                            continue;
+                            }
                         }
                         WorkerEvent::DynamicBPMDetectionParameters(dynamic_bpm_detection_parameters) => {
                             self.dynamic_bpm_detection_parameters = dynamic_bpm_detection_parameters;
                             if schedule_evaluate_bpm.is_none() {
                                 schedule_evaluate_bpm = Some(Instant::now());
                             }
-                            continue;
                         }
                         WorkerEvent::StaticBPMDetectionParameters(bpm_detection_parameters) => {
                             scheduled_bpm_detection_parameters_change = Some(bpm_detection_parameters);
                             if schedule_evaluate_bpm.is_none() {
                                 schedule_evaluate_bpm = Some(Instant::now());
                             }
-                            continue;
                         }
-                    };
+                    }
                 }
             }
 
@@ -209,9 +203,9 @@ where
                     Ok(Playback::Stop) => midi_output.lock().stop(),
                     Err(RecvTimeoutError::Disconnected) => return,
                     Err(RecvTimeoutError::Timeout) => (),
-                };
+                }
             }
-        };
+        }
     })?;
 
     Ok(playback_sender)
@@ -234,7 +228,7 @@ where
             Ok(Playback::Stop) => clock_emitter.lock().stop(),
             Err(TryRecvError::Disconnected) => return Err(()),
             Err(TryRecvError::Empty) => {}
-        };
+        }
 
         let interval_micros = clock_interval_microseconds.load(Ordering::Relaxed).min(1_000_000);
 

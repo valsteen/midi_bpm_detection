@@ -101,6 +101,7 @@ where
     get_config: GetConfig,
 }
 
+#[allow(clippy::elidable_lifetime_names)]
 impl<'a, 'b, 'c, A, F, C, GetConfig, E> SlideAdderConfig<'a, 'b, 'c, A, F, C, GetConfig, E>
 where
     E: Debug,

@@ -16,10 +16,7 @@ use nih_plug::prelude::*;
 use nih_plug_egui::create_egui_editor;
 use std::sync::atomic::AtomicUsize;
 
-use std::{
-    mem::MaybeUninit,
-    sync::{atomic::Ordering, Arc},
-};
+use std::sync::{atomic::Ordering, Arc};
 
 use sync::{ArcAtomicBool, ArcAtomicOptional};
 
@@ -32,14 +29,13 @@ use midi::{
 use nih_plug::{log::error, midi::MidiResult};
 use nih_plug_egui::egui::mutex::RwLock;
 
-use ringbuf::{producer::PostponedProducer, SharedRb, StaticRb};
-
 use crate::{
     config::Config,
     gui::GuiEditor,
     params::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
+use ringbuf::{producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen, SharedRb, StaticRb};
 
 pub struct MidiBpmDetector {
     params: Arc<MidiBpmDetectorParams>,
@@ -48,7 +44,7 @@ pub struct MidiBpmDetector {
     // should recompute bpm evaluation, even if there is no new notes. Happens after config change
     // or GUI just reopened
     force_evaluate_bpm_detection: ArcAtomicBool,
-    events_sender: PostponedProducer<Event, Arc<SharedRb<Event, [MaybeUninit<Event>; 1000]>>>,
+    events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
     task_executor: Option<task_executor::TaskExecutor>,
     gui_editor: Option<GuiEditor>,
     static_bpm_detection_parameters_changed_at: ArcAtomicOptional<usize>,
@@ -59,8 +55,8 @@ impl Default for MidiBpmDetector {
     fn default() -> Self {
         let current_sample = Arc::new(AtomicUsize::new(0));
         let (events_sender, events_receiver) = StaticRb::<Event, 1000>::default().split();
-        let events_sender = events_sender.into_postponed();
-        let events_receiver = events_receiver.into_postponed();
+        let events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false> = events_sender.freeze();
+        let events_receiver: Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true> = events_receiver.freeze();
         let gui_remote_receiver = Arc::new(AtomicCell::new(None));
         let gui_remote = None;
         let daw_port = ArcAtomicOptional::<u16>::new(None);
@@ -239,7 +235,7 @@ impl MidiBpmDetector {
         let current_sample = self.current_sample.load(Ordering::Relaxed);
         let mut has_new_events = false;
         if let Some(bpm) = context.transport().tempo {
-            if self.events_sender.push(Event::DawBPM(bpm as f32)).is_err() {
+            if self.events_sender.try_push(Event::DawBPM(bpm as f32)).is_err() {
                 error!("event ringbuffer is full");
             }
             has_new_events = true;
@@ -264,11 +260,11 @@ impl MidiBpmDetector {
 
             if self
                 .events_sender
-                .push(Event::TimedMidiNoteOn(TimedMidiNoteOn { timestamp, midi_message: midi_note_on }))
+                .try_push(Event::TimedMidiNoteOn(TimedMidiNoteOn { timestamp, midi_message: midi_note_on }))
                 .is_err()
             {
                 error!("event ringbuffer is full");
-            };
+            }
 
             has_new_events = true;
         }

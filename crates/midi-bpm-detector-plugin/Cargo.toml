@@ -22,16 +22,12 @@ sync = { path = "../sync" }
 nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "15e1520d78ba681a9565162657cda1b8ab3aa2b9", features = ["assert_process_allocs", "standalone"] }
 nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "15e1520d78ba681a9565162657cda1b8ab3aa2b9" }
 
-
-atomic_float = "0.1"
-atomic_refcell = "0.1.13"
 chrono = "0.4.34"
-config = "0.14.0"
 cpal = "0.15.2"
 crossbeam = "0.8.4"
-midir = "0.9.1"
+midir = "0.10.1"
 num-traits = "0.2.18"
-ringbuf = "0.3.3"
+ringbuf = "0.4.7"
 serde = { version = "1.0.196", features = ["derive"] }
 toml = "0.8.9"
 

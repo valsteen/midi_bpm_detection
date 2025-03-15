@@ -152,7 +152,7 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
                 for events in &input.events {
                     if let Event::Key { key, modifiers: _, pressed: true, .. } = events {
                         sender(key.name());
-                    };
+                    }
                 }
             });
         }

@@ -1,10 +1,7 @@
 use crate::config::Config;
 
 use crate::utils::version;
-use clap::{
-    builder::{_AutoValueParser, via_prelude::_ValueParserViaParse},
-    Arg, Command, Error,
-};
+use clap::{value_parser, Arg, Command, Error};
 use std::env;
 
 pub fn update_config(config: Config) -> Result<Config, Error> {
@@ -14,7 +11,7 @@ pub fn update_config(config: Config) -> Result<Config, Error> {
         .about(clap::crate_description!())
         .arg(
             Arg::new("tick_rate")
-                .value_parser(_AutoValueParser::<f64>::new().value_parser())
+                .value_parser(value_parser!(f64))
                 .short('t')
                 .long("tick_rate")
                 .value_name("FLOAT")
@@ -23,7 +20,7 @@ pub fn update_config(config: Config) -> Result<Config, Error> {
         )
         .arg(
             Arg::new("frame_rate")
-                .value_parser(_AutoValueParser::<f64>::new().value_parser())
+                .value_parser(value_parser!(f64))
                 .short('f')
                 .long("frame_rate")
                 .value_name("FLOAT")

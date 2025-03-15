@@ -16,11 +16,11 @@ egui_plot = { git = "https://github.com/valsteen/egui.git", rev = "63b41773fc199
 serde = { version = "1.0.195", features = ["derive"] }
 atomic_refcell = "0.1.13"
 derivative = "2.2.0"
-atomic_float = "0.1.0"
+atomic_float = "1.1.0"
 num-traits = "0.2.17"
-itertools = "0.12.0"
 log = "0.4.20"
 instant = { version = "0.1", features = ["wasm-bindgen"] }
+web-sys = "0.3.77"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = { git = "https://github.com/valsteen/egui.git", rev = "63b41773fc199768c2923286ba2f6504357a5ce8", default-features = false, features = ["wgpu", "persistence", "default_fonts"] }

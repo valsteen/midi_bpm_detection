@@ -78,6 +78,7 @@ impl<'de> Deserialize<'de> for Action {
 
 struct Visitor;
 
+#[allow(clippy::elidable_lifetime_names)]
 impl<'de> de::Visitor<'de> for Visitor {
     type Value = Action;
 

@@ -149,7 +149,7 @@ impl Tui {
             CrosstermEvent::Key(key) => {
                 if key.kind == KeyEventKind::Press {
                     event_tx.send(Event::Key(key))?;
-                };
+                }
                 return Ok(());
             }
             CrosstermEvent::Mouse(mouse) => event_tx.send(Event::Mouse(mouse)),

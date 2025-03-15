@@ -126,7 +126,7 @@ impl BPMDetection {
                     if interval < self.interval_low {
                         subdivision = f32::NAN;
                     }
-                };
+                }
 
                 (interval, in_range, multiplier, subdivision)
             };
@@ -201,7 +201,7 @@ impl BPMDetection {
                     };
 
                     self.histogram_data_points[index] += 10.0f32.powf(intensity + normal_value);
-                };
+                }
 
                 timestamp += duration_per_sample;
             }
