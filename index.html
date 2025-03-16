@@ -12,8 +12,8 @@
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     
 <script type="module">
-import init, * as bindings from '/midi_bpm_detection/beat-detector-64203d6e572b3d62.js';
-const wasm = await init({ module_or_path: '/midi_bpm_detection/beat-detector-64203d6e572b3d62_bg.wasm' });
+import init, * as bindings from '/midi_bpm_detection/beat-detector-3bf3b1941e6e1965.js';
+const wasm = await init({ module_or_path: '/midi_bpm_detection/beat-detector-3bf3b1941e6e1965_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -179,7 +179,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         }
 
     </script>
-<link rel="modulepreload" href="/midi_bpm_detection/beat-detector-64203d6e572b3d62.js" crossorigin="anonymous" integrity="sha384-+fkCNZS4v1/vsgGHVle840bYHma0edupnpDlZM7SLQ+th/yrlN6azTcL/8FBKRqv"><link rel="preload" href="/midi_bpm_detection/beat-detector-64203d6e572b3d62_bg.wasm" crossorigin="anonymous" integrity="sha384-s+GmOZ6ftXl80KoRCd3aapl8Q+TLoB9i5mu2lzfQAWInBUbUtgAL0FazO2k/+4Ww" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/midi_bpm_detection/beat-detector-3bf3b1941e6e1965.js" crossorigin="anonymous" integrity="sha384-aUpkiRLEAhQCXdurrvRnPTuHEhDFoX9gref4BscN2CM4vSr+7S1Xn+pvQJ52QTQ4"><link rel="preload" href="/midi_bpm_detection/beat-detector-3bf3b1941e6e1965_bg.wasm" crossorigin="anonymous" integrity="sha384-XMX3p4EQcfgXb25CqP3QPENbkli4IbgGkQSnYnD/bs+Zviy83/mG6a6z8lB4SrN6" as="fetch" type="application/wasm"></head>
 
 <body>
     <p>Beat detector demo. Just tap some keys on your computer keyboard or MIDI device. Pitch and velocity related parameters won't have any effect with computer keyboard.</p>
