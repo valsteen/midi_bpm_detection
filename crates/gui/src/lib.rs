@@ -17,8 +17,6 @@ use atomic_refcell::AtomicRefCell;
 pub use eframe;
 use eframe::{egui, egui::Context};
 
-#[cfg(target_arch = "wasm32")]
-use eframe::Theme;
 #[cfg(not(target_arch = "wasm32"))]
 use errors::MakeReportExt;
 #[cfg(not(target_arch = "wasm32"))]
@@ -116,7 +114,7 @@ where
                 // This gives us image support:
                 egui_extras::install_image_loaders(&cc.egui_ctx);
                 gui_builder.context_receiver.borrow_mut().replace(cc.egui_ctx.clone());
-                Box::new(gui_builder.bpm_detection_gui)
+                Ok(Box::new(gui_builder.bpm_detection_gui))
             }
         }),
     )
@@ -130,17 +128,25 @@ pub fn start_gui<P>(gui_builder: GUIBuilder<P>) -> Result<()>
 where
     P: BPMDetectionParameters + 'static,
 {
-    let web_options =
-        eframe::WebOptions { follow_system_theme: false, default_theme: Theme::Dark, ..Default::default() };
+    use eframe::wasm_bindgen::JsCast;
+
+    let document = web_sys::window().expect("No window").document().expect("No document");
+
+    let canvas = document
+        .get_element_by_id("the_canvas_id")
+        .expect("Failed to find the_canvas_id")
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .expect("the_canvas_id was not a HtmlCanvasElement");
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
             .start(
-                "the_canvas_id", // hardcode it
-                web_options,
+                canvas,
+                eframe::WebOptions::default(),
                 Box::new(move |cc| {
+                    cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
                     gui_builder.context_receiver.borrow_mut().replace(cc.egui_ctx.clone());
-                    Box::new(gui_builder.bpm_detection_gui)
+                    Ok(Box::new(gui_builder.bpm_detection_gui))
                 }),
             )
             .await

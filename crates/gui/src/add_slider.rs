@@ -1,4 +1,7 @@
-use eframe::{egui, egui::Slider};
+use eframe::{
+    egui,
+    egui::{Slider, SliderClamping},
+};
 use errors::{LogErrorWithExt, error_backtrace};
 use parameter::{Asf64, OnOff, Parameter};
 use std::{cell::RefCell, fmt::Debug, sync::atomic::Ordering};
@@ -12,7 +15,9 @@ pub fn add_slider<V: Asf64, S, G>(
 ) {
     let mut slider = Slider::from_get_set(parameter.range.clone(), get_set_value)
         .logarithmic(parameter.logarithmic)
-        .step_by(parameter.step);
+        .step_by(parameter.step)
+        // https://github.com/emilk/egui/issues/5811
+        .clamping(SliderClamping::Edits);
 
     if let Some(unit) = parameter.unit.as_ref() {
         slider = slider.text(*unit);

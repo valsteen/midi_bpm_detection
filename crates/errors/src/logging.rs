@@ -39,6 +39,7 @@ pub fn initialize_logging() -> Result<()> {
                 .join(",")
         });
 
+        // taken from https://github.com/emilk/egui/blob/d811940dcc59a0d863e30d86e35bd41df0d9dee9/crates/egui_demo_app/src/main.rs#L26
         // Silence wgpu log spam (https://github.com/gfx-rs/wgpu/issues/3206)
         for loud_crate in ["naga", "wgpu_core", "wgpu_hal"] {
             if !rust_log.contains(&format!("{loud_crate}=")) {
