@@ -1,12 +1,17 @@
 use crate::{Report, Result};
-use build::{get_data_dir, LOG_ENV, LOG_FILE};
+use build::{LOG_ENV, LOG_FILE, get_data_dir};
 
 use env_logger::Builder;
-use log::{debug, error, info, LevelFilter};
-use std::{fmt::Debug, fs::File, io::Write, ops::Deref, panic::Location};
+use log::{LevelFilter, debug, error, info};
+use std::{fmt::Debug, fs::File, io::Write, ops::Deref, panic::Location, sync::LazyLock};
 use sync::Mutex;
 
 pub static WORKSPACE_CRATES: &str = env!("_WORKSPACE_CRATES");
+
+// SAFETY: this only protects against accidental parallel calls to initialize_logging.
+// if set_env is called from another thread for any other reason ( 3rd party etc. ), a data race
+// may still occur
+static ENV_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 pub fn initialize_logging() -> Result<()> {
     let directory = get_data_dir();
@@ -15,16 +20,21 @@ pub fn initialize_logging() -> Result<()> {
 
     let log_file = Box::new(Mutex::new(File::create(log_path)?));
     let log_file = Box::leak(log_file);
-    std::env::set_var(
-        "RUST_LOG",
-        std::env::var("RUST_LOG").or_else(|_| std::env::var(LOG_ENV.clone())).unwrap_or_else(|_| {
-            WORKSPACE_CRATES
-                .split(',')
-                .map(|crate_name| format!("{}=info", crate_name.replace('-', "_")))
-                .collect::<Vec<String>>()
-                .join(",")
-        }),
-    );
+
+    let _guard = ENV_MUTEX.lock();
+
+    unsafe {
+        std::env::set_var(
+            "RUST_LOG",
+            std::env::var("RUST_LOG").or_else(|_| std::env::var(LOG_ENV.clone())).unwrap_or_else(|_| {
+                WORKSPACE_CRATES
+                    .split(',')
+                    .map(|crate_name| format!("{}=info", crate_name.replace('-', "_")))
+                    .collect::<Vec<String>>()
+                    .join(",")
+            }),
+        );
+    }
 
     Builder::from_default_env()
         .filter(None, LevelFilter::Info)
@@ -227,10 +237,6 @@ impl<T> LogOptionWithExt<T> for Option<T> {
 
     #[track_caller]
     fn report_msg(self, message: &'static str) -> Result<T, Report> {
-        if let Some(this) = self {
-            Ok(this)
-        } else {
-            Err(Report::msg(message))
-        }
+        if let Some(this) = self { Ok(this) } else { Err(Report::msg(message)) }
     }
 }

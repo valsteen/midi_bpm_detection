@@ -31,7 +31,6 @@ pub trait EventHandler {
     /// * `Result<Option<Action>>` - An action to be processed or none.
     ///
     ///
-
     fn handle_event(&mut self, event: &Event) -> Result<Option<Action>> {
         self.default_handle_event(event)
     }

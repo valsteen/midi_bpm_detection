@@ -1,4 +1,4 @@
-use crate::{app::BPMDetectionGUI, BPMDetectionParameters};
+use crate::{BPMDetectionParameters, app::BPMDetectionGUI};
 use eframe::{egui, egui::Ui};
 
 use crate::{add_slider::SlideAdder, config::GUIConfig};

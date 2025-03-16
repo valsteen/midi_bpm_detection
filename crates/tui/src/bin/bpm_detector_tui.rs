@@ -1,12 +1,12 @@
 use log::info;
-use std::sync::mpsc::{sync_channel, SyncSender};
+use std::sync::mpsc::{SyncSender, sync_channel};
 use tokio::sync::mpsc;
 
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use errors::{initialize_logging, Result};
+use errors::{Result, initialize_logging};
 
-use gui::{create_gui, start_gui, GuiRemote};
+use gui::{GuiRemote, create_gui, start_gui};
 
 use errors::initialize_panic_handler;
 use tui::{

@@ -16,14 +16,14 @@ use nih_plug::prelude::*;
 use nih_plug_egui::create_egui_editor;
 use std::sync::atomic::AtomicUsize;
 
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
 use sync::{ArcAtomicBool, ArcAtomicOptional};
 
 use midi::{
-    bpm::sample_to_duration,
-    midi_messages::{wmidi, MidiNoteOn},
     BPMDetection, TimedMidiNoteOn,
+    bpm::sample_to_duration,
+    midi_messages::{MidiNoteOn, wmidi},
 };
 
 use nih_plug::{log::error, midi::MidiResult};
@@ -35,7 +35,7 @@ use crate::{
     params::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
-use ringbuf::{producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen, SharedRb, StaticRb};
+use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
 
 pub struct MidiBpmDetector {
     params: Arc<MidiBpmDetectorParams>,
@@ -219,11 +219,7 @@ impl Plugin for MidiBpmDetector {
         }
         self.receive_notes(context);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);
-        if self.params.editor_state.is_open() {
-            ProcessStatus::KeepAlive
-        } else {
-            ProcessStatus::Normal
-        }
+        if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal }
     }
 }
 

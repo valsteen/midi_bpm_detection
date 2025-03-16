@@ -8,7 +8,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub use gui_remote::GuiRemote;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 pub use app::BPMDetectionGUI;
 use atomic_float::AtomicF32;

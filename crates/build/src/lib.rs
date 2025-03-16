@@ -20,14 +20,13 @@ pub static LOG_FILE: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| f
 
 #[must_use]
 pub fn get_data_dir() -> PathBuf {
-    let directory = if let Some(s) = DATA_FOLDER.clone() {
+    if let Some(s) = DATA_FOLDER.clone() {
         s
     } else if let Some(proj_dirs) = project_directory() {
         proj_dirs.data_local_dir().to_path_buf()
     } else {
         PathBuf::from(".").join(".data")
-    };
-    directory
+    }
 }
 
 #[must_use]
@@ -37,14 +36,13 @@ pub fn project_directory() -> Option<ProjectDirs> {
 
 #[must_use]
 pub fn get_config_dir() -> PathBuf {
-    let directory = if let Some(s) = CONFIG_FOLDER.clone() {
+    if let Some(s) = CONFIG_FOLDER.clone() {
         s
     } else if let Some(proj_dirs) = project_directory() {
         proj_dirs.config_local_dir().to_path_buf()
     } else {
         PathBuf::from(".").join(".config")
-    };
-    directory
+    }
 }
 
 pub fn create_build_info() {

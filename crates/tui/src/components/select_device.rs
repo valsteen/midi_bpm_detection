@@ -1,5 +1,5 @@
 use crossterm::event::MouseEvent;
-use errors::{minitrace, Result};
+use errors::{Result, minitrace};
 
 use derivative::Derivative;
 use itertools::{EitherOrBoth, Itertools};
@@ -13,7 +13,7 @@ use midi::MidiInputPort;
 
 use crate::{
     components::Component,
-    layout::{centered_rect, Position},
+    layout::{Position, centered_rect},
 };
 
 use crate::{

@@ -13,8 +13,8 @@ use crossterm::{
     terminal::EnterAlternateScreen,
 };
 
-use errors::{error_backtrace, Report, Result};
-use futures::{pin_mut, FutureExt, StreamExt};
+use errors::{Report, Result, error_backtrace};
+use futures::{FutureExt, StreamExt, pin_mut};
 use futures_util::future::select;
 use log::{error, info};
 use ratatui::backend::CrosstermBackend as Backend;

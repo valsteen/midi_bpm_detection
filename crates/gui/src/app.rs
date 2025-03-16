@@ -1,4 +1,4 @@
-use crate::{egui::Color32, gui_remote::HistogramDataPoints, BPMDetectionParameters, BUILD_TIME};
+use crate::{BPMDetectionParameters, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use eframe::{
@@ -7,12 +7,12 @@ use eframe::{
     epaint::Hsva,
 };
 use egui_plot::{Bar, BarChart, Legend, PlotResponse, PlotUi};
-use errors::{minitrace, LogErrorWithExt, LogOptionWithExt};
+use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use log::error;
 use num_traits::identities::Zero;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Weak,
+    atomic::{AtomicBool, Ordering},
 };
 use sync::Mutex;
 
@@ -159,25 +159,23 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
 
         let refresh = egui::CentralPanel::default()
             .show(ctx, |ui| {
-                let refresh = ui
-                    .horizontal_top(|ui| {
-                        ui.vertical(|ui| {
-                            ui.add_space(10.0);
-                            Self::legend(&estimated_bpm, &daw_bpm, ui);
-                            ui.add_space(20.0);
-                            self.settings_panel(ui);
+                ui.horizontal_top(|ui| {
+                    ui.vertical(|ui| {
+                        ui.add_space(10.0);
+                        Self::legend(&estimated_bpm, &daw_bpm, ui);
+                        ui.add_space(20.0);
+                        self.settings_panel(ui);
 
-                            let available_size = ui.available_size();
-                            ui.add_space(available_size.y - ui.spacing().interact_size.y);
+                        let available_size = ui.available_size();
+                        ui.add_space(available_size.y - ui.spacing().interact_size.y);
 
-                            ui.horizontal(|ui| {
-                                ui.label(BUILD_TIME);
-                            });
+                        ui.horizontal(|ui| {
+                            ui.label(BUILD_TIME);
                         });
-                        self.draw_histogram(ui).inner
-                    })
-                    .inner;
-                refresh
+                    });
+                    self.draw_histogram(ui).inner
+                })
+                .inner
             })
             .inner;
         if refresh {
@@ -204,7 +202,7 @@ impl<P: BPMDetectionParameters> eframe::App for BPMDetectionGUI<P> {
             on_gui_exit_callback.lock().as_ref().log_info_msg("gui exit callback not set")
         {
             on_gui_exit_callback();
-        };
+        }
     }
 }
 
@@ -212,11 +210,7 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
     fn legend(estimated_bpm: &AtomicF32, daw_bpm: &AtomicF32, ui: &mut Ui) {
         let to_text = |bpm: &AtomicF32| {
             let bpm = bpm.load(Ordering::Relaxed);
-            if bpm.is_nan() {
-                format!("{:>6.2}", "-")
-            } else {
-                format!("{bpm:>6.2}")
-            }
+            if bpm.is_nan() { format!("{:>6.2}", "-") } else { format!("{bpm:>6.2}") }
         };
 
         ui.vertical(|ui| {

@@ -1,7 +1,7 @@
 use crate::{
+    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedMidiNoteOn,
     bpm::{beat_duration_to_bpm, bpm_to_beat_duration, sample_to_duration},
     normal_distribution::NormalDistribution,
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedMidiNoteOn,
 };
 use chrono::Duration;
 use itertools::Itertools;

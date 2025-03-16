@@ -1,15 +1,15 @@
 use crate::{
-    config::{Config, LiveConfig},
     MidiBpmDetector, MidiBpmDetectorParams,
+    config::{Config, LiveConfig},
 };
 use crossbeam::atomic::AtomicCell;
-use gui::{create_gui, BPMDetectionGUI, BPMDetectionParameters, GuiRemote};
+use gui::{BPMDetectionGUI, BPMDetectionParameters, GuiRemote, create_gui};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use nih_plug_egui::{
-    egui::{mutex::RwLock, Context},
     EguiState,
+    egui::{Context, mutex::RwLock},
 };
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
 use sync::ArcAtomicBool;
 

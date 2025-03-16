@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifi
 use log::{debug, info};
 use std::sync::mpsc::SyncSender;
 
-use errors::{error_backtrace, Result};
+use errors::{Result, error_backtrace};
 use gui::GuiRemote;
 use ratatui::prelude::Rect;
 
@@ -13,7 +13,7 @@ use tokio::sync::{
 };
 
 use crate::{
-    components::{midi_display::MidiDisplay, select_device::SelectDevice, ComponentNewBox},
+    components::{ComponentNewBox, midi_display::MidiDisplay, select_device::SelectDevice},
     services::{midi::MidiService, screens::Screens},
     tui::Event,
 };
@@ -24,7 +24,7 @@ use crate::{
     lifecycle::signals::spawn_signal_task,
     mode::Mode,
     tui,
-    utils::dispatch::{try_dispatch_concurrently, ActionHandler, EventHandler},
+    utils::dispatch::{ActionHandler, EventHandler, try_dispatch_concurrently},
 };
 
 #[allow(forbidden_lint_groups)]

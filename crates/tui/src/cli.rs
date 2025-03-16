@@ -1,7 +1,7 @@
 use crate::config::Config;
 
 use crate::utils::version;
-use clap::{value_parser, Arg, Command, Error};
+use clap::{Arg, Command, Error, value_parser};
 use std::env;
 
 pub fn update_config(config: Config) -> Result<Config, Error> {

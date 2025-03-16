@@ -2,9 +2,9 @@ use instant::Instant;
 use log::error;
 use std::{
     sync::{
+        Arc,
         atomic::{AtomicU64, Ordering},
         mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
-        Arc,
     },
     thread,
     time::Duration as StdDuration,
@@ -15,12 +15,12 @@ use errors::Result;
 use sync::ArcAtomicBool;
 
 use crate::{
+    DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters,
     bpm::bpm_to_midi_clock_interval,
     bpm_detection::{BPMDetection, NOTE_CAPACITY},
     bpm_detection_receiver::BPMDetectionReceiver,
     midi_output_trait::MidiOutput,
     worker_event::WorkerEvent,
-    DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters,
 };
 
 pub struct Worker<B, C>
@@ -184,25 +184,27 @@ where
 
     let midi_output_thread = thread::Builder::new().name("MIDI output".to_string());
 
-    midi_output_thread.spawn(move || loop {
-        if enable_midi_clock.load(Ordering::Relaxed) {
-            if clock_emitter_loop(
-                &midi_output,
-                &playback_receiver,
-                &enable_midi_clock.clone(),
-                &clock_interval_microseconds,
-            )
-            .is_err()
-            {
-                return;
-            }
-        } else {
-            while !enable_midi_clock.load(Ordering::Relaxed) {
-                match playback_receiver.recv_timeout(StdDuration::from_secs(1)) {
-                    Ok(Playback::Play) => midi_output.lock().play(),
-                    Ok(Playback::Stop) => midi_output.lock().stop(),
-                    Err(RecvTimeoutError::Disconnected) => return,
-                    Err(RecvTimeoutError::Timeout) => (),
+    midi_output_thread.spawn(move || {
+        loop {
+            if enable_midi_clock.load(Ordering::Relaxed) {
+                if clock_emitter_loop(
+                    &midi_output,
+                    &playback_receiver,
+                    &enable_midi_clock.clone(),
+                    &clock_interval_microseconds,
+                )
+                .is_err()
+                {
+                    return;
+                }
+            } else {
+                while !enable_midi_clock.load(Ordering::Relaxed) {
+                    match playback_receiver.recv_timeout(StdDuration::from_secs(1)) {
+                        Ok(Playback::Play) => midi_output.lock().play(),
+                        Ok(Playback::Stop) => midi_output.lock().stop(),
+                        Err(RecvTimeoutError::Disconnected) => return,
+                        Err(RecvTimeoutError::Timeout) => (),
+                    }
                 }
             }
         }

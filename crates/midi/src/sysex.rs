@@ -1,5 +1,5 @@
 use crate::StaticMidiMessage;
-use std::str::{from_utf8, FromStr};
+use std::str::{FromStr, from_utf8};
 use wmidi::MidiMessage;
 
 pub enum SysExCommand {

@@ -10,8 +10,8 @@ use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };

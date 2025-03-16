@@ -1,9 +1,9 @@
 use chrono::Duration;
 use std::{
     sync::{
+        Arc,
         atomic::AtomicU64,
         mpsc::{Receiver, SendError, Sender, SyncSender},
-        Arc,
     },
     thread,
 };
@@ -16,12 +16,12 @@ use midir::os::unix::VirtualInput;
 use midir::{MidiInput, MidiInputConnection};
 
 use build::PROJECT_NAME;
-use errors::{error_backtrace, MakeReportExt, Report, Result};
+use errors::{MakeReportExt, Report, Result, error_backtrace};
 
 use crate::{
-    bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort, sysex::SysExCommand, worker,
-    worker_event::WorkerEvent, DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters,
-    StaticMidiMessage, TimedTypedMidiMessage,
+    DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters, StaticMidiMessage,
+    TimedTypedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort,
+    sysex::SysExCommand, worker, worker_event::WorkerEvent,
 };
 
 #[cfg(unix)]

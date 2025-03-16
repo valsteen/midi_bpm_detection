@@ -1,7 +1,7 @@
 [package]
 name = "tui"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "BPM Detector TUI/GUI"
 default-run = "bpm_detector_tui"
 
@@ -9,8 +9,8 @@ authors = ["Vincent Alsteen <vincent.alsteen@gmail.com>"]
 
 [dependencies]
 clap = { version = "4.4.11", features = ["derive", "cargo", "wrap_help", "unicode", "string", "unstable-styles"] }
-config = "0.13.4"
-crossterm = { version = "0.27.0", features = ["serde", "event-stream"] }
+config = "0.15.11"
+crossterm = { version = "0.28.1", features = ["serde", "event-stream"] }
 bitflags = "2.3"
 derive_deref = "1.1.1"
 futures = "0.3.30"

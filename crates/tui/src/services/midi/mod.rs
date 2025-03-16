@@ -9,12 +9,12 @@ use crate::{
 };
 use errors::{Report, Result};
 use midi::{
-    midi_in::MidiIn, restart, DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig,
-    StaticBPMDetectionParameters, SysExCommand, TimedMidiMessage,
+    DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionParameters, SysExCommand,
+    TimedMidiMessage, midi_in::MidiIn, restart,
 };
 
 use log::{error, info};
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
 use tokio::sync::mpsc::UnboundedSender;
 

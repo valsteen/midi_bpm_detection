@@ -1,10 +1,10 @@
 #![cfg(target_arch = "wasm32")]
 use derivative::Derivative;
-use errors::{error_backtrace, LogErrorWithExt, Report};
+use errors::{LogErrorWithExt, Report, error_backtrace};
 use futures::channel::mpsc::Sender;
 use gui::{BPMDetectionParameters, GUIConfig};
 use midi::{
-    midi_messages::MidiNoteOn, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
+    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage, midi_messages::MidiNoteOn,
 };
 use serde::{Deserialize, Serialize};
 

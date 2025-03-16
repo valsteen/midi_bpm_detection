@@ -8,11 +8,10 @@ use itertools::Itertools;
 use log::{error, info};
 use ratatui::style::Style;
 use serde::{
-    de,
+    Deserialize, Serialize, Serializer, de,
     de::{Deserializer, Error},
     ser,
     ser::SerializeMap,
-    Deserialize, Serialize, Serializer,
 };
 use strum::Display;
 
@@ -351,8 +350,7 @@ pub fn parse_key_sequence(raw: &str) -> Result<Vec<KeyEvent>, String> {
         raw
     } else {
         let raw = raw.strip_prefix('<').unwrap_or(raw);
-        let raw = raw.strip_prefix('>').unwrap_or(raw);
-        raw
+        raw.strip_prefix('>').unwrap_or(raw)
     };
     let sequences = raw
         .split("><")

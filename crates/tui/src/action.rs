@@ -2,7 +2,7 @@ use crate::mode::Mode;
 
 use midi::{DynamicBPMDetectionParameters, MidiInputPort, StaticBPMDetectionParameters};
 
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use strum::{Display, IntoStaticStr, VariantNames};
 

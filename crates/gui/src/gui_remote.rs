@@ -3,14 +3,14 @@ use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use derivative::Derivative;
 use eframe::egui::{Context, ViewportCommand, WindowLevel};
-use errors::{minitrace, LogErrorWithExt, LogOptionWithExt};
+use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use instant::Instant;
 use midi::{bpm::max_histogram_data_buffer_size, bpm_detection_receiver::BPMDetectionReceiver};
 use std::{
     mem,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 use sync::Mutex;

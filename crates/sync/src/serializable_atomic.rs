@@ -4,8 +4,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt::Debug,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Weak,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -20,11 +20,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = self.0.load(Ordering::Relaxed);
-        if value.is_zero() {
-            None::<T>.fmt(f)
-        } else {
-            Some(value).fmt(f)
-        }
+        if value.is_zero() { None::<T>.fmt(f) } else { Some(value).fmt(f) }
     }
 }
 

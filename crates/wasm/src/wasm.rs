@@ -9,22 +9,22 @@ use crate::{LiveConfig, QueueItem};
 use atomic_refcell::AtomicRefCell;
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
-use futures::{channel::mpsc::Sender, StreamExt};
-use gui::{create_gui, start_gui, GuiRemote};
+use futures::{StreamExt, channel::mpsc::Sender};
+use gui::{GuiRemote, create_gui, start_gui};
 use instant::Instant;
 use midi::{
-    bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn, BPMDetection,
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
+    BPMDetection, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration as StdDuration,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen_futures::{js_sys::Promise, JsFuture};
+use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
 
 async fn sleep(duration: StdDuration) {
     let promise = Promise::new(&mut |yes, _| {

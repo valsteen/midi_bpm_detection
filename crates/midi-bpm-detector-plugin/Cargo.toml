@@ -1,7 +1,7 @@
 [package]
 name = "midi-bpm-detector-plugin"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Vincent Alsteen <vincent.alsteen@gmail.com>"]
 license = "Other licenses can be set in Cargo.toml, but using the project needs to be GPLv3 compliant to be able to use the VST3 exporter. Check Cargo.toml for more information."
 homepage = "https://youtu.be/dQw4w9WgXcQ"

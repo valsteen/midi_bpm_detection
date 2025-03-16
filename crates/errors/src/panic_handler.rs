@@ -14,7 +14,7 @@ pub fn initialize_panic_handler<I: 'static + Send + Sync + Fn()>(reset: I) -> Re
 
         #[cfg(all(not(debug_assertions), not(target_arch = "wasm32")))]
         {
-            use human_panic::{handle_dump, print_msg, Metadata};
+            use human_panic::{Metadata, handle_dump, print_msg};
 
             let meta = Metadata::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
                 .authors(env!("CARGO_PKG_AUTHORS").replace(':', ", "))

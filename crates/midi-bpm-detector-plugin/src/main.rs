@@ -1,4 +1,4 @@
-use cpal::{traits::HostTrait, HostId};
+use cpal::{HostId, traits::HostTrait};
 use midi_bpm_detector_plugin::MidiBpmDetector;
 use midir::os::unix::{VirtualInput, VirtualOutput};
 

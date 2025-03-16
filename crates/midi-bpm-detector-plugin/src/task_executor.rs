@@ -1,18 +1,18 @@
-use crate::{config::Config, MidiBpmDetectorParams};
+use crate::{MidiBpmDetectorParams, config::Config};
 use crossbeam::atomic::AtomicCell;
-use errors::{error, info, LogErrorWithExt};
+use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
 use midi::{
-    bpm_detection_receiver::BPMDetectionReceiver, BPMDetection, DynamicBPMDetectionParameters, TimedMidiNoteOn,
+    BPMDetection, DynamicBPMDetectionParameters, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver,
 };
 use nih_plug::params::Param;
 use nih_plug_egui::egui::mutex::RwLock;
 use parameter::OnOff;
-use ringbuf::{consumer::Consumer, storage::Array, wrap::frozen::Frozen, SharedRb};
+use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc, atomic::Ordering},
     time::Duration,
 };
 use sync::{ArcAtomicBool, ArcAtomicOptional};

@@ -1,8 +1,8 @@
 #![allow(forbidden_lint_groups)]
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 #[cfg(target_arch = "wasm32")]
 use {
-    errors::{initialize_panic_handler, Result},
+    errors::{Result, initialize_panic_handler},
     gui::eframe,
     wasm::wasm::run,
 };

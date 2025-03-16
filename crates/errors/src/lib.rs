@@ -6,11 +6,11 @@
 mod logging;
 mod panic_handler;
 pub use backtrace::Backtrace;
-pub use color_eyre::{eyre::WrapErr, Context, Report, Result};
-pub use log::{debug, error, info, LevelFilter};
+pub use color_eyre::{Context, Report, Result, eyre::WrapErr};
+pub use log::{LevelFilter, debug, error, info};
 pub use logging::{
-    initialize_logging, LogDerefWithExt, LogErrorExt, LogErrorWithExt, LogOptionWithExt, MakeReportExt,
-    WORKSPACE_CRATES,
+    LogDerefWithExt, LogErrorExt, LogErrorWithExt, LogOptionWithExt, MakeReportExt, WORKSPACE_CRATES,
+    initialize_logging,
 };
 pub use minitrace;
 pub use panic_handler::initialize_panic_handler;

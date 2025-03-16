@@ -10,7 +10,7 @@
 pub use getset::*;
 use std::{borrow::Cow, fmt, marker::PhantomData};
 
-use serde::{de, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 use std::{ops::RangeInclusive, time::Duration};
 
 pub struct Parameter<T, V> {

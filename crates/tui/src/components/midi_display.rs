@@ -11,7 +11,7 @@ use ratatui::widgets::{Block, Borders, List};
 
 use crate::{
     components::Component,
-    layout::{rect_x, rect_y, Position},
+    layout::{Position, rect_x, rect_y},
 };
 
 use crate::{config::Config, mode::Mode};

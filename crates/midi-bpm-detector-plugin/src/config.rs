@@ -12,7 +12,7 @@ use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use nih_plug_egui::egui::mutex::RwLock;
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc, atomic::Ordering},
     time::{Duration, Instant},
 };
 use sync::ArcAtomicBool;
