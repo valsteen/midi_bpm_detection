@@ -3,7 +3,14 @@ use build::{LOG_ENV, LOG_FILE, get_data_dir};
 
 use env_logger::Builder;
 use log::{LevelFilter, debug, error, info};
-use std::{fmt::Debug, fs::File, io::Write, ops::Deref, panic::Location, sync::LazyLock};
+use std::{
+    fmt::{Debug, Write as _},
+    fs::File,
+    io::Write,
+    ops::Deref,
+    panic::Location,
+    sync::LazyLock,
+};
 use sync::Mutex;
 
 pub static WORKSPACE_CRATES: &str = env!("_WORKSPACE_CRATES");
@@ -24,16 +31,22 @@ pub fn initialize_logging() -> Result<()> {
     let _guard = ENV_MUTEX.lock();
 
     unsafe {
-        std::env::set_var(
-            "RUST_LOG",
-            std::env::var("RUST_LOG").or_else(|_| std::env::var(LOG_ENV.clone())).unwrap_or_else(|_| {
-                WORKSPACE_CRATES
-                    .split(',')
-                    .map(|crate_name| format!("{}=info", crate_name.replace('-', "_")))
-                    .collect::<Vec<String>>()
-                    .join(",")
-            }),
-        );
+        let mut rust_log = std::env::var("RUST_LOG").or_else(|_| std::env::var(LOG_ENV.clone())).unwrap_or_else(|_| {
+            WORKSPACE_CRATES
+                .split(',')
+                .map(|crate_name| format!("{}=info", crate_name.replace('-', "_")))
+                .collect::<Vec<String>>()
+                .join(",")
+        });
+
+        // Silence wgpu log spam (https://github.com/gfx-rs/wgpu/issues/3206)
+        for loud_crate in ["naga", "wgpu_core", "wgpu_hal"] {
+            if !rust_log.contains(&format!("{loud_crate}=")) {
+                let _ = write!(rust_log, ",{loud_crate}=warn");
+            }
+        }
+
+        std::env::set_var("RUST_LOG", rust_log);
     }
 
     Builder::from_default_env()
