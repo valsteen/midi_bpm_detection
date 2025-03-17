@@ -1,4 +1,4 @@
-use crate::{BPMDetectionParameters, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
+use crate::{BPMDetectionParameters, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use eframe::{
@@ -171,6 +171,7 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
 
                         ui.horizontal(|ui| {
                             ui.label(BUILD_TIME);
+                            ui.label(BUILD_PROFILE);
                         });
                     });
                     self.draw_histogram(ui).inner

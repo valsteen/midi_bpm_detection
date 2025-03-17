@@ -97,6 +97,9 @@ pub fn create_build_info() {
     let now = chrono::Local::now();
     let formatted_time = format!("{}", now.format("%Y-%m-%d %H:%M:%S"));
 
+    let profile = std::env::var("PROFILE").unwrap();
+
     let mut f = File::create(dest_path).unwrap();
-    write!(f, "pub const BUILD_TIME: &str = \"{formatted_time}\";").unwrap();
+    write!(f, "pub const BUILD_TIME: &str = \"{formatted_time}\";\npub const BUILD_PROFILE: &str = \"{profile}\";")
+        .unwrap();
 }
