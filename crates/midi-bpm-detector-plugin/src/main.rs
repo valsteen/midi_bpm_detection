@@ -1,13 +1,12 @@
 use cpal::{HostId, traits::HostTrait};
+use errors::initialize_logging;
 use midi_bpm_detector_plugin::MidiBpmDetector;
 use midir::os::unix::{VirtualInput, VirtualOutput};
-
-use nih_plug::wrapper::standalone::backend::CpalMidir;
-
-use nih_plug::wrapper::standalone::config::{BackendType, WrapperConfig};
-
-use errors::initialize_logging;
-use nih_plug::wrapper::standalone::wrapper::Wrapper;
+use nih_plug::wrapper::standalone::{
+    backend::CpalMidir,
+    config::{BackendType, WrapperConfig},
+    wrapper::Wrapper,
+};
 
 fn main() {
     initialize_logging().unwrap();

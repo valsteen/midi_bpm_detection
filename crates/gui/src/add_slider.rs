@@ -1,10 +1,11 @@
+use std::{cell::RefCell, fmt::Debug, sync::atomic::Ordering};
+
 use eframe::{
     egui,
     egui::{Slider, SliderClamping},
 };
 use errors::{LogErrorWithExt, error_backtrace};
 use parameter::{Asf64, OnOff, Parameter};
-use std::{cell::RefCell, fmt::Debug, sync::atomic::Ordering};
 use sync::ArcAtomicOptional;
 
 pub fn add_slider<V: Asf64, S, G>(

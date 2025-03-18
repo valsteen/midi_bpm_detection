@@ -1,7 +1,9 @@
-use crate::NormalDistributionConfig;
+use std::ops::Index;
+
 use chrono::Duration;
 use statrs::distribution::{Continuous, Normal};
-use std::ops::Index;
+
+use crate::NormalDistributionConfig;
 
 pub(crate) struct NormalDistribution {
     normal_distribution_data_points: Vec<f32>,

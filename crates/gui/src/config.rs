@@ -1,6 +1,7 @@
+use std::{fmt::Debug, time::Duration};
+
 use parameter::{MutGetters, Parameter};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize, MutGetters)]
 #[serde(default)]

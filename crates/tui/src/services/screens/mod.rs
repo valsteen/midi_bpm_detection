@@ -1,10 +1,8 @@
 use errors::Result;
-
 use strum::{EnumCount, IntoEnumIterator};
 
-use crate::action::Action;
-
 use crate::{
+    action::Action,
     mode::Mode,
     services::Service,
     utils::dispatch::{ActionHandler, EventHandler},

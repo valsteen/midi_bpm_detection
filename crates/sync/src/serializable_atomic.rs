@@ -1,6 +1,3 @@
-use atomic::Atomic;
-use bytemuck::NoUninit;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt::Debug,
     sync::{
@@ -8,6 +5,10 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
+
+use atomic::Atomic;
+use bytemuck::NoUninit;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Default)]
 pub struct ArcAtomicOptional<T>(Arc<Atomic<T>>)

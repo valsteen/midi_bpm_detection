@@ -1,11 +1,15 @@
-use bitflags::Flags;
 use std::{collections::HashMap, fmt::Debug, fs::write, path::PathBuf};
 
+use bitflags::Flags;
+use build::{get_config_dir, get_data_dir};
 use config::ConfigError;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use derive_deref::{Deref, DerefMut};
+use errors::{Report, Result, TypedResult};
+use gui::GUIConfig;
 use itertools::Itertools;
 use log::{error, info};
+use midi::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
 use ratatui::style::Style;
 use serde::{
     Deserialize, Serialize, Serializer, de,
@@ -14,11 +18,6 @@ use serde::{
     ser::SerializeMap,
 };
 use strum::Display;
-
-use build::{get_config_dir, get_data_dir};
-use errors::{Report, Result, TypedResult};
-use gui::GUIConfig;
-use midi::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
 
 use crate::{action::Action, mode::Mode};
 

@@ -1,10 +1,8 @@
-use crate::mode::Mode;
-
 use midi::{DynamicBPMDetectionParameters, MidiInputPort, StaticBPMDetectionParameters};
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-
 use strum::{Display, IntoStaticStr, VariantNames};
+
+use crate::mode::Mode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Display, VariantNames, IntoStaticStr)]
 pub enum Action {

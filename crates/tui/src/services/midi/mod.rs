@@ -1,25 +1,23 @@
 #![allow(forbidden_lint_groups)]
 #![allow(clippy::struct_field_names)]
 
+use std::sync::{Arc, atomic::Ordering};
+
+use errors::{Report, Result};
+use log::{error, info};
+use midi::{
+    DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionParameters, SysExCommand,
+    TimedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_in::MidiIn, restart,
+};
+use sync::{ArcRwLock, ArcRwLockExt, RwLock};
+use tokio::sync::mpsc::UnboundedSender;
+
 use crate::{
     action::Action,
     services::Service,
     tui::Event,
     utils::dispatch::{ActionHandler, EventHandler},
 };
-use errors::{Report, Result};
-use midi::{
-    DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionParameters, SysExCommand,
-    TimedMidiMessage, midi_in::MidiIn, restart,
-};
-
-use log::{error, info};
-use std::sync::{Arc, atomic::Ordering};
-
-use tokio::sync::mpsc::UnboundedSender;
-
-use midi::bpm_detection_receiver::BPMDetectionReceiver;
-use sync::{ArcRwLock, ArcRwLockExt, RwLock};
 
 pub struct MidiService<B>
 where

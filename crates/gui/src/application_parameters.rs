@@ -1,6 +1,8 @@
-use crate::config::GUIConfig;
-use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use std::fmt::Debug;
+
+use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+
+use crate::config::GUIConfig;
 
 pub trait BPMDetectionParameters {
     type Error: Debug;

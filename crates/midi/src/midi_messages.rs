@@ -1,8 +1,9 @@
-use crate::StaticMidiMessage;
-use chrono::Duration;
-
 use std::fmt::{Debug, Display};
+
+use chrono::Duration;
 pub use wmidi;
+
+use crate::StaticMidiMessage;
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct TimedTypedMidiMessage<T> {

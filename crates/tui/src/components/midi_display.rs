@@ -1,23 +1,19 @@
-use errors::Result;
 use std::collections::VecDeque;
 
 use derivative::Derivative;
-
-use ratatui::prelude::*;
-
-use errors::MakeReportExt;
+use errors::{MakeReportExt, Result};
 use midi::StaticMidiMessage;
-use ratatui::widgets::{Block, Borders, List};
-
-use crate::{
-    components::Component,
-    layout::{Position, rect_x, rect_y},
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, List},
 };
-
-use crate::{config::Config, mode::Mode};
 
 use crate::{
     action::Action,
+    components::Component,
+    config::Config,
+    layout::{Position, rect_x, rect_y},
+    mode::Mode,
     tui::{Event, Frame},
     utils::dispatch::{ActionHandler, EventHandler},
 };

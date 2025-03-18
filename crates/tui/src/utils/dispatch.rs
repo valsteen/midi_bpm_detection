@@ -1,9 +1,9 @@
-use crate::{action::Action, tui::Event};
 use crossterm::event::{KeyEvent, MouseEvent};
 use errors::{Report, Result};
 use futures::{StreamExt, TryStreamExt};
-
 use tokio::sync::mpsc::UnboundedSender;
+
+use crate::{action::Action, tui::Event};
 
 pub trait ActionHandler {
     /// Update the state of the component based on a received action. (REQUIRED)

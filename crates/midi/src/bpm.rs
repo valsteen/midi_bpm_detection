@@ -1,10 +1,11 @@
-use crate::{DurationOps, NormalDistributionConfig};
+use std::time::Duration as StdDuration;
+
 use chrono::Duration;
 use derivative::Derivative;
-
 use parameter::{Asf64, MutGetters, OnOff, Parameter};
 use serde::{Deserialize, Serialize};
-use std::time::Duration as StdDuration;
+
+use crate::{DurationOps, NormalDistributionConfig};
 
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize, MutGetters)]
 #[derivative(PartialEq, Eq)]

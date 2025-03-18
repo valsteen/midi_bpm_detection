@@ -1,14 +1,14 @@
 pub mod midi_display;
 pub mod select_device;
 
-use crate::tui::Frame;
 use errors::Result;
+use ratatui::layout::Rect;
 
 use crate::{
     config::Config,
+    tui::Frame,
     utils::dispatch::{ActionHandler, EventHandler},
 };
-use ratatui::layout::Rect;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,

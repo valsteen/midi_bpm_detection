@@ -1,4 +1,10 @@
-use crate::{MidiBpmDetectorParams, config::Config};
+use std::{
+    io::Write,
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    sync::{Arc, atomic::Ordering},
+    time::Duration,
+};
+
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
@@ -9,13 +15,9 @@ use nih_plug::params::Param;
 use nih_plug_egui::egui::mutex::RwLock;
 use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use std::{
-    io::Write,
-    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
-    sync::{Arc, atomic::Ordering},
-    time::Duration,
-};
 use sync::{ArcAtomicBool, ArcAtomicOptional};
+
+use crate::{MidiBpmDetectorParams, config::Config};
 
 #[derive(Eq, PartialEq)]
 pub enum UpdateOrigin {

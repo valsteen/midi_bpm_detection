@@ -1,9 +1,10 @@
-use crate::tui::io;
 use crossterm::{
     cursor,
     event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture},
     terminal::LeaveAlternateScreen,
 };
+
+use crate::tui::io;
 
 pub fn reset_crossterm() {
     if crossterm::terminal::is_raw_mode_enabled().unwrap_or_default() {

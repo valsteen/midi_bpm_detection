@@ -1,11 +1,9 @@
-use futures::stream::StreamExt;
-use tokio::task::JoinHandle;
-
 use errors::Result;
-
+use futures::stream::StreamExt;
 use log::{error, info};
 use signal_hook::consts::signal::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
 use signal_hook_tokio::Signals;
+use tokio::task::JoinHandle;
 
 pub fn spawn_signal_task<F>(callback: F) -> Result<JoinHandle<()>>
 where

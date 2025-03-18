@@ -1,14 +1,12 @@
-use log::info;
 use std::sync::mpsc::{SyncSender, sync_channel};
-use tokio::sync::mpsc;
 
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-
-use errors::{Result, initialize_logging};
-
+use errors::{Result, initialize_logging, initialize_panic_handler};
 use gui::{GuiRemote, create_gui, start_gui};
-
-use errors::initialize_panic_handler;
+use log::info;
+use tokio::sync::{
+    mpsc,
+    mpsc::{UnboundedReceiver, UnboundedSender},
+};
 use tui::{
     action::Action, app::run_tui, cli::update_config, config::Config, live_parameters::LiveParameters,
     services::crossterm::reset_crossterm,

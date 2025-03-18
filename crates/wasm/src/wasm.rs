@@ -5,7 +5,14 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cast_possible_truncation)]
 
-use crate::{LiveConfig, QueueItem};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration as StdDuration,
+};
+
 use atomic_refcell::AtomicRefCell;
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
@@ -16,15 +23,10 @@ use midi::{
     BPMDetection, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
     bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
 };
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration as StdDuration,
-};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
+
+use crate::{LiveConfig, QueueItem};
 
 async fn sleep(duration: StdDuration) {
     let promise = Promise::new(&mut |yes, _| {

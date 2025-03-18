@@ -1,6 +1,8 @@
-use crate::StaticMidiMessage;
 use std::str::{FromStr, from_utf8};
+
 use wmidi::MidiMessage;
+
+use crate::StaticMidiMessage;
 
 pub enum SysExCommand {
     Tempo(f32),

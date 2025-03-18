@@ -1,8 +1,9 @@
+use wmidi::MidiMessage;
+
 use crate::{
     DynamicBPMDetectionParameters, StaticBPMDetectionParameters, StaticMidiMessage, TimedMidiNoteOn,
     TimedTypedMidiMessage,
 };
-use wmidi::MidiMessage;
 
 pub enum WorkerEvent {
     TimedMidiNoteOn(TimedMidiNoteOn),

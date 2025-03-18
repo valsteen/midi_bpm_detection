@@ -1,11 +1,10 @@
 #![cfg(unix)]
-use errors::MakeReportExt;
+use errors::{LogErrorWithExt, MakeReportExt, Result};
 use log::{error, info};
 use midir::{MidiOutputConnection, os::unix::VirtualOutput};
 use wmidi::{Channel, ControlFunction, MidiMessage, U7};
 
 use crate::midi_output_trait::{MIDI_CLOCK_MESSAGE, MIDI_PLAY_MESSAGE, MIDI_STOP_MESSAGE, MidiOutput};
-use errors::{LogErrorWithExt, Result};
 
 pub struct VirtualMidiOutput {
     virtual_output: MidiOutputConnection,

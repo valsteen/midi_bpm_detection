@@ -1,8 +1,8 @@
-use crate::config::Config;
-
-use crate::utils::version;
-use clap::{Arg, Command, Error, value_parser};
 use std::env;
+
+use clap::{Arg, Command, Error, value_parser};
+
+use crate::{config::Config, utils::version};
 
 pub fn update_config(config: Config) -> Result<Config, Error> {
     let matches = Command::new(clap::crate_name!())

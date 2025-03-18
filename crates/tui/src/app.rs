@@ -1,29 +1,24 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
-use log::{debug, info};
 use std::sync::mpsc::SyncSender;
 
-use errors::{Result, error_backtrace};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+use errors::{LogErrorWithExt, Result, error_backtrace};
 use gui::GuiRemote;
+use log::{debug, info};
 use ratatui::prelude::Rect;
-
-use errors::LogErrorWithExt;
 use tokio::sync::{
     mpsc,
     mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
 use crate::{
-    components::{ComponentNewBox, midi_display::MidiDisplay, select_device::SelectDevice},
-    services::{midi::MidiService, screens::Screens},
-    tui::Event,
-};
-
-use crate::{
     action::Action,
+    components::{ComponentNewBox, midi_display::MidiDisplay, select_device::SelectDevice},
     config::Config,
     lifecycle::signals::spawn_signal_task,
     mode::Mode,
+    services::{midi::MidiService, screens::Screens},
     tui,
+    tui::Event,
     utils::dispatch::{ActionHandler, EventHandler, try_dispatch_concurrently},
 };
 

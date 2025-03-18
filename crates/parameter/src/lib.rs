@@ -7,11 +7,10 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_precision_loss)]
 
-pub use getset::*;
-use std::{borrow::Cow, fmt, marker::PhantomData};
+use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Duration};
 
+pub use getset::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
-use std::{ops::RangeInclusive, time::Duration};
 
 pub struct Parameter<T, V> {
     pub label: &'static str,

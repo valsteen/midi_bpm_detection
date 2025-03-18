@@ -1,13 +1,14 @@
 #![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 
-use directories::ProjectDirs;
 use std::{
     env,
     fs::File,
     io::Write,
     path::{Path, PathBuf},
 };
+
+use directories::ProjectDirs;
 
 pub const PROJECT_NAME: &str = "BPM_DETECTION";
 

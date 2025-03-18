@@ -1,4 +1,8 @@
-use crate::{BPMDetectionParameters, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
+use std::sync::{
+    Weak,
+    atomic::{AtomicBool, Ordering},
+};
+
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use eframe::{
@@ -10,11 +14,9 @@ use egui_plot::{Bar, BarChart, Legend, PlotResponse, PlotUi};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use log::error;
 use num_traits::identities::Zero;
-use std::sync::{
-    Weak,
-    atomic::{AtomicBool, Ordering},
-};
 use sync::Mutex;
+
+use crate::{BPMDetectionParameters, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
 
 pub struct BPMDetectionGUI<P: BPMDetectionParameters + 'static> {
     // keys_sender, gui_exit_callback and buffer_redraw belong to the GUI Remote,

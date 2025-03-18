@@ -1,4 +1,3 @@
-use chrono::Duration;
 use std::{
     sync::{
         Arc,
@@ -8,27 +7,24 @@ use std::{
     thread,
 };
 
+use build::PROJECT_NAME;
+use chrono::Duration;
+use errors::{MakeReportExt, Report, Result, error_backtrace};
 use itertools::Itertools;
 use log::error;
-
 #[cfg(unix)]
 use midir::os::unix::VirtualInput;
 use midir::{MidiInput, MidiInputConnection};
 
-use build::PROJECT_NAME;
-use errors::{MakeReportExt, Report, Result, error_backtrace};
-
+#[cfg(not(unix))]
+use crate::fake_midi_output::VirtualMidiOutput;
+#[cfg(unix)]
+use crate::midi_output::VirtualMidiOutput;
 use crate::{
     DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters, StaticMidiMessage,
     TimedTypedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort,
     sysex::SysExCommand, worker, worker_event::WorkerEvent,
 };
-
-#[cfg(unix)]
-use crate::midi_output::VirtualMidiOutput;
-
-#[cfg(not(unix))]
-use crate::fake_midi_output::VirtualMidiOutput;
 
 pub struct MidiIn<B: BPMDetectionReceiver> {
     midi_input: MidiInput,

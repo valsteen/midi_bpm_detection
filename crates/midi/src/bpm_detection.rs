@@ -1,13 +1,12 @@
-use crate::{
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedMidiNoteOn,
-    bpm::{beat_duration_to_bpm, bpm_to_beat_duration, sample_to_duration},
-    normal_distribution::NormalDistribution,
-};
+use arraydeque::{ArrayDeque, Wrapping};
 use chrono::Duration;
 use itertools::Itertools;
 
-use crate::bpm::max_histogram_data_buffer_size;
-use arraydeque::{ArrayDeque, Wrapping};
+use crate::{
+    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedMidiNoteOn,
+    bpm::{beat_duration_to_bpm, bpm_to_beat_duration, max_histogram_data_buffer_size, sample_to_duration},
+    normal_distribution::NormalDistribution,
+};
 
 pub const NOTE_CAPACITY: usize = 10000;
 

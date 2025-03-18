@@ -1,5 +1,6 @@
-use crate::Result;
 use log::error;
+
+use crate::Result;
 
 pub fn initialize_panic_handler<I: 'static + Send + Sync + Fn()>(reset: I) -> Result<()> {
     let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default()

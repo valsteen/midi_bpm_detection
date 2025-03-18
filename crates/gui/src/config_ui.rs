@@ -1,8 +1,7 @@
-use crate::{BPMDetectionParameters, app::BPMDetectionGUI};
 use eframe::{egui, egui::Ui};
-
-use crate::{add_slider::SlideAdder, config::GUIConfig};
 use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+
+use crate::{BPMDetectionParameters, add_slider::SlideAdder, app::BPMDetectionGUI, config::GUIConfig};
 
 impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
     pub(crate) fn settings_panel(&mut self, ui: &mut Ui) {

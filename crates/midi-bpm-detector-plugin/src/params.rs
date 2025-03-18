@@ -1,4 +1,11 @@
-use crate::config::Config;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
+
 use gui::GUIConfig;
 use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use nih_plug::{
@@ -8,14 +15,9 @@ use nih_plug::{
 use nih_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-    time::Duration,
-};
 use sync::ArcAtomicOptional;
+
+use crate::config::Config;
 
 #[derive(Params)]
 pub struct GUIParams {

@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use crate::services::crossterm::reset_crossterm;
 use crossterm::{
     cursor,
     event::{
@@ -12,19 +11,17 @@ use crossterm::{
     },
     terminal::EnterAlternateScreen,
 };
-
 use errors::{Report, Result, error_backtrace};
 use futures::{FutureExt, StreamExt, pin_mut};
 use futures_util::future::select;
-use log::{error, info};
-use ratatui::backend::CrosstermBackend as Backend;
-
-use midi::midi_messages::TimedMidiMessage;
-
 use instant::Instant;
-use midi::MidiInputPort;
+use log::{error, info};
+use midi::{MidiInputPort, midi_messages::TimedMidiMessage};
+use ratatui::backend::CrosstermBackend as Backend;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
+
+use crate::services::crossterm::reset_crossterm;
 
 pub type IO = std::io::Stderr;
 #[must_use]

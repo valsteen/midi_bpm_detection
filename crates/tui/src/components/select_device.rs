@@ -1,24 +1,19 @@
 use crossterm::event::MouseEvent;
-use errors::{Result, minitrace};
-
 use derivative::Derivative;
+use errors::{Result, minitrace};
 use itertools::{EitherOrBoth, Itertools};
 use log::{error, info};
+use midi::MidiInputPort;
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, List, ListDirection, ListState},
 };
 
-use midi::MidiInputPort;
-
-use crate::{
-    components::Component,
-    layout::{Position, centered_rect},
-};
-
 use crate::{
     action::Action,
+    components::Component,
     config::Config,
+    layout::{Position, centered_rect},
     mode::Mode,
     tui::{Event, Frame},
     utils::dispatch::{ActionHandler, EventHandler},

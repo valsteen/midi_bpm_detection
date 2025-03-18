@@ -1,9 +1,11 @@
-use crate::{action::Action, config::Config};
+use std::sync::atomic::Ordering;
+
 use errors::{LogErrorWithExt, Report, Result};
 use gui::{BPMDetectionParameters, GUIConfig};
 use midi::{DynamicBPMDetectionParameters, StaticBPMDetectionParameters};
-use std::sync::atomic::Ordering;
 use tokio::sync::mpsc::UnboundedSender;
+
+use crate::{action::Action, config::Config};
 
 pub struct LiveParameters {
     pub action_tx: UnboundedSender<Action>,

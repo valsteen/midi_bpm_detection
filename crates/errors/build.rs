@@ -1,5 +1,6 @@
-use serde_json::Value;
 use std::process::Command;
+
+use serde_json::Value;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new("cargo").arg("metadata").arg("--format-version=1").arg("--no-deps").output()?;

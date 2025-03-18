@@ -7,25 +7,21 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 
-pub use gui_remote::GuiRemote;
 use std::sync::{Arc, atomic::AtomicBool};
 
 pub use app::BPMDetectionGUI;
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
-
 pub use eframe;
 use eframe::{egui, egui::Context};
-
 #[cfg(not(target_arch = "wasm32"))]
 use errors::MakeReportExt;
+use errors::Result;
+pub use gui_remote::GuiRemote;
 #[cfg(not(target_arch = "wasm32"))]
 use log::info;
-
-use sync::Mutex;
-
-use errors::Result;
 use midi::bpm::max_histogram_data_buffer_size;
+use sync::Mutex;
 
 pub use crate::application_parameters::BPMDetectionParameters;
 use crate::gui_remote::HistogramDataPoints;

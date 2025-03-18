@@ -5,6 +5,13 @@
 
 mod logging;
 mod panic_handler;
+use std::{
+    error::Error as StdError,
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    ops::Deref,
+};
+
 pub use backtrace::Backtrace;
 pub use color_eyre::{Context, Report, Result, eyre::WrapErr};
 pub use log::{LevelFilter, debug, error, info};
@@ -14,12 +21,6 @@ pub use logging::{
 };
 pub use minitrace;
 pub use panic_handler::initialize_panic_handler;
-use std::{
-    error::Error as StdError,
-    fmt::{Debug, Display},
-    marker::PhantomData,
-    ops::Deref,
-};
 pub use strip_ansi_escapes::strip_str;
 
 pub type TypedResult<R, E> = Result<R, TypedReport<E>>;

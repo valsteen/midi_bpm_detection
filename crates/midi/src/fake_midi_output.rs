@@ -1,10 +1,10 @@
 // This module only exists to allow building to a wasm target, which does not support Virtual midi output
 #![cfg(not(unix))]
+use errors::Result;
 use log::info;
 use wmidi::{Channel, ControlFunction, MidiMessage, U7};
 
 use crate::midi_output_trait::MidiOutput;
-use errors::Result;
 
 pub struct VirtualMidiOutput {}
 

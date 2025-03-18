@@ -106,7 +106,6 @@ pub mod test {
     #![allow(clippy::missing_panics_doc)]
     #[allow(clippy::module_name_repetitions)]
     use errors::error_backtrace;
-
     use parameter::OnOff;
     use serde::{Deserialize, Serialize};
 

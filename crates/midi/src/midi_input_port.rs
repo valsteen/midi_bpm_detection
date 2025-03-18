@@ -1,7 +1,8 @@
 #![allow(clippy::non_canonical_partial_ord_impl)]
 
-use derivative::Derivative;
 use std::fmt::Display;
+
+use derivative::Derivative;
 
 const NO_SELECTION: &str = "<none selected>";
 

@@ -37,17 +37,16 @@ mod num_traits_chrono;
 mod sysex;
 mod worker_event;
 
-pub use num_traits_chrono::DurationOps;
-
 pub use bpm_detection::BPMDetection;
+pub use num_traits_chrono::DurationOps;
+use parameter::{MutGetters, Parameter};
+use sync::ArcAtomicBool;
 pub use sysex::SysExCommand;
 
 pub use crate::{
     bpm::{DynamicBPMDetectionParameters, StaticBPMDetectionParameters},
     midi_input_port::MidiInputPort,
 };
-use parameter::{MutGetters, Parameter};
-use sync::ArcAtomicBool;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MidiServiceConfig {

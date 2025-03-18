@@ -1,5 +1,3 @@
-use instant::Instant;
-use log::error;
 use std::{
     sync::{
         Arc,
@@ -9,10 +7,11 @@ use std::{
     thread,
     time::Duration as StdDuration,
 };
-use sync::Mutex;
 
 use errors::Result;
-use sync::ArcAtomicBool;
+use instant::Instant;
+use log::error;
+use sync::{ArcAtomicBool, Mutex};
 
 use crate::{
     DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters,

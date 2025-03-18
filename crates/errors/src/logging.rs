@@ -1,8 +1,3 @@
-use crate::{Report, Result};
-use build::{LOG_ENV, LOG_FILE, get_data_dir};
-
-use env_logger::Builder;
-use log::{LevelFilter, debug, error, info};
 use std::{
     fmt::{Debug, Write as _},
     fs::File,
@@ -11,7 +6,13 @@ use std::{
     panic::Location,
     sync::LazyLock,
 };
+
+use build::{LOG_ENV, LOG_FILE, get_data_dir};
+use env_logger::Builder;
+use log::{LevelFilter, debug, error, info};
 use sync::Mutex;
+
+use crate::{Report, Result};
 
 pub static WORKSPACE_CRATES: &str = env!("_WORKSPACE_CRATES");
 

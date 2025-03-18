@@ -6,16 +6,16 @@
 mod serializable_atomic;
 mod wasm_mutex;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub use parking_lot::*;
-#[cfg(target_arch = "wasm32")]
-pub use wasm_mutex::{Mutex, RwLock};
-
-pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptional};
 use std::{
     mem,
     sync::{Arc, Weak},
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+pub use parking_lot::*;
+pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptional};
+#[cfg(target_arch = "wasm32")]
+pub use wasm_mutex::{Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct WouldBlock;
