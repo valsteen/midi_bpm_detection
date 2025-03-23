@@ -175,13 +175,13 @@ impl StaticBPMDetectionParameters {
 
 #[must_use]
 pub fn duration_to_sample(sample_rate: u16, duration: Duration) -> usize {
-    (duration.num_nanoseconds().unwrap() as f64 * Asf64::get(&sample_rate) / 1_000_000_000.0).round() as usize
+    (duration.num_nanoseconds().unwrap() as f64 * Asf64::as_f64(&sample_rate) / 1_000_000_000.0).round() as usize
 }
 
 #[must_use]
 #[inline]
 pub fn sample_to_duration(sample_rate: u16, sample: usize) -> Duration {
-    let duration_secs = sample as f64 / Asf64::get(&sample_rate);
+    let duration_secs = sample as f64 / Asf64::as_f64(&sample_rate);
     let duration_nanos = (duration_secs * 1_000_000_000.0) as i64;
     Duration::nanoseconds(duration_nanos)
 }

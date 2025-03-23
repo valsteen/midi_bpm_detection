@@ -98,13 +98,15 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
             .chain(
                 [
                     Bar::new(
-                        parameter::Asf64::get(&self.live_parameters.get_static_bpm_detection_parameters().lowest_bpm()),
+                        parameter::Asf64::as_f64(
+                            &self.live_parameters.get_static_bpm_detection_parameters().lowest_bpm(),
+                        ),
                         0.0,
                     )
                     .width(0.0)
                     .fill(Color32::TRANSPARENT),
                     Bar::new(
-                        parameter::Asf64::get(
+                        parameter::Asf64::as_f64(
                             &self.live_parameters.get_static_bpm_detection_parameters().highest_bpm(),
                         ),
                         0.0,

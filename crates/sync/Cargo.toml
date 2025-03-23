@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 serde = { version = "1.0.196" }
 atomic = "0.6.0"
-num-traits = "0.2.18"
+num-traits = "0.2.19"
 bytemuck = "1.14.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

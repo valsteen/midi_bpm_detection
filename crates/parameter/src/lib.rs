@@ -12,103 +12,103 @@ use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Dura
 pub use getset::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 
-pub struct Parameter<T, V> {
+pub struct Parameter<Config, ValueType> {
     pub label: &'static str,
     pub unit: Option<&'static str>,
     pub range: RangeInclusive<f64>,
     pub step: f64,
     pub logarithmic: bool,
-    pub get_mut: fn(&mut T) -> &mut V,
-    pub default: V,
+    pub get_mut: fn(&mut Config) -> &mut ValueType,
+    pub default: ValueType,
 }
 
-impl<T, V> Parameter<T, V> {
+impl<Config, ValueType> Parameter<Config, ValueType> {
     pub const fn new(
         label: &'static str,
         unit: Option<&'static str>,
         range: RangeInclusive<f64>,
         step: f64,
         logarithmic: bool,
-        default: V,
-        get_mut: fn(&mut T) -> &mut V,
+        default: ValueType,
+        get_mut: fn(&mut Config) -> &mut ValueType,
     ) -> Self {
         Self { label, unit, range, step, logarithmic, get_mut, default }
     }
 }
 
 pub trait Asf64 {
-    fn get(&self) -> f64;
-    fn set(&mut self, value: f64);
-    fn from(value: f64) -> Self;
+    fn as_f64(&self) -> f64;
+    fn set_from_f64(&mut self, value: f64);
+    fn new_from(value: f64) -> Self;
 }
 
 impl Asf64 for u128 {
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         *self as f64
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = value as u128;
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         value as u128
     }
 }
 
 impl Asf64 for f32 {
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         From::from(*self)
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = value as f32;
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         value as f32
     }
 }
 
 impl Asf64 for f64 {
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         *self
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = value;
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         value
     }
 }
 
 impl Asf64 for u8 {
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         From::from(*self)
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = value as u8;
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         value as u8
     }
 }
 
 impl Asf64 for u16 {
     #[inline]
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         From::from(*self)
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = value as u16;
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         value as u16
     }
 }
@@ -145,7 +145,7 @@ where
             where
                 E: de::Error,
             {
-                Ok(OnOff::On(Asf64::from(value)))
+                Ok(OnOff::On(Asf64::new_from(value)))
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<OnOff<T>, V::Error>
@@ -235,18 +235,33 @@ where
             OnOff::Off(v) | OnOff::On(v) => v,
         }
     }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        if enabled {
+            *self = OnOff::On(self.value());
+        } else {
+            *self = OnOff::Off(self.value());
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        match self {
+            OnOff::On(_) => true,
+            OnOff::Off(_) => false,
+        }
+    }
 }
 
 impl Asf64 for Duration {
-    fn get(&self) -> f64 {
+    fn as_f64(&self) -> f64 {
         self.as_secs_f64()
     }
 
-    fn set(&mut self, value: f64) {
+    fn set_from_f64(&mut self, value: f64) {
         *self = Duration::from_secs_f64(value);
     }
 
-    fn from(value: f64) -> Self {
+    fn new_from(value: f64) -> Self {
         Duration::from_secs_f64(value)
     }
 }

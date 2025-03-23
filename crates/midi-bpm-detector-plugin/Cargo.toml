@@ -14,7 +14,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 errors = { path = "../errors" }
-gui = { path = "../gui" }
+gui = { path = "../gui", default-features = false}
 midi = { path = "../midi" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
@@ -26,7 +26,7 @@ chrono = "0.4.34"
 cpal = "0.15.2"
 crossbeam = "0.8.4"
 midir = "0.10.1"
-num-traits = "0.2.18"
+num-traits = "0.2.19"
 ringbuf = "0.4.7"
 serde = { version = "1.0.196", features = ["derive"] }
 toml = "0.8.9"
