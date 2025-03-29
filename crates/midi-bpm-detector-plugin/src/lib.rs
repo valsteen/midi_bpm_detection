@@ -264,7 +264,7 @@ impl MidiBpmDetector {
 
         let force_evaluate_bpm_detection = self.force_evaluate_bpm_detection.take(Ordering::Relaxed);
         if has_new_events || force_evaluate_bpm_detection {
-            context.execute_background(Task::ProcessNotes { force_evaluate_bpm_detection: true });
+            context.execute_background(Task::ProcessNotes { force_evaluate_bpm_detection });
         }
 
         self.events_sender.sync();
