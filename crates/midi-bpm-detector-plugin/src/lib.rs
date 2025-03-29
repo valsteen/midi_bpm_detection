@@ -23,9 +23,9 @@ use midi::{
     midi_messages::{MidiNoteOn, wmidi},
 };
 use nih_plug::{log::error, midi::MidiResult, prelude::*};
-use nih_plug_egui::{create_egui_editor, egui::mutex::RwLock};
+use nih_plug_egui::create_egui_editor;
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptional};
+use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
 use crate::{
     config::Config,
@@ -264,7 +264,7 @@ impl MidiBpmDetector {
 
         let force_evaluate_bpm_detection = self.force_evaluate_bpm_detection.take(Ordering::Relaxed);
         if has_new_events || force_evaluate_bpm_detection {
-            context.execute_background(Task::ProcessNotes(force_evaluate_bpm_detection));
+            context.execute_background(Task::ProcessNotes { force_evaluate_bpm_detection: true });
         }
 
         self.events_sender.sync();

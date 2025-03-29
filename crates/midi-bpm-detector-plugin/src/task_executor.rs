@@ -12,10 +12,8 @@ use midi::{
     BPMDetection, DynamicBPMDetectionParameters, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver,
 };
 use nih_plug::params::Param;
-use nih_plug_egui::egui::mutex::RwLock;
-use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptional};
+use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
 use crate::{MidiBpmDetectorParams, config::Config};
 
@@ -26,7 +24,7 @@ pub enum UpdateOrigin {
 }
 
 pub enum Task {
-    ProcessNotes(bool),
+    ProcessNotes { force_evaluate_bpm_detection: bool },
     StaticBPMDetectionParameters(UpdateOrigin),
     DynamicBPMDetectionParameters(UpdateOrigin),
 }
@@ -64,7 +62,7 @@ impl TaskExecutor {
         }
 
         match task {
-            Task::ProcessNotes(force_evaluate_bpm_detection) => {
+            Task::ProcessNotes { force_evaluate_bpm_detection } => {
                 let mut evaluate_bpm_detection = force_evaluate_bpm_detection;
                 if !self.params.editor_state.is_open() {
                     self.gui_remote = None;
@@ -155,7 +153,7 @@ impl TaskExecutor {
                         };
                         self.gui_must_update_config.store(true, Ordering::Relaxed);
                         self.bpm_detection.update_static_parameters(config);
-                        self.execute(Task::ProcessNotes(true));
+                        self.execute(Task::ProcessNotes { force_evaluate_bpm_detection: true });
                     }
                     UpdateOrigin::Gui => {
                         let config = self.config.read();
@@ -166,61 +164,54 @@ impl TaskExecutor {
                     }
                 }
             }
-            Task::DynamicBPMDetectionParameters(origin) => {
-                match origin {
-                    UpdateOrigin::Daw => {
-                        {
-                            let mut config = self.config.write();
+            Task::DynamicBPMDetectionParameters(origin) => match origin {
+                UpdateOrigin::Daw => {
+                    {
+                        let mut config = self.config.write();
 
-                            config.gui_config.interpolation_duration = Duration::from_secs_f32(
-                                self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
-                            );
-                            config.gui_config.interpolation_curve =
-                                self.params.gui_params.interpolation_curve.unmodulated_plain_value();
-                            config.gui_config.interpolation_duration = Duration::from_secs_f32(
-                                self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
-                            );
+                        config.gui_config.interpolation_duration = Duration::from_secs_f32(
+                            self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
+                        );
+                        config.gui_config.interpolation_curve =
+                            self.params.gui_params.interpolation_curve.unmodulated_plain_value();
+                        config.gui_config.interpolation_duration = Duration::from_secs_f32(
+                            self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
+                        );
 
-                            config.dynamic_bpm_detection_parameters.beats_lookback =
-                                self.params.dynamic_params.beats_lookback.unmodulated_plain_value() as u8;
-                            config.dynamic_bpm_detection_parameters.velocity_current_note_weight = OnOff::On(
-                                self.params.dynamic_params.velocity_current_note_weight.unmodulated_plain_value(),
-                            );
-                            config.dynamic_bpm_detection_parameters.velocity_note_from_weight = OnOff::On(
-                                self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value(),
-                            );
-                            config.dynamic_bpm_detection_parameters.age_weight =
-                                OnOff::On(self.params.dynamic_params.age_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.octave_distance_weight =
-                                OnOff::On(self.params.dynamic_params.octave_distance_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.pitch_distance_weight =
-                                OnOff::On(self.params.dynamic_params.pitch_distance_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.multiplier_weight =
-                                OnOff::On(self.params.dynamic_params.multiplier_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.subdivision_weight =
-                                OnOff::On(self.params.dynamic_params.subdivision_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.in_beat_range_weight =
-                                OnOff::On(self.params.dynamic_params.in_beat_range_weight.unmodulated_plain_value());
-                            config.dynamic_bpm_detection_parameters.normal_distribution_weight = OnOff::On(
-                                self.params.dynamic_params.normal_distribution_weight.unmodulated_plain_value(),
-                            );
-                            config.dynamic_bpm_detection_parameters.high_tempo_bias =
-                                OnOff::On(self.params.dynamic_params.high_tempo_bias.unmodulated_plain_value());
+                        config.dynamic_bpm_detection_parameters.beats_lookback =
+                            self.params.dynamic_params.beats_lookback.unmodulated_plain_value() as u8;
+                        *config.dynamic_bpm_detection_parameters.velocity_current_note_weight.value_mut() =
+                            self.params.dynamic_params.velocity_current_note_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.velocity_note_from_weight.value_mut() =
+                            self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.age_weight.value_mut() =
+                            self.params.dynamic_params.age_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.octave_distance_weight.value_mut() =
+                            self.params.dynamic_params.octave_distance_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.pitch_distance_weight.value_mut() =
+                            self.params.dynamic_params.pitch_distance_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.multiplier_weight.value_mut() =
+                            self.params.dynamic_params.multiplier_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.subdivision_weight.value_mut() =
+                            self.params.dynamic_params.subdivision_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.in_beat_range_weight.value_mut() =
+                            self.params.dynamic_params.in_beat_range_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.normal_distribution_weight.value_mut() =
+                            self.params.dynamic_params.normal_distribution_weight.unmodulated_plain_value();
+                        *config.dynamic_bpm_detection_parameters.high_tempo_bias.value_mut() =
+                            self.params.dynamic_params.high_tempo_bias.unmodulated_plain_value();
 
-                            config
-                                .send_tempo
-                                .store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
-                            self.dynamic_bpm_detection_parameters = config.dynamic_bpm_detection_parameters.clone();
-                        }
-                        self.gui_must_update_config.store(true, Ordering::Relaxed);
-                        self.execute(Task::ProcessNotes(true)); // does not change anything
-                    }
-                    UpdateOrigin::Gui => {
-                        let config = self.config.read();
+                        config.send_tempo.store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
                         self.dynamic_bpm_detection_parameters = config.dynamic_bpm_detection_parameters.clone();
                     }
+                    self.gui_must_update_config.store(true, Ordering::Relaxed);
+                    self.execute(Task::ProcessNotes { force_evaluate_bpm_detection: true });
                 }
-            }
+                UpdateOrigin::Gui => {
+                    let config = self.config.read();
+                    self.dynamic_bpm_detection_parameters = config.dynamic_bpm_detection_parameters.clone();
+                }
+            },
         }
     }
 }

@@ -39,6 +39,5 @@ fn main() {
 
     let backend = CpalMidir::new::<MidiBpmDetector>(config.clone(), HostId::CoreAudio).unwrap();
     let wrapper = Wrapper::<MidiBpmDetector, _>::new(backend, config).unwrap();
-
     wrapper.run().unwrap();
 }

@@ -7,9 +7,8 @@ use errors::{error_backtrace, info};
 use gui::{BPMDetectionParameters, GUIConfig};
 use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
-use nih_plug_egui::egui::mutex::RwLock;
 use serde::{Deserialize, Serialize};
-use sync::ArcAtomicBool;
+use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
@@ -104,8 +103,10 @@ impl LiveConfig {
     }
 
     #[allow(clippy::too_many_lines)]
-    pub fn apply_changes_to_daw_parameters(&mut self, param_setter: &ParamSetter) {
+    pub fn apply_changes_to_daw_parameters(&mut self, param_setter: &ParamSetter) -> bool {
+        let mut has_changes = false;
         if self.dynamic_bpm_detection_parameters_changed {
+            has_changes = true;
             apply_float_param(
                 &GUIConfig::INTERPOLATION_CURVE,
                 &self.params.gui_params.interpolation_curve,
@@ -187,6 +188,7 @@ impl LiveConfig {
             self.dynamic_bpm_detection_parameters_changed = false;
         }
         if self.static_bpm_detection_parameters_changed {
+            has_changes = true;
             apply_float_param(
                 &StaticBPMDetectionParameters::BPM_CENTER,
                 &self.params.static_params.bpm_center,
@@ -231,6 +233,7 @@ impl LiveConfig {
             );
             self.static_bpm_detection_parameters_changed = false;
         }
+        has_changes
     }
 }
 
@@ -266,7 +269,7 @@ impl BPMDetectionParameters for LiveConfig {
     }
 
     fn set_send_tempo(&mut self, enabled: bool) {
-        self.send_tempo_changed.store(enabled, Ordering::SeqCst);
+        self.send_tempo_changed.store(true, Ordering::SeqCst);
         self.config.send_tempo.store(enabled, Ordering::SeqCst);
     }
 

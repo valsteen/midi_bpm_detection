@@ -125,6 +125,18 @@ impl ArcAtomicBool {
         self.0.fetch_xor(val, order)
     }
 
+    #[allow(forbidden_lint_groups)]
+    #[allow(clippy::must_use_candidate)]
+    pub fn compare_exchange(
+        &self,
+        current: bool,
+        new: bool,
+        success: Ordering,
+        failure: Ordering,
+    ) -> Result<bool, bool> {
+        self.0.compare_exchange(current, new, success, failure)
+    }
+
     #[must_use]
     pub fn weak(&self) -> Weak<AtomicBool> {
         Arc::downgrade(&self.0)

@@ -133,7 +133,6 @@ impl MidiBpmDetectorParams {
                     .store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
             }
         });
-
         Self {
             editor_state: EguiState::from_size(1200, 600),
             send_tempo: BoolParam::new("Send tempo", config.send_tempo.load(Ordering::Relaxed)).with_callback(
@@ -238,7 +237,7 @@ pub fn apply_onoff_param<T, V>(
     V: 'static + ToPrimitive + Copy + num_traits::One + num_traits::Zero + std::ops::Mul<Output = V>,
 {
     setter.begin_set_parameter(param);
-    setter.set_parameter(param, (parameter.get_mut)(config).weight().to_f32().unwrap());
+    setter.set_parameter(param, (parameter.get_mut)(config).value().to_f32().unwrap());
     setter.end_set_parameter(param);
 }
 
@@ -352,7 +351,7 @@ impl<T> ToParam<T> for Parameter<T, OnOff<f32>> {
         };
 
         let mut param =
-            FloatParam::new(self.label, (self.get_mut)(config).weight(), range).with_callback(callback.clone());
+            FloatParam::new(self.label, (self.get_mut)(config).value(), range).with_callback(callback.clone());
         if let Some(unit) = self.unit {
             param = param.with_unit(unit);
         }

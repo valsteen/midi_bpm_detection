@@ -3,11 +3,8 @@ use std::sync::{Arc, atomic::Ordering};
 use crossbeam::atomic::AtomicCell;
 use gui::{BPMDetectionGUI, BPMDetectionParameters, GuiRemote, create_gui};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
-use nih_plug_egui::{
-    EguiState,
-    egui::{Context, mutex::RwLock},
-};
-use sync::ArcAtomicBool;
+use nih_plug_egui::{EguiState, egui::Context};
+use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams,
@@ -54,7 +51,12 @@ impl GuiEditor {
     pub fn update(&mut self, setter: &ParamSetter, egui_ctx: &Context) {
         let should_drop = match (self.editor_state.is_open(), &mut self.bpm_detection_gui) {
             (true, Some(bpm_detection_gui)) => {
-                if bpm_detection_gui.live_parameters.send_tempo_changed.fetch_xor(true, Ordering::Relaxed) {
+                if bpm_detection_gui
+                    .live_parameters
+                    .send_tempo_changed
+                    .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+                {
                     let send_tempo = bpm_detection_gui.live_parameters.get_send_tempo();
                     setter.begin_set_parameter(&self.params.send_tempo);
                     setter.set_parameter(&self.params.send_tempo, send_tempo);
@@ -69,7 +71,10 @@ impl GuiEditor {
 
                 // error may happen if corresponding remote was dropped
                 if bpm_detection_gui.update(egui_ctx).is_ok() {
-                    bpm_detection_gui.live_parameters.apply_changes_to_daw_parameters(setter);
+                    if bpm_detection_gui.live_parameters.apply_changes_to_daw_parameters(setter) {
+                        let mut config = self.config.write();
+                        *config = bpm_detection_gui.live_parameters.config.clone();
+                    }
                     false
                 } else {
                     true
