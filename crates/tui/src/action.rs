@@ -76,8 +76,7 @@ impl<'de> Deserialize<'de> for Action {
 
 struct Visitor;
 
-#[allow(clippy::elidable_lifetime_names)]
-impl<'de> de::Visitor<'de> for Visitor {
+impl de::Visitor<'_> for Visitor {
     type Value = Action;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

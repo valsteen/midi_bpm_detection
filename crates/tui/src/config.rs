@@ -12,7 +12,7 @@ use log::{error, info};
 use midi::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
 use ratatui::style::Style;
 use serde::{
-    Deserialize, Serialize, Serializer, de,
+    Deserialize, Serialize, Serializer,
     de::{Deserializer, Error},
     ser,
     ser::SerializeMap,
@@ -54,52 +54,31 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn base_config() -> Result<Self, ConfigError> {
-        Config::deserialize(toml::de::Deserializer::new(CONFIG)).map_err(de::Error::custom)
-    }
-
     pub fn new() -> TypedResult<Self, ConfigError> {
         let data_dir = get_data_dir();
         let config_dir = get_config_dir();
-        let mut builder = config::Config::builder()
+        let builder = config::Config::builder()
             .set_default("_data_dir", data_dir.to_str().unwrap())?
-            .set_default("_config_dir", config_dir.to_str().unwrap())?;
+            .set_default("_config_dir", config_dir.to_str().unwrap())?
+            .add_source(config::File::from_str(CONFIG, config::FileFormat::Toml))
+            .add_source(
+                config::File::from(config_dir.join("config.toml")).format(config::FileFormat::Toml).required(false),
+            );
 
-        builder = builder.add_source(
-            config::File::from(config_dir.join("config.toml")).format(config::FileFormat::Toml).required(false),
-        );
-
-        let base_config = Self::base_config()?;
-
-        let mut cfg: Self = builder.build()?.try_deserialize()?;
-
-        for (mode, default_bindings) in &*base_config.keybindings {
-            let user_bindings = cfg.keybindings.entry(*mode).or_default();
-            for (key, cmd) in default_bindings {
-                user_bindings.entry(key.clone()).or_insert_with(|| cmd.clone());
-            }
-        }
-        for (mode, default_styles) in &base_config.styles {
-            let user_styles = cfg.styles.entry(*mode).or_default();
-            for (style_key, style) in default_styles {
-                user_styles.entry(style_key.clone()).or_insert_with(|| *style);
-            }
-        }
-
-        Ok(cfg)
+        Ok(builder.build()?.try_deserialize()?)
     }
 
     pub fn save(&self) -> Result<()> {
         let serialized = match toml::to_string_pretty(self) {
             Ok(serialized) => serialized,
             Err(e) => {
-                error!("Serialization error: {:?}", e);
+                error!("Serialization error: {e:?}");
                 return Err(Report::new(e));
             }
         };
 
         let config_path = get_config_dir().join("config.toml");
-        info!("configuration saved");
+        info!("configuration saved at {}", config_path.display());
         Ok(write(config_path, serialized)?)
     }
 }

@@ -15,7 +15,7 @@ where
         while let Some(signal) = signals.next().await {
             match signal {
                 SIGHUP | SIGTERM | SIGINT | SIGQUIT => {
-                    info!("Received signal {}, shutting down", signal);
+                    info!("Received signal {signal}, shutting down");
                     // Shutdown the system;
                     if callback().is_err() {
                         error!("Failed to signal quit event");
@@ -23,7 +23,7 @@ where
                     }
                 }
                 _ => {
-                    error!("Received unexpected signal {}", signal);
+                    error!("Received unexpected signal {signal}");
                 }
             }
         }

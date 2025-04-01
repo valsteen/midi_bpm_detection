@@ -121,7 +121,7 @@ where
                 self.execute(move |midi_in, midi_input_connection| {
                     match midi_in.listen(&midi_input_port, move |midi_message| {
                         if let Err(send_error) = event_tx.send(Event::Midi(midi_message)) {
-                            error!("error while dispatching midi notes: {:?}", send_error);
+                            error!("error while dispatching midi notes: {send_error:?}");
                         }
                     }) {
                         Ok(input_connection) => {
