@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, fs::write, path::PathBuf};
 
 use bitflags::Flags;
+use bpm_detection_core::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
 use build::{get_config_dir, get_data_dir};
 use config::ConfigError;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -9,7 +10,6 @@ use errors::{Report, Result, TypedResult};
 use gui::GUIConfig;
 use itertools::Itertools;
 use log::{error, info};
-use midi::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
 use ratatui::style::Style;
 use serde::{
     Deserialize, Serialize, Serializer,

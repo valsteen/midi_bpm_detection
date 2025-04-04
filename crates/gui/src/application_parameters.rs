@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 
 use crate::config::GUIConfig;
 

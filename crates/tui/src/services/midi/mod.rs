@@ -3,12 +3,12 @@
 
 use std::sync::{Arc, atomic::Ordering};
 
-use errors::{Report, Result};
-use log::{error, info};
-use midi::{
+use bpm_detection_core::{
     DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionParameters, SysExCommand,
     TimedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_in::MidiIn, restart,
 };
+use errors::{Report, Result};
+use log::{error, info};
 use sync::{ArcRwLock, ArcRwLockExt, RwLock};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -28,7 +28,7 @@ where
     dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
     event_tx: UnboundedSender<Event>,
     playing: bool,
-    midi_service: ArcRwLock<midi::MidiService<B>>,
+    midi_service: ArcRwLock<bpm_detection_core::MidiService<B>>,
 }
 
 impl<B> MidiService<B>
@@ -65,7 +65,7 @@ where
             let bpm_detection_parameters = bpm_detection_parameters.clone();
             let dynamic_bpm_detection_parameters = dynamic_bpm_detection_parameters.clone();
             move || {
-                midi::MidiService::new(
+                bpm_detection_core::MidiService::new(
                     midi_config,
                     bpm_detection_parameters,
                     dynamic_bpm_detection_parameters,

@@ -16,7 +16,7 @@ pub use midir::{MidiInput, MidiInputConnection};
 use serde::{Deserialize, Serialize};
 pub use wmidi::MidiMessage;
 
-pub type StaticMidiMessage = wmidi::MidiMessage<'static>;
+pub type StaticMidiMessage = MidiMessage<'static>;
 pub type MidiError = wmidi::Error;
 
 pub use crate::midi_messages::{TimedMidiNoteOn, TimedTypedMidiMessage};

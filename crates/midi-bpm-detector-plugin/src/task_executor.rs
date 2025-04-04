@@ -5,17 +5,17 @@ use std::{
     time::Duration,
 };
 
+use bpm_detection_core::{
+    BPMDetection, DynamicBPMDetectionParameters, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver,
+};
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
-use midi::{
-    BPMDetection, DynamicBPMDetectionParameters, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver,
-};
 use nih_plug::params::Param;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
-use crate::{MidiBpmDetectorParams, config::Config};
+use crate::{MidiBpmDetectorParams, bpm_detector_configuration::Config};
 
 #[derive(Eq, PartialEq)]
 pub enum UpdateOrigin {

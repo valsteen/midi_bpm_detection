@@ -3,16 +3,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use errors::{error_backtrace, info};
 use gui::{BPMDetectionParameters, GUIConfig};
-use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use serde::{Deserialize, Serialize};
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
-    params::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
+    plugin_parameters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
     task_executor::UpdateOrigin,
 };
 

@@ -8,7 +8,7 @@ use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams,
-    config::{Config, LiveConfig},
+    bpm_detector_configuration::{Config, LiveConfig},
 };
 
 pub struct GuiEditor {

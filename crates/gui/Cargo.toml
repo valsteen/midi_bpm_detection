@@ -8,7 +8,7 @@ errors = { path = "../errors" }
 build = { path = "../build" }
 sync = { path = "../sync" }
 parameter = { path = "../parameter" }
-midi = { path = "../midi" }
+bpm_detection_core = { path = "../bpm_detection_core" }
 
 egui_extras = { version = "0.31.1", features = ["all_loaders"] }
 egui_plot = { version = "0.31.0" }

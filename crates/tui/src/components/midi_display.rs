@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
+use bpm_detection_core::StaticMidiMessage;
 use derivative::Derivative;
 use errors::{MakeReportExt, Result};
-use midi::StaticMidiMessage;
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, List},

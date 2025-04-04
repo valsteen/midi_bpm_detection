@@ -33,7 +33,7 @@ signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 
 errors = { path = "../errors" }
 build = { path = "../build" }
-midi = { path = "../midi" }
+bpm_detection_core = { path = "../bpm_detection_core" }
 gui = { path = "../gui" }
 sync = { path = "../sync" }
 log = { version = "0.4.20", features = [] }

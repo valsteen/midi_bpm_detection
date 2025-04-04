@@ -1,8 +1,8 @@
 use std::sync::atomic::Ordering;
 
+use bpm_detection_core::{DynamicBPMDetectionParameters, StaticBPMDetectionParameters};
 use errors::{LogErrorWithExt, Report, Result};
 use gui::{BPMDetectionParameters, GUIConfig};
-use midi::{DynamicBPMDetectionParameters, StaticBPMDetectionParameters};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{action::Action, config::Config};

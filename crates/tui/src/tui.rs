@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use bpm_detection_core::{MidiInputPort, midi_messages::TimedMidiMessage};
 use crossterm::{
     cursor,
     event::{
@@ -16,7 +17,6 @@ use futures::{FutureExt, StreamExt, pin_mut};
 use futures_util::future::select;
 use instant::Instant;
 use log::{error, info};
-use midi::{MidiInputPort, midi_messages::TimedMidiMessage};
 use ratatui::backend::CrosstermBackend as Backend;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;

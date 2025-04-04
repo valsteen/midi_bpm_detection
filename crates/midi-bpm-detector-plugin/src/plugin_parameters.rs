@@ -6,8 +6,8 @@ use std::{
     time::Duration,
 };
 
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use gui::GUIConfig;
-use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Param, Params},
     prelude::{FloatRange, IntRange, ParamSetter},
@@ -17,7 +17,7 @@ use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
 use sync::ArcAtomicOptional;
 
-use crate::config::Config;
+use crate::bpm_detector_configuration::Config;
 
 #[derive(Params)]
 pub struct GUIParams {

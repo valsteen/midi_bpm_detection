@@ -12,6 +12,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 pub use app::BPMDetectionGUI;
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
+use bpm_detection_core::bpm::max_histogram_data_buffer_size;
 pub use eframe;
 use eframe::{egui, egui::Context};
 #[cfg(not(target_arch = "wasm32"))]
@@ -20,7 +21,6 @@ use errors::Result;
 pub use gui_remote::GuiRemote;
 #[cfg(not(target_arch = "wasm32"))]
 use log::info;
-use midi::bpm::max_histogram_data_buffer_size;
 use sync::Mutex;
 
 pub use crate::application_parameters::BPMDetectionParameters;

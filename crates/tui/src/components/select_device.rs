@@ -1,9 +1,9 @@
+use bpm_detection_core::MidiInputPort;
 use crossterm::event::MouseEvent;
 use derivative::Derivative;
 use errors::{Result, minitrace};
 use itertools::{EitherOrBoth, Itertools};
 use log::{error, info};
-use midi::MidiInputPort;
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, List, ListDirection, ListState},

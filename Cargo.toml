@@ -4,7 +4,7 @@ members = [
     "crates/tui",
     "crates/errors",
     "crates/build",
-    "crates/midi",
+    "crates/bpm_detection_core",
     "crates/gui",
     "crates/sync",
     "crates/parameter",

@@ -1,5 +1,5 @@
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 use eframe::{egui, egui::Ui};
-use midi::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
 
 use crate::{BPMDetectionParameters, add_slider::SlideAdder, app::BPMDetectionGUI, config::GUIConfig};
 

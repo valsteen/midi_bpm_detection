@@ -22,7 +22,7 @@ WASM Demo: https://valsteen.github.io/midi_bpm_detection/
 This is in a very early works-on-my-machine state and will require further cleanup and testing.
 
 In the meantime curious developers may simply have a look at the model, the core of the BPM evaluation can be found in
-[midi/bpm_detection.rs](crates/midi/src/bpm_detection.rs).
+[midi/bpm_detection.rs](crates/bpm_detection_core/src/bpm_detection.rs).
 
 ## Building and using the Clap/VST3 Plugin
 

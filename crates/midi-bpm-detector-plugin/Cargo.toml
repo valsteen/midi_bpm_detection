@@ -15,7 +15,7 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 errors = { path = "../errors" }
 gui = { path = "../gui" }
-midi = { path = "../midi" }
+bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 

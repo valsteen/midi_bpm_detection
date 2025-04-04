@@ -5,9 +5,9 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::module_name_repetitions)]
 
-mod config;
+mod bpm_detector_configuration;
 mod gui;
-mod params;
+mod plugin_parameters;
 mod task_executor;
 
 use std::sync::{
@@ -15,22 +15,22 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use chrono::Duration;
-use crossbeam::atomic::AtomicCell;
-use midi::{
+use bpm_detection_core::{
     BPMDetection, TimedMidiNoteOn,
     bpm::sample_to_duration,
     midi_messages::{MidiNoteOn, wmidi},
 };
+use chrono::Duration;
+use crossbeam::atomic::AtomicCell;
 use nih_plug::{log::error, midi::MidiResult, prelude::*};
 use nih_plug_egui::create_egui_editor;
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
 use crate::{
-    config::Config,
+    bpm_detector_configuration::Config,
     gui::GuiEditor,
-    params::MidiBpmDetectorParams,
+    plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
 
