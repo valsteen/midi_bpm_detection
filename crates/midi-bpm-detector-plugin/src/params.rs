@@ -304,28 +304,38 @@ macro_rules! impl_to_param_for_integer {
     };
 }
 
+fn build_float_param<T, V>(
+    param: &Parameter<T, V>,
+    config: &mut T,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+    extract_value: impl Fn(&V) -> f32,
+) -> FloatParam {
+    let range = if param.logarithmic {
+        FloatRange::Skewed { min: *param.range.start() as f32, max: *param.range.end() as f32, factor: 0.3 }
+    } else {
+        FloatRange::Linear { min: *param.range.start() as f32, max: *param.range.end() as f32 }
+    };
+
+    let mut float_param =
+        FloatParam::new(param.label, extract_value((param.get_mut)(config)), range).with_callback(callback.clone());
+
+    if let Some(unit) = param.unit {
+        float_param = float_param.with_unit(unit);
+    }
+    if param.step > 0.0 {
+        float_param = float_param.with_step_size(param.step as f32);
+    }
+
+    float_param.with_value_to_string(Arc::new(|value| format!("{value:.2}")))
+}
+
 impl<T> ToParam<T> for Parameter<T, Duration> {
     type Param = FloatParam;
     type ParamType = f32;
     type Type = f32;
 
     fn to_param(&self, config: &mut T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
-        let range = if self.logarithmic {
-            FloatRange::Skewed { min: *self.range.start() as f32, max: *self.range.end() as f32, factor: 0.3 }
-        } else {
-            FloatRange::Linear { min: *self.range.start() as f32, max: *self.range.end() as f32 }
-        };
-
-        let mut param =
-            FloatParam::new(self.label, (self.get_mut)(config).as_secs_f32(), range).with_callback(callback.clone());
-        if let Some(unit) = self.unit {
-            param = param.with_unit(unit);
-        }
-        if self.step > 0.0 {
-            param = param.with_step_size(self.step as f32);
-        }
-        param = param.with_value_to_string(Arc::new(|value| format!("{value:.2}")));
-        param
+        build_float_param(self, config, callback, Duration::as_secs_f32)
     }
 }
 
@@ -335,22 +345,7 @@ impl<T> ToParam<T> for Parameter<T, OnOff<f32>> {
     type Type = f32;
 
     fn to_param(&self, config: &mut T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
-        let range = if self.logarithmic {
-            FloatRange::Skewed { min: *self.range.start() as f32, max: *self.range.end() as f32, factor: 0.3 }
-        } else {
-            FloatRange::Linear { min: *self.range.start() as f32, max: *self.range.end() as f32 }
-        };
-
-        let mut param =
-            FloatParam::new(self.label, (self.get_mut)(config).value(), range).with_callback(callback.clone());
-        if let Some(unit) = self.unit {
-            param = param.with_unit(unit);
-        }
-        if self.step > 0.0 {
-            param = param.with_step_size(self.step as f32);
-        }
-        param = param.with_value_to_string(Arc::new(|value| format!("{value:.2}")));
-        param
+        build_float_param(self, config, callback, OnOff::value)
     }
 }
 
