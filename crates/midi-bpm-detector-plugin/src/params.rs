@@ -95,6 +95,18 @@ pub struct MidiBpmDetectorParams {
     pub daw_port: IntParam,
 }
 
+fn make_parameter_change_handler<T>(
+    changed_at: ArcAtomicOptional<usize>,
+    current_sample: Arc<AtomicUsize>,
+) -> Arc<dyn Fn(T) + Send + Sync>
+where
+    T: 'static + Send,
+{
+    Arc::new(move |_: T| {
+        changed_at.store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 impl MidiBpmDetectorParams {
     pub fn new(
@@ -104,35 +116,14 @@ impl MidiBpmDetectorParams {
         current_sample: Arc<AtomicUsize>,
         daw_port: ArcAtomicOptional<u16>,
     ) -> Self {
-        let static_parameters_change_f32: Arc<dyn Fn(f32) + Send + Sync> = Arc::new({
-            let static_bpm_detection_parameters_changed_at = static_bpm_detection_parameters_changed_at.clone();
-            let current_sample = current_sample.clone();
-            move |_: f32| {
-                static_bpm_detection_parameters_changed_at
-                    .store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
-            }
-        });
-        let static_parameters_change_u16: Arc<dyn Fn(i32) + Send + Sync> = Arc::new({
-            let current_sample = current_sample.clone();
-            move |_: i32| {
-                static_bpm_detection_parameters_changed_at
-                    .store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
-            }
-        });
-        let dynamic_parameters_change_f32: Arc<dyn Fn(f32) + Send + Sync> = Arc::new({
-            let dynamic_bpm_detection_parameters_changed_at = dynamic_bpm_detection_parameters_changed_at.clone();
-            let current_sample = current_sample.clone();
-            move |_: f32| {
-                dynamic_bpm_detection_parameters_changed_at
-                    .store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
-            }
-        });
-        let dynamic_parameters_change_u8: Arc<dyn Fn(i32) + Send + Sync> = Arc::new({
-            move |_: i32| {
-                dynamic_bpm_detection_parameters_changed_at
-                    .store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
-            }
-        });
+        let static_parameters_change_f32 =
+            make_parameter_change_handler(static_bpm_detection_parameters_changed_at.clone(), current_sample.clone());
+        let static_parameters_change_u16 =
+            make_parameter_change_handler(static_bpm_detection_parameters_changed_at, current_sample.clone());
+        let dynamic_parameters_change_f32 =
+            make_parameter_change_handler(dynamic_bpm_detection_parameters_changed_at.clone(), current_sample.clone());
+        let dynamic_parameters_change_u8 =
+            make_parameter_change_handler(dynamic_bpm_detection_parameters_changed_at, current_sample);
         Self {
             editor_state: EguiState::from_size(1200, 600),
             send_tempo: BoolParam::new("Send tempo", config.send_tempo.load(Ordering::Relaxed)).with_callback(
