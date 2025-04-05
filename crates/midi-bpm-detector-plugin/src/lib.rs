@@ -67,10 +67,10 @@ impl Default for MidiBpmDetector {
 
         let params = Arc::new(MidiBpmDetectorParams::new(
             &mut config,
-            static_bpm_detection_parameters_changed_at.clone(),
-            dynamic_bpm_detection_parameters_changed_at.clone(),
-            current_sample.clone(),
-            daw_port.clone(),
+            &static_bpm_detection_parameters_changed_at,
+            &dynamic_bpm_detection_parameters_changed_at,
+            &current_sample,
+            &daw_port,
         ));
 
         let shared_config = Arc::new(RwLock::new(config.clone()));

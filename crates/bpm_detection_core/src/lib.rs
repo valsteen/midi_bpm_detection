@@ -39,7 +39,7 @@ mod worker_event;
 
 pub use bpm_detection::BPMDetection;
 pub use num_traits_chrono::DurationOps;
-use parameter::{MutGetters, Parameter};
+use parameter::{Getters, MutGetters, Parameter};
 use sync::ArcAtomicBool;
 pub use sysex::SysExCommand;
 
@@ -55,9 +55,9 @@ pub struct MidiServiceConfig {
     pub enable_midi_clock: ArcAtomicBool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Derivative, MutGetters)]
+#[derive(Clone, Debug, Serialize, Deserialize, Derivative, Getters, MutGetters)]
 #[derivative(PartialEq, Eq)]
-#[getset(get_mut = "pub")]
+#[getset(get = "pub", get_mut = "pub")]
 #[serde(default)]
 pub struct NormalDistributionConfig {
     #[derivative(PartialEq(compare_with = "f64::eq"))]
@@ -83,9 +83,17 @@ impl Default for NormalDistributionConfig {
 
 impl NormalDistributionConfig {
     pub const FACTOR: Parameter<Self, f32> =
-        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Self::factor_mut);
-    pub const IMPRECISION: Parameter<Self, f32> =
-        Parameter::new("Normal distribution cutoff", Some("ms"), 1.0..=2000., 0.0, true, 100.0, Self::imprecision_mut);
+        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Self::factor, Self::factor_mut);
+    pub const IMPRECISION: Parameter<Self, f32> = Parameter::new(
+        "Normal distribution cutoff",
+        Some("ms"),
+        1.0..=2000.,
+        0.0,
+        true,
+        100.0,
+        Self::imprecision,
+        Self::imprecision_mut,
+    );
     pub const RESOLUTION: Parameter<Self, f32> = Parameter::new(
         "Normal distribution resolution",
         Some("ms"),
@@ -93,8 +101,9 @@ impl NormalDistributionConfig {
         0.0,
         true,
         0.6,
+        Self::resolution,
         Self::resolution_mut,
     );
     pub const STD_DEV: Parameter<Self, f64> =
-        Parameter::new("Standard deviation", None, 4.0..=40.0, 0.0, false, 24.0, Self::std_dev_mut);
+        Parameter::new("Standard deviation", None, 4.0..=40.0, 0.0, false, 24.0, Self::std_dev, Self::std_dev_mut);
 }

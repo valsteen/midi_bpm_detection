@@ -12,6 +12,7 @@ use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
 use nih_plug::params::Param;
+use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
@@ -180,27 +181,46 @@ impl TaskExecutor {
 
                         config.dynamic_bpm_detection_parameters.beats_lookback =
                             self.params.dynamic_params.beats_lookback.unmodulated_plain_value() as u8;
-                        *config.dynamic_bpm_detection_parameters.velocity_current_note_weight.value_mut() =
-                            self.params.dynamic_params.velocity_current_note_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.velocity_note_from_weight.value_mut() =
-                            self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.age_weight.value_mut() =
-                            self.params.dynamic_params.age_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.octave_distance_weight.value_mut() =
-                            self.params.dynamic_params.octave_distance_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.pitch_distance_weight.value_mut() =
-                            self.params.dynamic_params.pitch_distance_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.multiplier_weight.value_mut() =
-                            self.params.dynamic_params.multiplier_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.subdivision_weight.value_mut() =
-                            self.params.dynamic_params.subdivision_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.in_beat_range_weight.value_mut() =
-                            self.params.dynamic_params.in_beat_range_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.normal_distribution_weight.value_mut() =
-                            self.params.dynamic_params.normal_distribution_weight.unmodulated_plain_value();
-                        *config.dynamic_bpm_detection_parameters.high_tempo_bias.value_mut() =
-                            self.params.dynamic_params.high_tempo_bias.unmodulated_plain_value();
-
+                        config.dynamic_bpm_detection_parameters.velocity_current_note_weight = OnOff::new(
+                            self.params.dynamic_params.velocity_current_note_onoff.value(),
+                            self.params.dynamic_params.velocity_current_note_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.velocity_note_from_weight = OnOff::new(
+                            self.params.dynamic_params.velocity_note_from_onoff.value(),
+                            self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.age_weight = OnOff::new(
+                            self.params.dynamic_params.age_onoff.value(),
+                            self.params.dynamic_params.age_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.octave_distance_weight = OnOff::new(
+                            self.params.dynamic_params.octave_distance_onoff.value(),
+                            self.params.dynamic_params.octave_distance_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.pitch_distance_weight = OnOff::new(
+                            self.params.dynamic_params.pitch_distance_onoff.value(),
+                            self.params.dynamic_params.pitch_distance_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.multiplier_weight = OnOff::new(
+                            self.params.dynamic_params.multiplier_onoff.value(),
+                            self.params.dynamic_params.multiplier_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.subdivision_weight = OnOff::new(
+                            self.params.dynamic_params.subdivision_onoff.value(),
+                            self.params.dynamic_params.subdivision_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.in_beat_range_weight = OnOff::new(
+                            self.params.dynamic_params.in_beat_range_onoff.value(),
+                            self.params.dynamic_params.in_beat_range_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.normal_distribution_weight = OnOff::new(
+                            self.params.dynamic_params.normal_distribution_onoff.value(),
+                            self.params.dynamic_params.normal_distribution_weight.unmodulated_plain_value(),
+                        );
+                        config.dynamic_bpm_detection_parameters.high_tempo_bias = OnOff::new(
+                            self.params.dynamic_params.high_tempo_bias_onoff.value(),
+                            self.params.dynamic_params.high_tempo_bias.unmodulated_plain_value(),
+                        );
                         config.send_tempo.store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
                         self.dynamic_bpm_detection_parameters = config.dynamic_bpm_detection_parameters.clone();
                     }

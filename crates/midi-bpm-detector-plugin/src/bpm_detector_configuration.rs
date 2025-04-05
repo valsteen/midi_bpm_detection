@@ -110,79 +110,89 @@ impl LiveConfig {
             apply_float_param(
                 &GUIConfig::INTERPOLATION_CURVE,
                 &self.params.gui_params.interpolation_curve,
-                &mut self.config.gui_config,
+                &self.config.gui_config,
                 param_setter,
             );
             apply_duration_param(
                 &GUIConfig::INTERPOLATION_DURATION,
                 &self.params.gui_params.interpolation_duration,
-                &mut self.config.gui_config,
+                &self.config.gui_config,
                 param_setter,
             );
             apply_int_param(
                 &DynamicBPMDetectionParameters::BEATS_LOOKBACK,
                 &self.params.dynamic_params.beats_lookback,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::CURRENT_VELOCITY,
+                &self.params.dynamic_params.velocity_current_note_onoff,
                 &self.params.dynamic_params.velocity_current_note_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::VELOCITY_FROM,
+                &self.params.dynamic_params.velocity_note_from_onoff,
                 &self.params.dynamic_params.velocity_note_from_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::TIME_DISTANCE,
+                &self.params.dynamic_params.age_onoff,
                 &self.params.dynamic_params.age_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::OCTAVE_DISTANCE,
+                &self.params.dynamic_params.octave_distance_onoff,
                 &self.params.dynamic_params.octave_distance_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::PITCH_DISTANCE,
+                &self.params.dynamic_params.pitch_distance_onoff,
                 &self.params.dynamic_params.pitch_distance_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::MULTIPLIER_FACTOR,
+                &self.params.dynamic_params.multiplier_onoff,
                 &self.params.dynamic_params.multiplier_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::SUBDIVISION_FACTOR,
+                &self.params.dynamic_params.subdivision_onoff,
                 &self.params.dynamic_params.subdivision_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::IN_RANGE,
+                &self.params.dynamic_params.in_beat_range_onoff,
                 &self.params.dynamic_params.in_beat_range_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::NORMAL_DISTRIBUTION,
+                &self.params.dynamic_params.normal_distribution_onoff,
                 &self.params.dynamic_params.normal_distribution_weight,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::HIGH_TEMPO_BIAS,
+                &self.params.dynamic_params.high_tempo_bias_onoff,
                 &self.params.dynamic_params.high_tempo_bias,
-                &mut self.config.dynamic_bpm_detection_parameters,
+                &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
             self.dynamic_bpm_detection_parameters_changed = false;
@@ -192,43 +202,43 @@ impl LiveConfig {
             apply_float_param(
                 &StaticBPMDetectionParameters::BPM_CENTER,
                 &self.params.static_params.bpm_center,
-                &mut self.config.static_bpm_detection_parameters,
+                &self.config.static_bpm_detection_parameters,
                 param_setter,
             );
             apply_int_param(
                 &StaticBPMDetectionParameters::BPM_RANGE,
                 &self.params.static_params.bpm_range,
-                &mut self.config.static_bpm_detection_parameters,
+                &self.config.static_bpm_detection_parameters,
                 param_setter,
             );
             apply_float_param(
                 &StaticBPMDetectionParameters::SAMPLE_RATE,
                 &self.params.static_params.sample_rate,
-                &mut self.config.static_bpm_detection_parameters,
+                &self.config.static_bpm_detection_parameters,
                 param_setter,
             );
             apply_float_param(
                 &NormalDistributionConfig::STD_DEV,
                 &self.params.static_params.normal_distribution.std_dev,
-                &mut self.config.static_bpm_detection_parameters.normal_distribution,
+                &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
                 &NormalDistributionConfig::FACTOR,
                 &self.params.static_params.normal_distribution.factor,
-                &mut self.config.static_bpm_detection_parameters.normal_distribution,
+                &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
                 &NormalDistributionConfig::IMPRECISION,
                 &self.params.static_params.normal_distribution.imprecision,
-                &mut self.config.static_bpm_detection_parameters.normal_distribution,
+                &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
                 &NormalDistributionConfig::RESOLUTION,
                 &self.params.static_params.normal_distribution.resolution,
-                &mut self.config.static_bpm_detection_parameters.normal_distribution,
+                &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             self.static_bpm_detection_parameters_changed = false;

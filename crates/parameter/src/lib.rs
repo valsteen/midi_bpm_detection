@@ -18,11 +18,13 @@ pub struct Parameter<Config, ValueType> {
     pub range: RangeInclusive<f64>,
     pub step: f64,
     pub logarithmic: bool,
+    pub get: fn(&Config) -> &ValueType,
     pub get_mut: fn(&mut Config) -> &mut ValueType,
     pub default: ValueType,
 }
 
 impl<Config, ValueType> Parameter<Config, ValueType> {
+    #[allow(clippy::too_many_arguments)]
     pub const fn new(
         label: &'static str,
         unit: Option<&'static str>,
@@ -30,9 +32,10 @@ impl<Config, ValueType> Parameter<Config, ValueType> {
         step: f64,
         logarithmic: bool,
         default: ValueType,
+        get: fn(&Config) -> &ValueType,
         get_mut: fn(&mut Config) -> &mut ValueType,
     ) -> Self {
-        Self { label, unit, range, step, logarithmic, get_mut, default }
+        Self { label, unit, range, step, logarithmic, get, get_mut, default }
     }
 }
 
@@ -230,10 +233,8 @@ where
         }
     }
 
-    pub fn value_mut(&mut self) -> &mut T {
-        match self {
-            OnOff::Off(v) | OnOff::On(v) => v,
-        }
+    pub fn new(is_enabled: bool, value: T) -> Self {
+        if is_enabled { Self::On(value) } else { Self::Off(value) }
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {

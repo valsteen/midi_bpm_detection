@@ -1,11 +1,11 @@
 use std::{fmt::Debug, time::Duration};
 
-use parameter::{MutGetters, Parameter};
+use parameter::{Getters, MutGetters, Parameter};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, MutGetters)]
+#[derive(Clone, Debug, Serialize, Deserialize, Getters, MutGetters)]
 #[serde(default)]
-#[getset(get_mut = "pub")]
+#[getset(get = "pub", get_mut = "pub")]
 pub struct GUIConfig {
     pub interpolation_duration: Duration,
 
@@ -25,8 +25,16 @@ impl Default for GUIConfig {
 }
 
 impl GUIConfig {
-    pub const INTERPOLATION_CURVE: Parameter<Self, f32> =
-        Parameter::new("Interpolation curve", None, 0.1..=2.0, 0.0, false, 0.7, Self::interpolation_curve_mut);
+    pub const INTERPOLATION_CURVE: Parameter<Self, f32> = Parameter::new(
+        "Interpolation curve",
+        None,
+        0.1..=2.0,
+        0.0,
+        false,
+        0.7,
+        Self::interpolation_curve,
+        Self::interpolation_curve_mut,
+    );
     pub const INTERPOLATION_DURATION: Parameter<Self, Duration> = Parameter::new(
         "Interpolation duration",
         Some("s"),
@@ -34,6 +42,7 @@ impl GUIConfig {
         0.0,
         false,
         Duration::from_millis(500),
+        Self::interpolation_duration,
         Self::interpolation_duration_mut,
     );
 }
