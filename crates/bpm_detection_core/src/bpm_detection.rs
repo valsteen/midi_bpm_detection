@@ -162,7 +162,7 @@ impl BPMDetection {
             let intensity: f32 = [
                 (velocity_current_note, dynamic_bpm_detection_parameters.velocity_current_note_weight.weight()),
                 (velocity_note_from, dynamic_bpm_detection_parameters.velocity_note_from_weight.weight()),
-                (age, dynamic_bpm_detection_parameters.age_weight.weight()),
+                (age, dynamic_bpm_detection_parameters.time_distance_weight.weight()),
                 (octave_distance, dynamic_bpm_detection_parameters.octave_distance_weight.weight()),
                 (pitch_distance, dynamic_bpm_detection_parameters.pitch_distance_weight.weight()),
                 (multiplier, dynamic_bpm_detection_parameters.multiplier_weight.weight()),
@@ -177,7 +177,7 @@ impl BPMDetection {
             .sum();
 
             let imprecision = Duration::nanoseconds(
-                (self.normal_distribution.normal_distribution_config.imprecision * 1_000_000.0) as i64,
+                (self.normal_distribution.normal_distribution_config.cutoff * 1_000_000.0) as i64,
             );
             let duration_per_sample = sample_to_duration(self.static_bpm_detection_parameters.sample_rate, 1);
             let mut timestamp = -imprecision;

@@ -3,11 +3,11 @@ use std::ops::Index;
 use chrono::Duration;
 use statrs::distribution::{Continuous, Normal};
 
-use crate::NormalDistributionConfig;
+use crate::NormalDistributionParameters;
 
 pub(crate) struct NormalDistribution {
     normal_distribution_data_points: Vec<f32>,
-    pub normal_distribution_config: NormalDistributionConfig,
+    pub normal_distribution_config: NormalDistributionParameters,
 }
 
 impl Index<Duration> for NormalDistribution {
@@ -20,23 +20,23 @@ impl Index<Duration> for NormalDistribution {
 
 impl NormalDistribution {
     fn index_for_duration(&self, duration: Duration) -> usize {
-        ((duration.num_nanoseconds().unwrap() as f32 + self.normal_distribution_config.imprecision * 1_000_000.0)
+        ((duration.num_nanoseconds().unwrap() as f32 + self.normal_distribution_config.cutoff * 1_000_000.0)
             / (self.normal_distribution_config.resolution * 1_000_000.0))
             .round() as usize
     }
 
     fn duration_for_index(&self, index: usize) -> Duration {
         let nanos = (index as f32 * self.normal_distribution_config.resolution * 1_000_000.0)
-            - self.normal_distribution_config.imprecision * 1_000_000.0;
+            - self.normal_distribution_config.cutoff * 1_000_000.0;
         Duration::nanoseconds(nanos as i64)
     }
 
     fn size(&self) -> usize {
-        ((2.0 * self.normal_distribution_config.imprecision / self.normal_distribution_config.resolution) + 1.0).ceil()
+        ((2.0 * self.normal_distribution_config.cutoff / self.normal_distribution_config.resolution) + 1.0).ceil()
             as usize
     }
 
-    pub fn new(normal_distribution_config: NormalDistributionConfig) -> Self {
+    pub fn new(normal_distribution_config: NormalDistributionParameters) -> Self {
         let mut this = Self { normal_distribution_data_points: vec![], normal_distribution_config };
         this.normal_distribution_data_points = this.make_normal_distribution();
         this
@@ -47,7 +47,7 @@ impl Default for NormalDistribution {
     fn default() -> Self {
         let mut this = Self {
             normal_distribution_data_points: vec![],
-            normal_distribution_config: NormalDistributionConfig::default(),
+            normal_distribution_config: NormalDistributionParameters::default(),
         };
         this.normal_distribution_data_points = this.make_normal_distribution();
         this

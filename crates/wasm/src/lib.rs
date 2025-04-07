@@ -1,11 +1,11 @@
 #![cfg(target_arch = "wasm32")]
+use bpm_detection_core::{
+    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage, midi_messages::MidiNoteOn,
+};
 use derivative::Derivative;
 use errors::{LogErrorWithExt, Report, error_backtrace};
 use futures::channel::mpsc::Sender;
 use gui::{BPMDetectionParameters, GUIConfig};
-use midi::{
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage, midi_messages::MidiNoteOn,
-};
 use serde::{Deserialize, Serialize};
 
 pub mod wasm;

@@ -61,7 +61,7 @@ value = 0.699999988079071
 enabled = false
 value = 0.6499999761581421
 
-[dynamic_bpm_detection_parameters.age_weight]
+[dynamic_bpm_detection_parameters.time_distance_weight]
 enabled = false
 value = 0.7300000190734863
 

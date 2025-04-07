@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters};
 
 use crate::config::GUIConfig;
 
@@ -11,10 +11,10 @@ pub trait BPMDetectionParameters {
     fn get_dynamic_bpm_detection_parameters_mut(&mut self) -> &mut DynamicBPMDetectionParameters;
     fn get_static_bpm_detection_parameters(&self) -> &StaticBPMDetectionParameters;
     fn get_static_bpm_detection_parameters_mut(&mut self) -> &mut StaticBPMDetectionParameters;
-    fn get_normal_distribution(&self) -> &NormalDistributionConfig {
+    fn get_normal_distribution(&self) -> &NormalDistributionParameters {
         &self.get_static_bpm_detection_parameters().normal_distribution
     }
-    fn get_normal_distribution_mut(&mut self) -> &mut NormalDistributionConfig {
+    fn get_normal_distribution_mut(&mut self) -> &mut NormalDistributionParameters {
         &mut self.get_static_bpm_detection_parameters_mut().normal_distribution
     }
     fn get_gui_config(&self) -> &GUIConfig;

@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters};
 use errors::{error_backtrace, info};
 use gui::{BPMDetectionParameters, GUIConfig};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
@@ -142,7 +142,7 @@ impl LiveConfig {
             apply_onoff_param(
                 &DynamicBPMDetectionParameters::TIME_DISTANCE,
                 &self.params.dynamic_params.age_onoff,
-                &self.params.dynamic_params.age_weight,
+                &self.params.dynamic_params.time_distance_weight,
                 &self.config.dynamic_bpm_detection_parameters,
                 param_setter,
             );
@@ -218,25 +218,25 @@ impl LiveConfig {
                 param_setter,
             );
             apply_float_param(
-                &NormalDistributionConfig::STD_DEV,
+                &NormalDistributionParameters::STD_DEV,
                 &self.params.static_params.normal_distribution.std_dev,
                 &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
-                &NormalDistributionConfig::FACTOR,
+                &NormalDistributionParameters::FACTOR,
                 &self.params.static_params.normal_distribution.factor,
                 &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
-                &NormalDistributionConfig::IMPRECISION,
+                &NormalDistributionParameters::CUTOFF,
                 &self.params.static_params.normal_distribution.imprecision,
                 &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,
             );
             apply_float_param(
-                &NormalDistributionConfig::RESOLUTION,
+                &NormalDistributionParameters::RESOLUTION,
                 &self.params.static_params.normal_distribution.resolution,
                 &self.config.static_bpm_detection_parameters.normal_distribution,
                 param_setter,

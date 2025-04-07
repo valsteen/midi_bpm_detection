@@ -1,4 +1,4 @@
-use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters};
 use eframe::{egui, egui::Ui};
 
 use crate::{BPMDetectionParameters, add_slider::SlideAdder, app::BPMDetectionGUI, config::GUIConfig};
@@ -20,10 +20,10 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
             sliders_static_parameters.add(&StaticBPMDetectionParameters::BPM_CENTER);
             sliders_static_parameters.add(&StaticBPMDetectionParameters::BPM_RANGE);
             sliders_static_parameters.add(&StaticBPMDetectionParameters::SAMPLE_RATE);
-            normal_distribution.add(&NormalDistributionConfig::STD_DEV);
-            normal_distribution.add(&NormalDistributionConfig::RESOLUTION);
-            normal_distribution.add(&NormalDistributionConfig::IMPRECISION);
-            normal_distribution.add(&NormalDistributionConfig::FACTOR);
+            normal_distribution.add(&NormalDistributionParameters::STD_DEV);
+            normal_distribution.add(&NormalDistributionParameters::RESOLUTION);
+            normal_distribution.add(&NormalDistributionParameters::CUTOFF);
+            normal_distribution.add(&NormalDistributionParameters::FACTOR);
 
             let sliders_live =
                 SlideAdder::builder(ui, BPMDetectionParameters::apply_dynamic, &mut self.live_parameters);

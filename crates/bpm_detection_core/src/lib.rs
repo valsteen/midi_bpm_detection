@@ -59,41 +59,41 @@ pub struct MidiServiceConfig {
 #[derivative(PartialEq, Eq)]
 #[getset(get = "pub", get_mut = "pub")]
 #[serde(default)]
-pub struct NormalDistributionConfig {
+pub struct NormalDistributionParameters {
     #[derivative(PartialEq(compare_with = "f64::eq"))]
     pub std_dev: f64,
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub factor: f32,
     #[derivative(PartialEq(compare_with = "f32::eq"))]
-    pub imprecision: f32, // in millisecond
+    pub cutoff: f32, // in millisecond
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub resolution: f32, // 1 means one index = 1 millisecond
 }
 
-impl Default for NormalDistributionConfig {
+impl Default for NormalDistributionParameters {
     fn default() -> Self {
         Self {
             std_dev: Self::STD_DEV.default,
             factor: Self::FACTOR.default,
-            imprecision: Self::IMPRECISION.default,
+            cutoff: Self::CUTOFF.default,
             resolution: Self::RESOLUTION.default,
         }
     }
 }
 
-impl NormalDistributionConfig {
-    pub const FACTOR: Parameter<Self, f32> =
-        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Self::factor, Self::factor_mut);
-    pub const IMPRECISION: Parameter<Self, f32> = Parameter::new(
+impl NormalDistributionParameters {
+    pub const CUTOFF: Parameter<Self, f32> = Parameter::new(
         "Normal distribution cutoff",
         Some("ms"),
         1.0..=2000.,
         0.0,
         true,
         100.0,
-        Self::imprecision,
-        Self::imprecision_mut,
+        Self::cutoff,
+        Self::cutoff_mut,
     );
+    pub const FACTOR: Parameter<Self, f32> =
+        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Self::factor, Self::factor_mut);
     pub const RESOLUTION: Parameter<Self, f32> = Parameter::new(
         "Normal distribution resolution",
         Some("ms"),

@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters};
 use gui::GUIConfig;
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Param, Params},
@@ -39,8 +39,8 @@ pub struct DynamicParams {
     pub velocity_note_from_weight: FloatParam,
     #[id = "velocity_note_from_onoff"]
     pub velocity_note_from_onoff: BoolParam,
-    #[id = "age_weight"]
-    pub age_weight: FloatParam,
+    #[id = "time_distance_weight"]
+    pub time_distance_weight: FloatParam,
     #[id = "age_onoff"]
     pub age_onoff: BoolParam,
     #[id = "octave_distance_weight"]
@@ -200,19 +200,19 @@ impl MidiBpmDetectorParams {
                     &update_static_changed_at_f32,
                 ),
                 normal_distribution: NormalDistributionParams {
-                    std_dev: NormalDistributionConfig::STD_DEV.to_param(
+                    std_dev: NormalDistributionParameters::STD_DEV.to_param(
                         &config.static_bpm_detection_parameters.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    factor: NormalDistributionConfig::FACTOR.to_param(
+                    factor: NormalDistributionParameters::FACTOR.to_param(
                         &config.static_bpm_detection_parameters.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    imprecision: NormalDistributionConfig::IMPRECISION.to_param(
+                    imprecision: NormalDistributionParameters::CUTOFF.to_param(
                         &config.static_bpm_detection_parameters.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    resolution: NormalDistributionConfig::RESOLUTION.to_param(
+                    resolution: NormalDistributionParameters::RESOLUTION.to_param(
                         &config.static_bpm_detection_parameters.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
@@ -229,7 +229,7 @@ impl MidiBpmDetectorParams {
                     .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
                 velocity_note_from_onoff: dynamic_updater_factory
                     .make_on_off_param(&DynamicBPMDetectionParameters::VELOCITY_FROM),
-                age_weight: DynamicBPMDetectionParameters::TIME_DISTANCE
+                time_distance_weight: DynamicBPMDetectionParameters::TIME_DISTANCE
                     .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
                 age_onoff: dynamic_updater_factory.make_on_off_param(&DynamicBPMDetectionParameters::TIME_DISTANCE),
                 octave_distance_weight: DynamicBPMDetectionParameters::OCTAVE_DISTANCE

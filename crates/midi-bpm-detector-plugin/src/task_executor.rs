@@ -145,7 +145,7 @@ impl TaskExecutor {
                             );
                             config.static_bpm_detection_parameters.normal_distribution.factor =
                                 self.params.static_params.normal_distribution.factor.unmodulated_plain_value();
-                            config.static_bpm_detection_parameters.normal_distribution.imprecision =
+                            config.static_bpm_detection_parameters.normal_distribution.cutoff =
                                 self.params.static_params.normal_distribution.imprecision.unmodulated_plain_value();
                             config.static_bpm_detection_parameters.normal_distribution.resolution =
                                 self.params.static_params.normal_distribution.resolution.unmodulated_plain_value();
@@ -189,9 +189,9 @@ impl TaskExecutor {
                             self.params.dynamic_params.velocity_note_from_onoff.value(),
                             self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value(),
                         );
-                        config.dynamic_bpm_detection_parameters.age_weight = OnOff::new(
+                        config.dynamic_bpm_detection_parameters.time_distance_weight = OnOff::new(
                             self.params.dynamic_params.age_onoff.value(),
-                            self.params.dynamic_params.age_weight.unmodulated_plain_value(),
+                            self.params.dynamic_params.time_distance_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_parameters.octave_distance_weight = OnOff::new(
                             self.params.dynamic_params.octave_distance_onoff.value(),

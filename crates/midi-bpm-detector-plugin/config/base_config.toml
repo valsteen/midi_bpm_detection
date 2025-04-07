@@ -29,7 +29,7 @@ value = 1.1
 enabled = true
 value = 1.0
 
-[dynamic_bpm_detection_parameters.age_weight]
+[dynamic_bpm_detection_parameters.time_distance_weight]
 enabled = true
 value = 4.5
 

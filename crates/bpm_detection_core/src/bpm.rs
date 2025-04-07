@@ -5,7 +5,7 @@ use derivative::Derivative;
 use parameter::{Asf64, Getters, MutGetters, OnOff, Parameter};
 use serde::{Deserialize, Serialize};
 
-use crate::{DurationOps, NormalDistributionConfig};
+use crate::{DurationOps, NormalDistributionParameters};
 
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize, Getters, MutGetters)]
 #[derivative(PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub struct StaticBPMDetectionParameters {
     pub bpm_range: u16,
     // per second
     pub sample_rate: u16,
-    pub normal_distribution: NormalDistributionConfig,
+    pub normal_distribution: NormalDistributionParameters,
 }
 
 impl Default for StaticBPMDetectionParameters {
@@ -26,7 +26,7 @@ impl Default for StaticBPMDetectionParameters {
             bpm_range: Self::BPM_RANGE.default,
             bpm_center: Self::BPM_CENTER.default,
             sample_rate: Self::SAMPLE_RATE.default,
-            normal_distribution: NormalDistributionConfig::default(),
+            normal_distribution: NormalDistributionParameters::default(),
         }
     }
 }
@@ -56,7 +56,7 @@ pub struct DynamicBPMDetectionParameters {
     pub beats_lookback: u8,
     pub velocity_current_note_weight: OnOff<f32>,
     pub velocity_note_from_weight: OnOff<f32>,
-    pub age_weight: OnOff<f32>,
+    pub time_distance_weight: OnOff<f32>,
     pub octave_distance_weight: OnOff<f32>,
     pub pitch_distance_weight: OnOff<f32>,
     pub multiplier_weight: OnOff<f32>,
@@ -72,7 +72,7 @@ impl Default for DynamicBPMDetectionParameters {
             beats_lookback: 8,
             velocity_current_note_weight: Self::CURRENT_VELOCITY.default,
             velocity_note_from_weight: Self::VELOCITY_FROM.default,
-            age_weight: Self::TIME_DISTANCE.default,
+            time_distance_weight: Self::TIME_DISTANCE.default,
             octave_distance_weight: Self::OCTAVE_DISTANCE.default,
             pitch_distance_weight: Self::PITCH_DISTANCE.default,
             multiplier_weight: Self::MULTIPLIER_FACTOR.default,
@@ -175,8 +175,16 @@ impl DynamicBPMDetectionParameters {
         Self::subdivision_weight,
         Self::subdivision_weight_mut,
     );
-    pub const TIME_DISTANCE: Parameter<Self, OnOff<f32>> =
-        Parameter::new("Age", None, 0.5..=6.0, 0.0, true, OnOff::On(0.7), Self::age_weight, Self::age_weight_mut);
+    pub const TIME_DISTANCE: Parameter<Self, OnOff<f32>> = Parameter::new(
+        "Time distance",
+        None,
+        0.5..=6.0,
+        0.0,
+        true,
+        OnOff::On(0.7),
+        Self::time_distance_weight,
+        Self::time_distance_weight_mut,
+    );
     pub const VELOCITY_FROM: Parameter<Self, OnOff<f32>> = Parameter::new(
         "From note velocity",
         None,

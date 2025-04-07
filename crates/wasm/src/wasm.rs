@@ -14,15 +14,15 @@ use std::{
 };
 
 use atomic_refcell::AtomicRefCell;
+use bpm_detection_core::{
+    BPMDetection, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
+};
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
 use futures::{StreamExt, channel::mpsc::Sender};
 use gui::{GuiRemote, create_gui, start_gui};
 use instant::Instant;
-use midi::{
-    BPMDetection, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
-    bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
-};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
 
