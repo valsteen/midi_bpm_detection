@@ -3,11 +3,11 @@ use std::ops::Index;
 use chrono::Duration;
 use statrs::distribution::{Continuous, Normal};
 
-use crate::NormalDistributionParameters;
+use crate::NormalDistributionConfig;
 
 pub(crate) struct NormalDistribution {
     normal_distribution_data_points: Vec<f32>,
-    pub normal_distribution_config: NormalDistributionParameters,
+    pub normal_distribution_config: NormalDistributionConfig,
 }
 
 impl Index<Duration> for NormalDistribution {
@@ -36,7 +36,7 @@ impl NormalDistribution {
             as usize
     }
 
-    pub fn new(normal_distribution_config: NormalDistributionParameters) -> Self {
+    pub fn new(normal_distribution_config: NormalDistributionConfig) -> Self {
         let mut this = Self { normal_distribution_data_points: vec![], normal_distribution_config };
         this.normal_distribution_data_points = this.make_normal_distribution();
         this
@@ -47,7 +47,7 @@ impl Default for NormalDistribution {
     fn default() -> Self {
         let mut this = Self {
             normal_distribution_data_points: vec![],
-            normal_distribution_config: NormalDistributionParameters::default(),
+            normal_distribution_config: NormalDistributionConfig::default(),
         };
         this.normal_distribution_data_points = this.make_normal_distribution();
         this

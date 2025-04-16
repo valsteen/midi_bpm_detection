@@ -35,9 +35,10 @@ errors = { path = "../errors" }
 build = { path = "../build" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 gui = { path = "../gui" }
+parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 log = { version = "0.4.20", features = [] }
-instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 [lints]
 workspace = true

@@ -1,11 +1,10 @@
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
-use parameter::{Getters, MutGetters, Parameter};
+use parameter::Parameter;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, Getters, MutGetters)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
-#[getset(get = "pub", get_mut = "pub")]
 pub struct GUIConfig {
     pub interpolation_duration: Duration,
 
@@ -15,34 +14,66 @@ pub struct GUIConfig {
     pub interpolation_curve: f32,
 }
 
+pub trait GUIConfigAccessor {
+    fn interpolation_duration(&self) -> Duration;
+    fn interpolation_curve(&self) -> f32;
+
+    fn set_interpolation_duration(&mut self, val: Duration);
+    fn set_interpolation_curve(&mut self, val: f32);
+}
+
+impl GUIConfigAccessor for () {
+    fn interpolation_duration(&self) -> Duration {
+        unimplemented!()
+    }
+
+    fn interpolation_curve(&self) -> f32 {
+        unimplemented!()
+    }
+
+    fn set_interpolation_duration(&mut self, _: Duration) {
+        unimplemented!()
+    }
+
+    fn set_interpolation_curve(&mut self, _: f32) {
+        unimplemented!()
+    }
+}
+
+pub type DefaultGUIParameters = GUIParameters<()>;
+
 impl Default for GUIConfig {
     fn default() -> Self {
         Self {
-            interpolation_duration: Self::INTERPOLATION_DURATION.default,
-            interpolation_curve: Self::INTERPOLATION_CURVE.default,
+            interpolation_duration: DefaultGUIParameters::INTERPOLATION_DURATION.default,
+            interpolation_curve: DefaultGUIParameters::INTERPOLATION_CURVE.default,
         }
     }
 }
 
-impl GUIConfig {
-    pub const INTERPOLATION_CURVE: Parameter<Self, f32> = Parameter::new(
+pub struct GUIParameters<Config> {
+    phantom: PhantomData<Config>,
+}
+
+impl<Config: GUIConfigAccessor> GUIParameters<Config> {
+    pub const INTERPOLATION_CURVE: Parameter<Config, f32> = Parameter::new(
         "Interpolation curve",
         None,
         0.1..=2.0,
         0.0,
         false,
         0.7,
-        Self::interpolation_curve,
-        Self::interpolation_curve_mut,
+        Config::interpolation_curve,
+        Config::set_interpolation_curve,
     );
-    pub const INTERPOLATION_DURATION: Parameter<Self, Duration> = Parameter::new(
+    pub const INTERPOLATION_DURATION: Parameter<Config, Duration> = Parameter::new(
         "Interpolation duration",
         Some("s"),
         0.050..=1.0,
         0.0,
         false,
         Duration::from_millis(500),
-        Self::interpolation_duration,
-        Self::interpolation_duration_mut,
+        Config::interpolation_duration,
+        Config::set_interpolation_duration,
     );
 }

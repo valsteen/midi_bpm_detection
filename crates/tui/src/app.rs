@@ -13,7 +13,7 @@ use tokio::sync::{
 use crate::{
     action::Action,
     components::{ComponentNewBox, midi_display::MidiDisplay, select_device::SelectDevice},
-    config::Config,
+    config::TUIConfig,
     lifecycle::signals::spawn_signal_task,
     mode::Mode,
     services::{midi::MidiService, screens::Screens},
@@ -28,7 +28,7 @@ pub async fn run_tui(
     start_gui: SyncSender<()>,
     action_tx: UnboundedSender<Action>,
     mut action_rx: UnboundedReceiver<Action>,
-    config: Config,
+    config: TUIConfig,
     mut gui_exit_receiver: UnboundedReceiver<()>,
     gui_remote: GuiRemote,
 ) -> Result<()> {
@@ -98,8 +98,8 @@ pub async fn run_tui(
     let mut services = [
         MidiService::box_new(
             &config.midi,
-            config.static_bpm_detection_parameters.clone(),
-            config.dynamic_bpm_detection_parameters.clone(),
+            config.static_bpm_detection_config.clone(),
+            config.dynamic_bpm_detection_config.clone(),
             event_tx.clone(),
             gui_remote.clone(),
         )

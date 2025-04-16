@@ -39,56 +39,56 @@ fg = "#ffffff"
 add_modifier = ""
 sub_modifier = ""
 
-[static_bpm_detection_parameters]
+[static_bpm_detection_config]
 bpm_range = 40
 bpm_center = 90.0
 sample_rate = 500
 
-[static_bpm_detection_parameters.normal_distribution]
+[static_bpm_detection_config.normal_distribution]
 std_dev = 24.0
 factor = 47.0
-imprecision = 100.0
+cutoff = 100.0
 resolution = 0.699999988079071
 
-[dynamic_bpm_detection_parameters]
+[dynamic_bpm_detection_config]
 beats_lookback = 8
 
-[dynamic_bpm_detection_parameters.velocity_current_note_weight]
+[dynamic_bpm_detection_config.velocity_current_note_weight]
 enabled = false
 value = 0.699999988079071
 
-[dynamic_bpm_detection_parameters.velocity_note_from_weight]
+[dynamic_bpm_detection_config.velocity_note_from_weight]
 enabled = false
 value = 0.6499999761581421
 
-[dynamic_bpm_detection_parameters.time_distance_weight]
+[dynamic_bpm_detection_config.time_distance_weight]
 enabled = false
 value = 0.7300000190734863
 
-[dynamic_bpm_detection_parameters.octave_distance_weight]
+[dynamic_bpm_detection_config.octave_distance_weight]
 enabled = false
 value = 0.6499999761581421
 
-[dynamic_bpm_detection_parameters.pitch_distance_weight]
+[dynamic_bpm_detection_config.pitch_distance_weight]
 enabled = false
 value = 0.8500000238418579
 
-[dynamic_bpm_detection_parameters.multiplier_weight]
+[dynamic_bpm_detection_config.multiplier_weight]
 enabled = true
 value = 0.6600000262260437
 
-[dynamic_bpm_detection_parameters.subdivision_weight]
+[dynamic_bpm_detection_config.subdivision_weight]
 enabled = false
 value = 0.699999988079071
 
-[dynamic_bpm_detection_parameters.in_beat_range_weight]
+[dynamic_bpm_detection_config.in_beat_range_weight]
 enabled = false
 value = 0.7599999904632568
 
-[dynamic_bpm_detection_parameters.normal_distribution_weight]
+[dynamic_bpm_detection_config.normal_distribution_weight]
 enabled = true
 value = 1.0
 
-[dynamic_bpm_detection_parameters.high_tempo_bias]
+[dynamic_bpm_detection_config.high_tempo_bias]
 enabled = true
 value = 0.0

@@ -1,22 +1,22 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use crossbeam::atomic::AtomicCell;
-use gui::{BPMDetectionGUI, BPMDetectionParameters, GuiRemote, create_gui};
+use gui::{BPMDetectionApp, BPMDetectionConfig, GuiRemote, create_gui};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use nih_plug_egui::{EguiState, egui::Context};
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams,
-    bpm_detector_configuration::{Config, LiveConfig},
+    bpm_detector_configuration::{BaseConfig, LiveConfig, PluginConfig},
 };
 
 pub struct GuiEditor {
     pub editor_state: Arc<EguiState>,
-    pub bpm_detection_gui: Option<BPMDetectionGUI<LiveConfig>>,
+    pub bpm_detection_app: Option<BPMDetectionApp<BaseConfig>>,
     pub gui_remote_receiver: Arc<AtomicCell<Option<GuiRemote>>>,
     pub force_evaluate_bpm_detection: ArcAtomicBool,
-    pub config: Arc<RwLock<Config>>,
+    pub config: Arc<RwLock<PluginConfig>>,
     pub gui_must_update_config: ArcAtomicBool,
     pub params: Arc<MidiBpmDetectorParams>,
 }
@@ -24,7 +24,7 @@ pub struct GuiEditor {
 impl GuiEditor {
     pub fn build(&mut self, egui_ctx: &Context, async_executor: AsyncExecutor<MidiBpmDetector>) {
         let config = self.config.read().clone();
-        let live_config = LiveConfig::new(
+        let live_config = BaseConfig::new(
             config.clone(),
             self.config.clone(),
             async_executor,
@@ -42,38 +42,39 @@ impl GuiEditor {
                 }
             })
         });
-        let gui = gui_builder.build(egui_ctx.clone());
-        self.bpm_detection_gui = Some(gui);
+        let bpm_detection_app = gui_builder.build(egui_ctx.clone());
+        self.bpm_detection_app = Some(bpm_detection_app);
         self.gui_remote_receiver.store(Some(gui_remote));
         self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
     }
 
-    pub fn update(&mut self, setter: &ParamSetter, egui_ctx: &Context) {
-        let should_drop = match (self.editor_state.is_open(), &mut self.bpm_detection_gui) {
-            (true, Some(bpm_detection_gui)) => {
-                if bpm_detection_gui
-                    .live_parameters
+    pub fn update(&mut self, param_setter: &ParamSetter, egui_ctx: &Context) {
+        let should_drop = match (self.editor_state.is_open(), self.bpm_detection_app.as_mut()) {
+            (true, Some(BPMDetectionApp { base_config, bpm_detection_gui })) => {
+                let mut live_config = LiveConfig { base_config, param_setter };
+                if live_config
+                    .base_config
                     .send_tempo_changed
                     .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
                     .is_ok()
                 {
-                    let send_tempo = bpm_detection_gui.live_parameters.get_send_tempo();
-                    setter.begin_set_parameter(&self.params.send_tempo);
-                    setter.set_parameter(&self.params.send_tempo, send_tempo);
-                    setter.end_set_parameter(&self.params.send_tempo);
+                    let send_tempo = live_config.get_send_tempo();
+                    param_setter.begin_set_parameter(&self.params.send_tempo);
+                    param_setter.set_parameter(&self.params.send_tempo, send_tempo);
+                    param_setter.end_set_parameter(&self.params.send_tempo);
                 }
-
-                bpm_detection_gui.live_parameters.apply_delayed_updates();
+                live_config.base_config.apply_delayed_updates();
 
                 if self.gui_must_update_config.take(Ordering::Relaxed) {
-                    bpm_detection_gui.live_parameters.config = self.config.read().clone();
+                    live_config.base_config.config = self.config.read().clone();
                 }
 
                 // error may happen if corresponding remote was dropped
-                if bpm_detection_gui.update(egui_ctx).is_ok() {
-                    if bpm_detection_gui.live_parameters.apply_changes_to_daw_parameters(setter) {
+                if bpm_detection_gui.update(egui_ctx, &mut live_config).is_ok() {
+                    if live_config.base_config.has_config_changes_via_ui {
                         let mut config = self.config.write();
-                        *config = bpm_detection_gui.live_parameters.config.clone();
+                        *config = live_config.base_config.config.clone();
+                        live_config.base_config.has_config_changes_via_ui = false;
                     }
                     false
                 } else {
@@ -96,7 +97,7 @@ impl GuiEditor {
         };
 
         if should_drop {
-            self.bpm_detection_gui = None;
+            self.bpm_detection_app = None;
         }
     }
 }

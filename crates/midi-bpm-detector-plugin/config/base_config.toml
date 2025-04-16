@@ -7,56 +7,56 @@ interpolation_curve = 0.800000011920929
 secs = 0
 nanos = 550000000
 
-[static_bpm_detection_parameters]
+[static_bpm_detection_config]
 bpm_center = 100.0
 bpm_range = 70
 sample_rate = 600
 
-[static_bpm_detection_parameters.normal_distribution]
+[static_bpm_detection_config.normal_distribution]
 std_dev = 15.0
 factor = 50.0
-imprecision = 400.0
+cutoff = 400.0
 resolution = 0.06
 
-[dynamic_bpm_detection_parameters]
+[dynamic_bpm_detection_config]
 beats_lookback = 8
 
-[dynamic_bpm_detection_parameters.velocity_current_note_weight]
+[dynamic_bpm_detection_config.velocity_current_note_weight]
 enabled = true
 value = 1.1
 
-[dynamic_bpm_detection_parameters.velocity_note_from_weight]
+[dynamic_bpm_detection_config.velocity_note_from_weight]
 enabled = true
 value = 1.0
 
-[dynamic_bpm_detection_parameters.time_distance_weight]
+[dynamic_bpm_detection_config.time_distance_weight]
 enabled = true
 value = 4.5
 
-[dynamic_bpm_detection_parameters.octave_distance_weight]
+[dynamic_bpm_detection_config.octave_distance_weight]
 enabled = true
 value = 0.95
 
-[dynamic_bpm_detection_parameters.pitch_distance_weight]
+[dynamic_bpm_detection_config.pitch_distance_weight]
 enabled = true
 value = 1.1
 
-[dynamic_bpm_detection_parameters.multiplier_weight]
+[dynamic_bpm_detection_config.multiplier_weight]
 enabled = true
 value = 0.70
 
-[dynamic_bpm_detection_parameters.subdivision_weight]
+[dynamic_bpm_detection_config.subdivision_weight]
 enabled = true
 value = 0.5
 
-[dynamic_bpm_detection_parameters.in_beat_range_weight]
+[dynamic_bpm_detection_config.in_beat_range_weight]
 enabled = true
 value = 0
 
-[dynamic_bpm_detection_parameters.normal_distribution_weight]
+[dynamic_bpm_detection_config.normal_distribution_weight]
 enabled = true
 value = 1.0
 
-[dynamic_bpm_detection_parameters.high_tempo_bias]
+[dynamic_bpm_detection_config.high_tempo_bias]
 enabled = true
 value = 1.4

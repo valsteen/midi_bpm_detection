@@ -3,7 +3,7 @@ use chrono::Duration;
 use itertools::Itertools;
 
 use crate::{
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedMidiNoteOn,
+    DynamicBPMDetectionConfig, StaticBPMDetectionConfig, TimedMidiNoteOn,
     bpm::{beat_duration_to_bpm, bpm_to_beat_duration, max_histogram_data_buffer_size, sample_to_duration},
     normal_distribution::NormalDistribution,
 };
@@ -15,43 +15,40 @@ pub struct BPMDetection {
     interval_low: Duration,
     normal_distribution: NormalDistribution,
     notes: ArrayDeque<TimedMidiNoteOn, NOTE_CAPACITY, Wrapping>,
-    static_bpm_detection_parameters: StaticBPMDetectionParameters,
+    static_bpm_detection_config: StaticBPMDetectionConfig,
     histogram_data_points: Vec<f32>,
 }
 
 impl BPMDetection {
     #[must_use]
-    pub fn new(static_bpm_detection_parameters: StaticBPMDetectionParameters) -> Self {
+    pub fn new(static_bpm_detection_config: StaticBPMDetectionConfig) -> Self {
         let mut histogram_data_points = Vec::with_capacity(max_histogram_data_buffer_size());
-        histogram_data_points.resize(static_bpm_detection_parameters.buffer_size(), 0.0);
+        histogram_data_points.resize(static_bpm_detection_config.buffer_size(), 0.0);
         Self {
-            interval_low: bpm_to_beat_duration(static_bpm_detection_parameters.highest_bpm()),
-            interval_high: bpm_to_beat_duration(static_bpm_detection_parameters.lowest_bpm()),
-            normal_distribution: NormalDistribution::new(static_bpm_detection_parameters.normal_distribution.clone()),
+            interval_low: bpm_to_beat_duration(static_bpm_detection_config.highest_bpm()),
+            interval_high: bpm_to_beat_duration(static_bpm_detection_config.lowest_bpm()),
+            normal_distribution: NormalDistribution::new(static_bpm_detection_config.normal_distribution.clone()),
             histogram_data_points,
-            static_bpm_detection_parameters,
+            static_bpm_detection_config,
             notes: ArrayDeque::new(),
         }
     }
 
-    pub fn update_static_parameters(&mut self, static_bpm_detection_parameters: StaticBPMDetectionParameters) {
-        self.static_bpm_detection_parameters = static_bpm_detection_parameters;
-        self.interval_low = bpm_to_beat_duration(self.static_bpm_detection_parameters.highest_bpm());
-        self.interval_high = bpm_to_beat_duration(self.static_bpm_detection_parameters.lowest_bpm());
+    pub fn update_static_config(&mut self, static_bpm_detection_config: StaticBPMDetectionConfig) {
+        self.static_bpm_detection_config = static_bpm_detection_config;
+        self.interval_low = bpm_to_beat_duration(self.static_bpm_detection_config.highest_bpm());
+        self.interval_high = bpm_to_beat_duration(self.static_bpm_detection_config.lowest_bpm());
         self.normal_distribution =
-            NormalDistribution::new(self.static_bpm_detection_parameters.normal_distribution.clone());
+            NormalDistribution::new(self.static_bpm_detection_config.normal_distribution.clone());
         self.histogram_data_points.resize(0, 0.0);
-        self.histogram_data_points.resize(self.static_bpm_detection_parameters.buffer_size(), 0.0);
+        self.histogram_data_points.resize(self.static_bpm_detection_config.buffer_size(), 0.0);
     }
 
     pub fn receive_midi_message(&mut self, midi_message: TimedMidiNoteOn) {
         self.notes.push_back(midi_message);
     }
 
-    pub fn compute_bpm(
-        &mut self,
-        dynamic_bpm_detection_parameters: &DynamicBPMDetectionParameters,
-    ) -> Option<(&[f32], f32)> {
+    pub fn compute_bpm(&mut self, dynamic_bpm_detection_config: &DynamicBPMDetectionConfig) -> Option<(&[f32], f32)> {
         self.histogram_data_points.fill(0.0);
 
         let now = self.notes.back()?.timestamp;
@@ -60,17 +57,17 @@ impl BPMDetection {
         let maximum_interval = now - oldest;
 
         // consider all combinations of 2 notes, in increasing time order
-        self.process_combinations(&now, &maximum_interval, dynamic_bpm_detection_parameters);
+        self.process_combinations(&now, &maximum_interval, dynamic_bpm_detection_config);
 
         let most_probable_interval = self
             .histogram_data_points
             .iter()
             .enumerate()
             .max_by(|a, b| a.1.total_cmp(b.1))
-            .map(|(index, _)| self.static_bpm_detection_parameters.index_to_duration(index))?;
+            .map(|(index, _)| self.static_bpm_detection_config.index_to_duration(index))?;
         let bpm = beat_duration_to_bpm(most_probable_interval);
 
-        let max_note_age = bpm_to_beat_duration(bpm) * i32::from(dynamic_bpm_detection_parameters.beats_lookback);
+        let max_note_age = bpm_to_beat_duration(bpm) * i32::from(dynamic_bpm_detection_config.beats_lookback);
 
         loop {
             let Some(note) = self.notes.front() else {
@@ -93,7 +90,7 @@ impl BPMDetection {
         &mut self,
         newest: &Duration,
         maximum_interval: &Duration,
-        dynamic_bpm_detection_parameters: &DynamicBPMDetectionParameters,
+        dynamic_bpm_detection_config: &DynamicBPMDetectionConfig,
     ) {
         for (note_from, note_to) in self.notes.iter().tuple_combinations() {
             let note_age = *newest - note_to.timestamp;
@@ -130,10 +127,7 @@ impl BPMDetection {
                 (interval, in_range, multiplier, subdivision)
             };
 
-            if self
-                .static_bpm_detection_parameters
-                .duration_to_index(interval, self.histogram_data_points.len())
-                .is_none()
+            if self.static_bpm_detection_config.duration_to_index(interval, self.histogram_data_points.len()).is_none()
             {
                 // interval is outside the range of BPM we consider, including trying to multiply or divide the interval
                 continue;
@@ -160,15 +154,15 @@ impl BPMDetection {
             };
 
             let intensity: f32 = [
-                (velocity_current_note, dynamic_bpm_detection_parameters.velocity_current_note_weight.weight()),
-                (velocity_note_from, dynamic_bpm_detection_parameters.velocity_note_from_weight.weight()),
-                (age, dynamic_bpm_detection_parameters.time_distance_weight.weight()),
-                (octave_distance, dynamic_bpm_detection_parameters.octave_distance_weight.weight()),
-                (pitch_distance, dynamic_bpm_detection_parameters.pitch_distance_weight.weight()),
-                (multiplier, dynamic_bpm_detection_parameters.multiplier_weight.weight()),
-                (subdivision, dynamic_bpm_detection_parameters.subdivision_weight.weight()),
-                (in_range, dynamic_bpm_detection_parameters.in_beat_range_weight.weight()),
-                (high_tempo_bias, dynamic_bpm_detection_parameters.high_tempo_bias.weight()),
+                (velocity_current_note, dynamic_bpm_detection_config.velocity_current_note_weight.weight()),
+                (velocity_note_from, dynamic_bpm_detection_config.velocity_note_from_weight.weight()),
+                (age, dynamic_bpm_detection_config.time_distance_weight.weight()),
+                (octave_distance, dynamic_bpm_detection_config.octave_distance_weight.weight()),
+                (pitch_distance, dynamic_bpm_detection_config.pitch_distance_weight.weight()),
+                (multiplier, dynamic_bpm_detection_config.multiplier_weight.weight()),
+                (subdivision, dynamic_bpm_detection_config.subdivision_weight.weight()),
+                (in_range, dynamic_bpm_detection_config.in_beat_range_weight.weight()),
+                (high_tempo_bias, dynamic_bpm_detection_config.high_tempo_bias.weight()),
             ]
             .into_iter()
             // We normalize the value to be between 1 and 10, so log10 will give a value between 0 and 1,
@@ -176,15 +170,15 @@ impl BPMDetection {
             .filter(|criteria| criteria.is_finite() && *criteria > 0.0)
             .sum();
 
-            let imprecision = Duration::nanoseconds(
+            let cutoff = Duration::nanoseconds(
                 (self.normal_distribution.normal_distribution_config.cutoff * 1_000_000.0) as i64,
             );
-            let duration_per_sample = sample_to_duration(self.static_bpm_detection_parameters.sample_rate, 1);
-            let mut timestamp = -imprecision;
-            let normal_weight = dynamic_bpm_detection_parameters.normal_distribution_weight.weight();
-            while timestamp <= imprecision {
+            let duration_per_sample = sample_to_duration(self.static_bpm_detection_config.sample_rate, 1);
+            let mut timestamp = -cutoff;
+            let normal_weight = dynamic_bpm_detection_config.normal_distribution_weight.weight();
+            while timestamp <= cutoff {
                 if let Some(index) = self
-                    .static_bpm_detection_parameters
+                    .static_bpm_detection_config
                     .duration_to_index(timestamp + interval, self.histogram_data_points.len())
                 {
                     let normal_value = if normal_weight > 0.0 {
@@ -194,7 +188,7 @@ impl BPMDetection {
                             * 2.0
                             + 1.0)
                             .log10()
-                            * dynamic_bpm_detection_parameters.normal_distribution_weight.weight()
+                            * dynamic_bpm_detection_config.normal_distribution_weight.weight()
                     } else {
                         0.0
                     };
