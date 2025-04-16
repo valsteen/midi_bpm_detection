@@ -9,7 +9,6 @@
 
 use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Duration};
 
-pub use getset::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 
 pub struct Parameter<Config, ValueType> {
@@ -18,9 +17,9 @@ pub struct Parameter<Config, ValueType> {
     pub range: RangeInclusive<f64>,
     pub step: f64,
     pub logarithmic: bool,
-    pub get: fn(&Config) -> &ValueType,
-    pub get_mut: fn(&mut Config) -> &mut ValueType,
     pub default: ValueType,
+    pub get: fn(&Config) -> ValueType,
+    pub set: fn(&mut Config, ValueType),
 }
 
 impl<Config, ValueType> Parameter<Config, ValueType> {
@@ -32,10 +31,10 @@ impl<Config, ValueType> Parameter<Config, ValueType> {
         step: f64,
         logarithmic: bool,
         default: ValueType,
-        get: fn(&Config) -> &ValueType,
-        get_mut: fn(&mut Config) -> &mut ValueType,
+        get: fn(&Config) -> ValueType,
+        set: fn(&mut Config, ValueType),
     ) -> Self {
-        Self { label, unit, range, step, logarithmic, get, get_mut, default }
+        Self { label, unit, range, step, logarithmic, default, get, set }
     }
 }
 

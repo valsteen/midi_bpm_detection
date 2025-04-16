@@ -14,7 +14,7 @@ use log::error;
 use sync::{ArcAtomicBool, Mutex};
 
 use crate::{
-    DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters,
+    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig,
     bpm::bpm_to_midi_clock_interval,
     bpm_detection::{BPMDetection, NOTE_CAPACITY},
     bpm_detection_receiver::BPMDetectionReceiver,
@@ -33,7 +33,7 @@ where
     #[allow(clippy::struct_field_names)]
     worker_events_receiver: Receiver<WorkerEvent>,
     playback_sender: Sender<Playback>,
-    dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     clock_interval_microseconds: Arc<AtomicU64>,
     send_tempo: ArcAtomicBool,
 }
@@ -51,9 +51,9 @@ where
     #[allow(forbidden_lint_groups)]
     #[allow(clippy::needless_pass_by_value)]
     #[allow(clippy::too_many_lines)]
-    fn worker_loop(&mut self, static_bpm_detection_parameters: StaticBPMDetectionParameters) {
-        let mut bpm_detection = BPMDetection::new(static_bpm_detection_parameters);
-        let mut scheduled_bpm_detection_parameters_change: Option<StaticBPMDetectionParameters> = None;
+    fn worker_loop(&mut self, static_bpm_detection_config: StaticBPMDetectionConfig) {
+        let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
+        let mut scheduled_bpm_detection_config_change: Option<StaticBPMDetectionConfig> = None;
         let mut schedule_evaluate_bpm: Option<Instant> = None;
         let mut buffered_events = Vec::with_capacity(NOTE_CAPACITY);
 
@@ -77,8 +77,8 @@ where
             if schedule_evaluate_bpm.is_some_and(|scheduled_at| scheduled_at.elapsed() > StdDuration::from_millis(50)) {
                 schedule_evaluate_bpm = None;
                 evaluate_bpm = true;
-                if let Some(scheduled_bpm_detection_parameters) = scheduled_bpm_detection_parameters_change.take() {
-                    bpm_detection.update_static_parameters(scheduled_bpm_detection_parameters);
+                if let Some(scheduled_bpm_detection_config) = scheduled_bpm_detection_config_change.take() {
+                    bpm_detection.update_static_config(scheduled_bpm_detection_config);
                 }
             }
 
@@ -104,14 +104,14 @@ where
                                 error!("could not send stop to clock thread : {err:?}");
                             }
                         }
-                        WorkerEvent::DynamicBPMDetectionParameters(dynamic_bpm_detection_parameters) => {
-                            self.dynamic_bpm_detection_parameters = dynamic_bpm_detection_parameters;
+                        WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
+                            self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
                             if schedule_evaluate_bpm.is_none() {
                                 schedule_evaluate_bpm = Some(Instant::now());
                             }
                         }
-                        WorkerEvent::StaticBPMDetectionParameters(bpm_detection_parameters) => {
-                            scheduled_bpm_detection_parameters_change = Some(bpm_detection_parameters);
+                        WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
+                            scheduled_bpm_detection_config_change = Some(bpm_detection_config);
                             if schedule_evaluate_bpm.is_none() {
                                 schedule_evaluate_bpm = Some(Instant::now());
                             }
@@ -121,8 +121,7 @@ where
             }
 
             if evaluate_bpm {
-                let Some((histogram_data_points, bpm)) =
-                    bpm_detection.compute_bpm(&self.dynamic_bpm_detection_parameters)
+                let Some((histogram_data_points, bpm)) = bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config)
                 else {
                     continue;
                 };
@@ -141,8 +140,8 @@ where
 
 pub fn spawn(
     midi_service_config: &MidiServiceConfig,
-    static_bpm_detection_parameters: StaticBPMDetectionParameters,
-    dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+    static_bpm_detection_config: StaticBPMDetectionConfig,
+    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     worker_receiver: Receiver<WorkerEvent>,
     midi_output: impl MidiOutput + Send + 'static,
     bpm_detection_receiver: impl BPMDetectionReceiver,
@@ -160,14 +159,14 @@ pub fn spawn(
         bpm_detection_receiver,
         worker_events_receiver: worker_receiver,
         playback_sender,
-        dynamic_bpm_detection_parameters,
+        dynamic_bpm_detection_config,
         clock_interval_microseconds,
         send_tempo: midi_service_config.send_tempo.clone(),
     };
 
     thread::Builder::new()
         .name("BPM worker".to_string())
-        .spawn(move || worker.worker_loop(static_bpm_detection_parameters))?;
+        .spawn(move || worker.worker_loop(static_bpm_detection_config))?;
     Ok(())
 }
 

@@ -12,7 +12,7 @@ use ratatui::{
 use crate::{
     action::Action,
     components::Component,
-    config::Config,
+    config::TUIConfig,
     layout::{Position, centered_rect},
     mode::Mode,
     tui::{Event, Frame},
@@ -28,7 +28,7 @@ pub struct SelectDevice {
     widget_state: ListState,
     #[derivative(Debug = "ignore")]
     selection: MidiInputPort,
-    config: Option<Config>,
+    config: Option<TUIConfig>,
 }
 
 impl SelectDevice {
@@ -111,7 +111,7 @@ impl Component for SelectDevice {
         Ok(())
     }
 
-    fn register_config_handler(&mut self, config: Config) -> Result<()> {
+    fn register_config_handler(&mut self, config: TUIConfig) -> Result<()> {
         self.config = Some(config);
         Ok(())
     }

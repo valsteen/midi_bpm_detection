@@ -1,8 +1,7 @@
 use wmidi::MidiMessage;
 
 use crate::{
-    DynamicBPMDetectionParameters, StaticBPMDetectionParameters, StaticMidiMessage, TimedMidiNoteOn,
-    TimedTypedMidiMessage,
+    DynamicBPMDetectionConfig, StaticBPMDetectionConfig, StaticMidiMessage, TimedMidiNoteOn, TimedTypedMidiMessage,
 };
 
 pub enum WorkerEvent {
@@ -10,8 +9,8 @@ pub enum WorkerEvent {
     TimingClock,
     Play,
     Stop,
-    DynamicBPMDetectionParameters(DynamicBPMDetectionParameters),
-    StaticBPMDetectionParameters(StaticBPMDetectionParameters),
+    DynamicBPMDetectionConfig(DynamicBPMDetectionConfig),
+    StaticBPMDetectionConfig(StaticBPMDetectionConfig),
 }
 
 impl TryFrom<TimedTypedMidiMessage<StaticMidiMessage>> for WorkerEvent {

@@ -15,7 +15,7 @@ use std::{
 
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::{
-    BPMDetection, DynamicBPMDetectionParameters, StaticBPMDetectionParameters, TimedTypedMidiMessage,
+    BPMDetection, DynamicBPMDetectionConfig, StaticBPMDetectionConfig, TimedTypedMidiMessage,
     bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
 };
 use chrono::Duration;
@@ -26,7 +26,7 @@ use instant::Instant;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
 
-use crate::{LiveConfig, QueueItem};
+use crate::{BaseConfig, QueueItem};
 
 async fn sleep(duration: StdDuration) {
     let promise = Promise::new(&mut |yes, _| {
@@ -62,27 +62,25 @@ const REDRAW_THRESHOLD_MILLIS: u64 = 200;
 pub fn run() -> Result<GuiRemoteWrapper> {
     let (redraw_sender, mut redraw_receiver) = futures::channel::mpsc::channel(100);
 
-    let live_config = LiveConfig::new(redraw_sender.clone());
-    let static_bpm_detection_parameters = live_config.config.static_bpm_detection_parameters.clone();
-    let mut dynamic_bpm_detection_parameters = live_config.config.dynamic_bpm_detection_parameters.clone();
+    let live_config = BaseConfig::new(redraw_sender.clone());
+    let static_bpm_detection_config = live_config.config.static_bpm_detection_config.clone();
+    let mut dynamic_bpm_detection_config = live_config.config.dynamic_bpm_detection_config.clone();
     let (gui_remote, gui_builder) = create_gui(live_config);
 
     wasm_bindgen_futures::spawn_local({
         let mut gui_remote = gui_remote.clone();
-        let update_static: Arc<AtomicRefCell<Option<StaticBPMDetectionParameters>>> =
-            Arc::new(AtomicRefCell::default());
-        let update_dynamic: Arc<AtomicRefCell<Option<DynamicBPMDetectionParameters>>> =
-            Arc::new(AtomicRefCell::default());
+        let update_static: Arc<AtomicRefCell<Option<StaticBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
+        let update_dynamic: Arc<AtomicRefCell<Option<DynamicBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
         let update_notes: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
         let redraw_sender = redraw_sender.clone();
 
         async move {
-            let mut bpm_detection = BPMDetection::new(static_bpm_detection_parameters);
+            let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
             'main: while let Some(mut redraw_reason) = redraw_receiver.next().await {
                 let now = Instant::now();
                 loop {
                     match redraw_reason {
-                        QueueItem::StaticParameters(new_static_bpm_detection_parameters) => {
+                        QueueItem::StaticParameters(new_static_bpm_detection_config) => {
                             let mut update = update_static.borrow_mut();
 
                             if update.is_none() {
@@ -94,10 +92,10 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                                     }
                                 });
                             }
-                            *update = Some(new_static_bpm_detection_parameters);
+                            *update = Some(new_static_bpm_detection_config);
                             continue 'main;
                         }
-                        QueueItem::DynamicParameters(new_dynamic_bpm_detection_parameters) => {
+                        QueueItem::DynamicParameters(new_dynamic_bpm_detection_config) => {
                             let mut update = update_dynamic.borrow_mut();
 
                             if update.is_none() {
@@ -109,7 +107,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                                     }
                                 });
                             }
-                            *update = Some(new_dynamic_bpm_detection_parameters);
+                            *update = Some(new_dynamic_bpm_detection_config);
                             continue 'main;
                         }
                         QueueItem::Note(note) => {
@@ -128,14 +126,14 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                         }
 
                         QueueItem::DelayedStaticUpdate => {
-                            if let Some(new_static_bpm_detection_parameters) = update_static.borrow_mut().take() {
-                                bpm_detection.update_static_parameters(new_static_bpm_detection_parameters);
+                            if let Some(new_static_bpm_detection_config) = update_static.borrow_mut().take() {
+                                bpm_detection.update_static_config(new_static_bpm_detection_config);
                             }
                         }
                         QueueItem::DelayedDynamicUpdate => {
                             update_notes.store(false, Ordering::Relaxed);
-                            if let Some(new_dynamic_bpm_detection_parameters) = update_dynamic.borrow_mut().take() {
-                                dynamic_bpm_detection_parameters = new_dynamic_bpm_detection_parameters;
+                            if let Some(new_dynamic_bpm_detection_config) = update_dynamic.borrow_mut().take() {
+                                dynamic_bpm_detection_config = new_dynamic_bpm_detection_config;
                             }
                         }
                     }
@@ -149,7 +147,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                     redraw_reason = next_redraw_reason;
                 }
 
-                let Some((histogram_data, bpm)) = bpm_detection.compute_bpm(&dynamic_bpm_detection_parameters) else {
+                let Some((histogram_data, bpm)) = bpm_detection.compute_bpm(&dynamic_bpm_detection_config) else {
                     continue;
                 };
 

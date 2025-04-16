@@ -9,12 +9,12 @@
 
 use std::sync::{Arc, atomic::AtomicBool};
 
-pub use app::BPMDetectionGUI;
+pub use app::{BPMDetectionApp, BPMDetectionGUI};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::bpm::max_histogram_data_buffer_size;
 pub use eframe;
-use eframe::{egui, egui::Context};
+use eframe::egui;
 #[cfg(not(target_arch = "wasm32"))]
 use errors::MakeReportExt;
 use errors::Result;
@@ -23,19 +23,22 @@ pub use gui_remote::GuiRemote;
 use log::info;
 use sync::Mutex;
 
-pub use crate::application_parameters::BPMDetectionParameters;
 use crate::gui_remote::HistogramDataPoints;
+pub use crate::{application_parameters::BPMDetectionConfig, config::GUIConfigAccessor};
 
 pub mod add_slider;
 mod app;
+mod app_builder;
 mod application_parameters;
 mod config;
 mod config_ui;
 mod gui_remote;
 
-pub use config::GUIConfig;
+pub use config::{DefaultGUIParameters, GUIConfig, GUIParameters};
 
-pub fn create_gui<P: BPMDetectionParameters>(bpm_detection_parameters: P) -> (GuiRemote, GUIBuilder<P>) {
+use crate::app_builder::AppBuilder;
+
+pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder<BaseConfig>) {
     let estimated_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let daw_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let should_save = Arc::new(AtomicBool::default());
@@ -59,7 +62,6 @@ pub fn create_gui<P: BPMDetectionParameters>(bpm_detection_parameters: P) -> (Gu
         estimated_bpm: Arc::downgrade(&estimated_bpm),
         daw_bpm: Arc::downgrade(&daw_bpm),
         should_save: Arc::downgrade(&should_save),
-        live_parameters: bpm_detection_parameters,
     };
 
     let gui_remote = GuiRemote {
@@ -72,29 +74,11 @@ pub fn create_gui<P: BPMDetectionParameters>(bpm_detection_parameters: P) -> (Gu
         daw_bpm,
         should_save,
     };
-    (gui_remote, GUIBuilder { context_receiver, bpm_detection_gui })
-}
-
-pub struct GUIBuilder<P: BPMDetectionParameters + 'static> {
-    context_receiver: Arc<AtomicRefCell<Option<Context>>>,
-    bpm_detection_gui: BPMDetectionGUI<P>,
-}
-
-impl<P> GUIBuilder<P>
-where
-    P: BPMDetectionParameters + 'static,
-{
-    pub fn build(self, context: Context) -> BPMDetectionGUI<P> {
-        self.context_receiver.borrow_mut().replace(context);
-        self.bpm_detection_gui
-    }
+    (gui_remote, AppBuilder::new(context_receiver, bpm_detection_gui, base_config))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn start_gui<P>(gui_builder: GUIBuilder<P>) -> Result<()>
-where
-    P: BPMDetectionParameters + 'static,
-{
+pub fn start_gui<Config: BPMDetectionConfig>(app_builder: AppBuilder<Config>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
         persist_window: true,
@@ -109,8 +93,8 @@ where
             move |cc| {
                 // This gives us image support:
                 egui_extras::install_image_loaders(&cc.egui_ctx);
-                gui_builder.context_receiver.borrow_mut().replace(cc.egui_ctx.clone());
-                Ok(Box::new(gui_builder.bpm_detection_gui))
+                let bpm_detection_app = app_builder.build(cc.egui_ctx.clone());
+                Ok(Box::new(bpm_detection_app))
             }
         }),
     )
@@ -120,9 +104,9 @@ where
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn start_gui<P>(gui_builder: GUIBuilder<P>) -> Result<()>
+pub fn start_gui<P>(gui_builder: AppBuilder<P>) -> Result<()>
 where
-    P: BPMDetectionParameters + 'static,
+    P: BPMDetectionConfig + 'static,
 {
     use eframe::wasm_bindgen::JsCast;
 
@@ -141,8 +125,8 @@ where
                 eframe::WebOptions::default(),
                 Box::new(move |cc| {
                     cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
-                    gui_builder.context_receiver.borrow_mut().replace(cc.egui_ctx.clone());
-                    Ok(Box::new(gui_builder.bpm_detection_gui))
+                    let bpm_detection_app = gui_builder.build(cc.egui_ctx.clone());
+                    Ok(Box::new(bpm_detection_app))
                 }),
             )
             .await

@@ -11,7 +11,7 @@ use ratatui::{
 use crate::{
     action::Action,
     components::Component,
-    config::Config,
+    config::TUIConfig,
     layout::{Position, rect_x, rect_y},
     mode::Mode,
     tui::{Event, Frame},
@@ -24,7 +24,7 @@ const CAPACITY: usize = 50;
 #[derivative(Debug, Default)]
 pub struct MidiDisplay {
     active: bool,
-    config: Option<Config>,
+    config: Option<TUIConfig>,
     received: VecDeque<String>,
     start_timestamp: u64,
 }
@@ -43,7 +43,7 @@ impl Component for MidiDisplay {
         Ok(())
     }
 
-    fn register_config_handler(&mut self, config: Config) -> Result<()> {
+    fn register_config_handler(&mut self, config: TUIConfig) -> Result<()> {
         self.config = Some(config);
         Ok(())
     }

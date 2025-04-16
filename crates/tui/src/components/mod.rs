@@ -5,7 +5,7 @@ use errors::Result;
 use ratatui::layout::Rect;
 
 use crate::{
-    config::Config,
+    config::TUIConfig,
     tui::Frame,
     utils::dispatch::{ActionHandler, EventHandler},
 };
@@ -27,7 +27,7 @@ pub trait Component: EventHandler + ActionHandler + Send + Sync {
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()>;
 
     #[allow(unused_variables)]
-    fn register_config_handler(&mut self, config: Config) -> Result<()> {
+    fn register_config_handler(&mut self, config: TUIConfig) -> Result<()> {
         Ok(())
     }
 }

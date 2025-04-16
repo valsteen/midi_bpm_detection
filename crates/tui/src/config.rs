@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, fs::write, path::PathBuf};
 
 use bitflags::Flags;
-use bpm_detection_core::{DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig};
 use build::{get_config_dir, get_data_dir};
 use config::ConfigError;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -31,7 +31,7 @@ pub struct AppConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Config {
+pub struct TUIConfig {
     #[serde(default, flatten)]
     #[allow(forbidden_lint_groups)]
     #[allow(clippy::struct_field_names)]
@@ -44,16 +44,16 @@ pub struct Config {
     pub frame_rate: f64,
     pub tick_rate: f64,
     #[serde(rename = "GUI")]
-    pub gui: GUIConfig,
+    pub gui_config: GUIConfig,
     #[serde(rename = "MIDI")]
     pub midi: MidiServiceConfig,
     #[serde(default)]
-    pub static_bpm_detection_parameters: StaticBPMDetectionParameters,
+    pub static_bpm_detection_config: StaticBPMDetectionConfig,
     #[serde(default)]
-    pub dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
 }
 
-impl Config {
+impl TUIConfig {
     pub fn new() -> TypedResult<Self, ConfigError> {
         let data_dir = get_data_dir();
         let config_dir = get_config_dir();
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_config() -> Result<()> {
-        let c = Config::new()?;
+        let c = TUIConfig::new()?;
 
         assert_eq!(
             c.keybindings.get(&None).unwrap().get(&parse_key_sequence("<q>").unwrap_or_default()).unwrap(),

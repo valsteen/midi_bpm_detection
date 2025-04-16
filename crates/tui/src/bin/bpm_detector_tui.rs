@@ -8,7 +8,7 @@ use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender},
 };
 use tui::{
-    action::Action, app::run_tui, cli::update_config, config::Config, live_parameters::LiveParameters,
+    action::Action, app::run_tui, cli::update_config, config::TUIConfig, live_parameters::BaseConfig,
     services::crossterm::reset_crossterm,
 };
 
@@ -16,7 +16,7 @@ async fn tokio_main(
     start_gui: SyncSender<()>,
     action_tx: UnboundedSender<Action>,
     action_rx: UnboundedReceiver<Action>,
-    config: Config,
+    config: TUIConfig,
     gui_remote: GuiRemote,
 ) -> Result<()> {
     let (gui_exit_sender, gui_exit_receiver) = mpsc::unbounded_channel();
@@ -37,7 +37,7 @@ async fn tokio_main(
 fn main() -> Result<()> {
     initialize_logging()?;
     initialize_panic_handler(reset_crossterm)?;
-    let config = Config::new()?;
+    let config = TUIConfig::new()?;
     let config = match update_config(config) {
         Ok(args) => args,
         Err(e) => {
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
 
     let (action_tx, action_rx) = mpsc::unbounded_channel();
 
-    let (gui_remote, app_builder) = create_gui(LiveParameters { action_tx: action_tx.clone(), config: config.clone() });
+    let (gui_remote, app_builder) = create_gui(BaseConfig { action_tx: action_tx.clone(), config: config.clone() });
 
     // "runtime" must not be dropped, so it cannot be inlined with `spawn` here. Otherwise, the executor will
     // immediately exit

@@ -1,4 +1,4 @@
-use bpm_detection_core::{DynamicBPMDetectionParameters, MidiInputPort, StaticBPMDetectionParameters};
+use bpm_detection_core::{DynamicBPMDetectionConfig, MidiInputPort, StaticBPMDetectionConfig};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use strum::{Display, IntoStaticStr, VariantNames};
 
@@ -24,8 +24,8 @@ pub enum Action {
     TogglePlayback,
     ToggleMidiClock,
     ShowGUI,
-    DynamicBPMDetectionConfig(DynamicBPMDetectionParameters),
-    StaticBPMDetectionConfig(StaticBPMDetectionParameters),
+    DynamicBPMDetectionConfig(DynamicBPMDetectionConfig),
+    StaticBPMDetectionConfig(StaticBPMDetectionConfig),
     Save,
     ToggleSendTempo,
 }

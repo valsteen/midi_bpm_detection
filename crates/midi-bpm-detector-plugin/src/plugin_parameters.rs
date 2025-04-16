@@ -6,8 +6,10 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::{DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters};
-use gui::GUIConfig;
+use bpm_detection_core::{
+    DefaultDynamicBPMDetectionParameters, DefaultNormalDistributionParameters, DefaultStaticBPMDetectionParameters,
+};
+use gui::DefaultGUIParameters;
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Param, Params},
     prelude::{FloatRange, IntRange, ParamSetter},
@@ -17,10 +19,10 @@ use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
 use sync::ArcAtomicOptional;
 
-use crate::bpm_detector_configuration::Config;
+use crate::bpm_detector_configuration::PluginConfig;
 
 #[derive(Params)]
-pub struct GUIParams {
+pub struct PluginGUIParams {
     #[id = "interpolation_duration"]
     pub interpolation_duration: FloatParam,
     #[id = "interpolation_curve"]
@@ -28,7 +30,7 @@ pub struct GUIParams {
 }
 
 #[derive(Params)]
-pub struct DynamicParams {
+pub struct PluginDynamicParams {
     #[id = "beats_lookback"]
     pub beats_lookback: IntParam,
     #[id = "velocity_current_note_weight"]
@@ -41,8 +43,8 @@ pub struct DynamicParams {
     pub velocity_note_from_onoff: BoolParam,
     #[id = "time_distance_weight"]
     pub time_distance_weight: FloatParam,
-    #[id = "age_onoff"]
-    pub age_onoff: BoolParam,
+    #[id = "time_distance_onoff"]
+    pub time_distance_onoff: BoolParam,
     #[id = "octave_distance_weight"]
     pub octave_distance_weight: FloatParam,
     #[id = "octave_distance_onoff"]
@@ -79,14 +81,14 @@ pub struct NormalDistributionParams {
     pub std_dev: FloatParam,
     #[id = "factor"]
     pub factor: FloatParam,
-    #[id = "imprecision"]
-    pub imprecision: FloatParam,
+    #[id = "cutoff"]
+    pub cutoff: FloatParam,
     #[id = "resolution"]
     pub resolution: FloatParam,
 }
 
 #[derive(Params)]
-pub struct StaticParams {
+pub struct PluginStaticParams {
     #[id = "lower_bound"]
     pub bpm_center: FloatParam,
     #[id = "upper_bound"]
@@ -105,25 +107,24 @@ pub struct MidiBpmDetectorParams {
     pub send_tempo: BoolParam,
 
     #[nested(group = "GUI")]
-    pub gui_params: GUIParams,
+    pub gui_params: PluginGUIParams,
     #[nested(group = "StaticParams")]
-    pub static_params: StaticParams,
+    pub static_params: PluginStaticParams,
     #[nested(group = "DynamicParams")]
-    pub dynamic_params: DynamicParams,
+    pub dynamic_params: PluginDynamicParams,
 
     #[id = "daw_port"]
     pub daw_port: IntParam,
 }
 
-struct UpdaterFactory<'_self, Config> {
+struct UpdaterFactory {
     current_sample: Arc<AtomicUsize>,
     changed_at: ArcAtomicOptional<usize>,
-    config: &'_self Config,
 }
 
-impl<'_self, Config> UpdaterFactory<'_self, Config> {
-    fn new(current_sample: Arc<AtomicUsize>, changed_at: ArcAtomicOptional<usize>, config: &'_self Config) -> Self {
-        Self { current_sample, changed_at, config }
+impl UpdaterFactory {
+    fn new(current_sample: Arc<AtomicUsize>, changed_at: ArcAtomicOptional<usize>) -> Self {
+        Self { current_sample, changed_at }
     }
 
     fn update_changed_at<T>(&self) -> Arc<dyn Fn(T) + Send + Sync>
@@ -137,37 +138,32 @@ impl<'_self, Config> UpdaterFactory<'_self, Config> {
         })
     }
 
-    fn make_on_off_param(&self, parameter: &Parameter<Config, OnOff<f32>>) -> BoolParam {
+    fn make_on_off_param(&self, val: OnOff<f32>, parameter: &Parameter<(), OnOff<f32>>) -> BoolParam {
         let current_sample = self.current_sample.clone();
         let changed_at = self.changed_at.clone();
 
-        BoolParam::new(format!("{} enabled", parameter.label), (parameter.get)(self.config).is_enabled())
+        BoolParam::new(format!("{} enabled", parameter.label), val.is_enabled())
             .with_callback(Arc::new(move |_: bool| {
                 changed_at.store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
             }))
             .hide()
+            .hide_in_generic_ui()
     }
 }
 
 #[allow(clippy::too_many_lines)]
 impl MidiBpmDetectorParams {
     pub fn new(
-        config: &mut Config,
-        static_bpm_detection_parameters_changed_at: &ArcAtomicOptional<usize>,
-        dynamic_bpm_detection_parameters_changed_at: &ArcAtomicOptional<usize>,
+        config: &mut PluginConfig,
+        static_bpm_detection_config_changed_at: &ArcAtomicOptional<usize>,
+        dynamic_bpm_detection_config_changed_at: &ArcAtomicOptional<usize>,
         current_sample: &Arc<AtomicUsize>,
         daw_port: &ArcAtomicOptional<u16>,
     ) -> Self {
-        let static_updater_factory = UpdaterFactory::new(
-            current_sample.clone(),
-            static_bpm_detection_parameters_changed_at.clone(),
-            &config.static_bpm_detection_parameters,
-        );
-        let dynamic_updater_factory = UpdaterFactory::new(
-            current_sample.clone(),
-            dynamic_bpm_detection_parameters_changed_at.clone(),
-            &config.dynamic_bpm_detection_parameters,
-        );
+        let static_updater_factory =
+            UpdaterFactory::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
+        let dynamic_updater_factory =
+            UpdaterFactory::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
         let update_static_changed_at_f32 = static_updater_factory.update_changed_at();
         let update_static_changed_at_u16 = static_updater_factory.update_changed_at();
         let update_dynamic_changed_at_f32 = dynamic_updater_factory.update_changed_at();
@@ -183,83 +179,114 @@ impl MidiBpmDetectorParams {
                     }
                 }),
             ),
-            gui_params: GUIParams {
-                interpolation_duration: GUIConfig::INTERPOLATION_DURATION
-                    .to_param(&config.gui_config, &update_dynamic_changed_at_f32),
-                interpolation_curve: GUIConfig::INTERPOLATION_CURVE
-                    .to_param(&config.gui_config, &update_dynamic_changed_at_f32),
+            gui_params: PluginGUIParams {
+                interpolation_duration: DefaultGUIParameters::INTERPOLATION_DURATION
+                    .to_param(config.gui_config.interpolation_duration, &update_dynamic_changed_at_f32),
+                interpolation_curve: DefaultGUIParameters::INTERPOLATION_CURVE
+                    .to_param(config.gui_config.interpolation_curve, &update_dynamic_changed_at_f32),
             },
-            static_params: StaticParams {
-                bpm_center: StaticBPMDetectionParameters::BPM_CENTER
-                    .to_param(&config.static_bpm_detection_parameters, &update_static_changed_at_f32),
-                bpm_range: StaticBPMDetectionParameters::BPM_RANGE
-                    .to_param(&config.static_bpm_detection_parameters, &update_static_changed_at_u16),
+            static_params: PluginStaticParams {
+                bpm_center: DefaultStaticBPMDetectionParameters::BPM_CENTER
+                    .to_param(config.static_bpm_detection_config.bpm_center, &update_static_changed_at_f32),
+                bpm_range: DefaultStaticBPMDetectionParameters::BPM_RANGE
+                    .to_param(config.static_bpm_detection_config.bpm_range, &update_static_changed_at_u16),
                 sample_rate: u16_range_to_logarithmic_param(
-                    &StaticBPMDetectionParameters::SAMPLE_RATE,
-                    &config.static_bpm_detection_parameters,
+                    &DefaultStaticBPMDetectionParameters::SAMPLE_RATE,
+                    config.static_bpm_detection_config.sample_rate,
                     &update_static_changed_at_f32,
                 ),
                 normal_distribution: NormalDistributionParams {
-                    std_dev: NormalDistributionParameters::STD_DEV.to_param(
-                        &config.static_bpm_detection_parameters.normal_distribution,
+                    std_dev: DefaultNormalDistributionParameters::STD_DEV.to_param(
+                        config.static_bpm_detection_config.normal_distribution.std_dev,
                         &update_static_changed_at_f32,
                     ),
-                    factor: NormalDistributionParameters::FACTOR.to_param(
-                        &config.static_bpm_detection_parameters.normal_distribution,
+                    factor: DefaultNormalDistributionParameters::FACTOR.to_param(
+                        config.static_bpm_detection_config.normal_distribution.factor,
                         &update_static_changed_at_f32,
                     ),
-                    imprecision: NormalDistributionParameters::CUTOFF.to_param(
-                        &config.static_bpm_detection_parameters.normal_distribution,
+                    cutoff: DefaultNormalDistributionParameters::CUTOFF.to_param(
+                        config.static_bpm_detection_config.normal_distribution.cutoff,
                         &update_static_changed_at_f32,
                     ),
-                    resolution: NormalDistributionParameters::RESOLUTION.to_param(
-                        &config.static_bpm_detection_parameters.normal_distribution,
+                    resolution: DefaultNormalDistributionParameters::RESOLUTION.to_param(
+                        config.static_bpm_detection_config.normal_distribution.resolution,
                         &update_static_changed_at_f32,
                     ),
                 },
             },
-            dynamic_params: DynamicParams {
-                beats_lookback: DynamicBPMDetectionParameters::BEATS_LOOKBACK
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_u8),
-                velocity_current_note_weight: DynamicBPMDetectionParameters::CURRENT_VELOCITY
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                velocity_current_note_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::CURRENT_VELOCITY),
-                velocity_note_from_weight: DynamicBPMDetectionParameters::VELOCITY_FROM
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                velocity_note_from_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::VELOCITY_FROM),
-                time_distance_weight: DynamicBPMDetectionParameters::TIME_DISTANCE
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                age_onoff: dynamic_updater_factory.make_on_off_param(&DynamicBPMDetectionParameters::TIME_DISTANCE),
-                octave_distance_weight: DynamicBPMDetectionParameters::OCTAVE_DISTANCE
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                octave_distance_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::OCTAVE_DISTANCE),
-                pitch_distance_weight: DynamicBPMDetectionParameters::PITCH_DISTANCE
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                pitch_distance_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::PITCH_DISTANCE),
-                multiplier_weight: DynamicBPMDetectionParameters::MULTIPLIER_FACTOR
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                multiplier_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::MULTIPLIER_FACTOR),
-                subdivision_weight: DynamicBPMDetectionParameters::SUBDIVISION_FACTOR
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                subdivision_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::SUBDIVISION_FACTOR),
-                in_beat_range_weight: DynamicBPMDetectionParameters::IN_RANGE
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                in_beat_range_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::IN_RANGE),
-                normal_distribution_weight: DynamicBPMDetectionParameters::NORMAL_DISTRIBUTION
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                normal_distribution_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::NORMAL_DISTRIBUTION),
-                high_tempo_bias: DynamicBPMDetectionParameters::HIGH_TEMPO_BIAS
-                    .to_param(&config.dynamic_bpm_detection_parameters, &update_dynamic_changed_at_f32),
-                high_tempo_bias_onoff: dynamic_updater_factory
-                    .make_on_off_param(&DynamicBPMDetectionParameters::HIGH_TEMPO_BIAS),
+            dynamic_params: PluginDynamicParams {
+                beats_lookback: DefaultDynamicBPMDetectionParameters::BEATS_LOOKBACK
+                    .to_param(config.dynamic_bpm_detection_config.beats_lookback, &update_dynamic_changed_at_u8),
+                velocity_current_note_weight: DefaultDynamicBPMDetectionParameters::CURRENT_VELOCITY.to_param(
+                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                velocity_current_note_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
+                    &DefaultDynamicBPMDetectionParameters::CURRENT_VELOCITY,
+                ),
+                velocity_note_from_weight: DefaultDynamicBPMDetectionParameters::VELOCITY_FROM.to_param(
+                    config.dynamic_bpm_detection_config.velocity_note_from_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                velocity_note_from_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
+                    &DefaultDynamicBPMDetectionParameters::VELOCITY_FROM,
+                ),
+                time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE
+                    .to_param(config.dynamic_bpm_detection_config.time_distance_weight, &update_dynamic_changed_at_f32),
+                time_distance_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.time_distance_weight,
+                    &DefaultDynamicBPMDetectionParameters::TIME_DISTANCE,
+                ),
+                octave_distance_weight: DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE.to_param(
+                    config.dynamic_bpm_detection_config.octave_distance_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                octave_distance_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.octave_distance_weight,
+                    &DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE,
+                ),
+                pitch_distance_weight: DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE.to_param(
+                    config.dynamic_bpm_detection_config.pitch_distance_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                pitch_distance_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.pitch_distance_weight,
+                    &DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE,
+                ),
+                multiplier_weight: DefaultDynamicBPMDetectionParameters::MULTIPLIER_FACTOR
+                    .to_param(config.dynamic_bpm_detection_config.multiplier_weight, &update_dynamic_changed_at_f32),
+                multiplier_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.multiplier_weight,
+                    &DefaultDynamicBPMDetectionParameters::MULTIPLIER_FACTOR,
+                ),
+                subdivision_weight: DefaultDynamicBPMDetectionParameters::SUBDIVISION_FACTOR
+                    .to_param(config.dynamic_bpm_detection_config.subdivision_weight, &update_dynamic_changed_at_f32),
+                subdivision_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.subdivision_weight,
+                    &DefaultDynamicBPMDetectionParameters::SUBDIVISION_FACTOR,
+                ),
+                in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_RANGE
+                    .to_param(config.dynamic_bpm_detection_config.in_beat_range_weight, &update_dynamic_changed_at_f32),
+                in_beat_range_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.in_beat_range_weight,
+                    &DefaultDynamicBPMDetectionParameters::IN_RANGE,
+                ),
+                normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION.to_param(
+                    config.dynamic_bpm_detection_config.normal_distribution_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                normal_distribution_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.normal_distribution_weight,
+                    &DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION,
+                ),
+                high_tempo_bias: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS
+                    .to_param(config.dynamic_bpm_detection_config.high_tempo_bias, &update_dynamic_changed_at_f32),
+                high_tempo_bias_onoff: dynamic_updater_factory.make_on_off_param(
+                    config.dynamic_bpm_detection_config.high_tempo_bias,
+                    &DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS,
+                ),
             },
             daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).with_callback(Arc::new({
                 let daw_port = daw_port.clone();
@@ -271,76 +298,72 @@ impl MidiBpmDetectorParams {
     }
 }
 
-pub trait ToParam<T> {
+pub trait ToParam<ValueType> {
     type Param: Param;
     type ParamType;
     type Type;
 
-    fn to_param(&self, config: &T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param;
+    fn to_param(&self, val: ValueType, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param;
 }
 
-pub fn apply_float_param<T, V>(parameter: &Parameter<T, V>, param: &FloatParam, config: &T, setter: &ParamSetter)
+pub fn apply_float_param<V>(param: &FloatParam, value: V, setter: &ParamSetter)
 where
     V: 'static + ToPrimitive + Copy,
 {
     setter.begin_set_parameter(param);
-    setter.set_parameter(param, (parameter.get)(config).to_f32().unwrap());
+    setter.set_parameter(param, value.to_f32().unwrap());
     setter.end_set_parameter(param);
 }
 
-pub fn apply_onoff_param<T, V>(
-    parameter: &Parameter<T, OnOff<V>>,
-    enabled_param: &BoolParam,
+pub fn apply_onoff_param(
     value_param: &FloatParam,
-    config: &T,
-    setter: &ParamSetter,
-) where
-    V: 'static + ToPrimitive + Copy + num_traits::One + num_traits::Zero + std::ops::Mul<Output = V>,
-{
-    setter.begin_set_parameter(value_param);
-    setter.begin_set_parameter(enabled_param);
-    setter.set_parameter(value_param, (parameter.get)(config).value().to_f32().unwrap());
-    setter.set_parameter(enabled_param, (parameter.get)(config).is_enabled());
-    setter.end_set_parameter(enabled_param);
-    setter.end_set_parameter(value_param);
-}
-
-pub fn apply_int_param<T, V>(parameter: &Parameter<T, V>, param: &IntParam, config: &T, setter: &ParamSetter)
-where
-    V: 'static + ToPrimitive + Copy,
-{
-    setter.begin_set_parameter(param);
-    setter.set_parameter(param, (parameter.get)(config).to_i32().unwrap());
-    setter.end_set_parameter(param);
-}
-
-pub fn apply_duration_param<T>(
-    parameter: &Parameter<T, Duration>,
-    param: &FloatParam,
-    config: &T,
+    enabled_param: &BoolParam,
+    previous_value: OnOff<f32>,
+    value: OnOff<f32>,
     setter: &ParamSetter,
 ) {
+    if previous_value.is_enabled() != value.is_enabled() {
+        setter.begin_set_parameter(enabled_param);
+        setter.set_parameter(enabled_param, value.is_enabled());
+        setter.end_set_parameter(enabled_param);
+    }
+    if (previous_value.value() - value.value()).abs() > f32::EPSILON {
+        setter.begin_set_parameter(value_param);
+        setter.set_parameter(value_param, value.value());
+        setter.end_set_parameter(value_param);
+    }
+}
+
+pub fn apply_int_param<V>(param: &IntParam, value: V, setter: &ParamSetter)
+where
+    V: 'static + ToPrimitive + Copy,
+{
     setter.begin_set_parameter(param);
-    setter.set_parameter(param, (parameter.get)(config).as_secs_f32());
+    setter.set_parameter(param, value.to_i32().unwrap());
+    setter.end_set_parameter(param);
+}
+
+pub fn apply_duration_param(param: &FloatParam, value: Duration, setter: &ParamSetter) {
+    setter.begin_set_parameter(param);
+    setter.set_parameter(param, value.as_secs_f32());
     setter.end_set_parameter(param);
 }
 
 macro_rules! impl_to_param_for_float {
     ($float_type:ty) => {
-        impl<T> ToParam<T> for Parameter<T, $float_type> {
+        impl ToParam<$float_type> for Parameter<(), $float_type> {
             type Param = FloatParam;
             type ParamType = f32;
             type Type = $float_type;
 
-            fn to_param(&self, config: &T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
+            fn to_param(&self, val: $float_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
                 let range = if self.logarithmic {
                     FloatRange::Skewed { min: *self.range.start() as f32, max: *self.range.end() as f32, factor: 0.3 }
                 } else {
                     FloatRange::Linear { min: *self.range.start() as f32, max: *self.range.end() as f32 }
                 };
 
-                let mut param =
-                    FloatParam::new(self.label, *(self.get)(config) as f32, range).with_callback(callback.clone());
+                let mut param = FloatParam::new(self.label, val as f32, range).with_callback(callback.clone());
                 if let Some(unit) = self.unit {
                     param = param.with_unit(unit);
                 }
@@ -356,15 +379,15 @@ macro_rules! impl_to_param_for_float {
 
 macro_rules! impl_to_param_for_integer {
     ($int_type:ty) => {
-        impl<T> ToParam<T> for Parameter<T, $int_type> {
+        impl ToParam<$int_type> for Parameter<(), $int_type> {
             type Param = IntParam;
             type ParamType = i32;
             type Type = i32;
 
-            fn to_param(&self, config: &T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
+            fn to_param(&self, val: $int_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
                 let mut param = IntParam::new(
                     self.label,
-                    i32::from(*(self.get)(config)),
+                    i32::from(val),
                     IntRange::Linear { min: *self.range.start() as i32, max: *self.range.end() as i32 },
                 )
                 .with_callback(callback.clone());
@@ -377,11 +400,10 @@ macro_rules! impl_to_param_for_integer {
     };
 }
 
-fn build_float_param<T, V>(
-    param: &Parameter<T, V>,
-    config: &T,
+fn build_float_param<ValueType>(
+    param: &Parameter<(), ValueType>,
+    val: f32,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
-    extract_value: impl Fn(&V) -> f32,
 ) -> FloatParam {
     let range = if param.logarithmic {
         FloatRange::Skewed { min: *param.range.start() as f32, max: *param.range.end() as f32, factor: 0.3 }
@@ -389,8 +411,7 @@ fn build_float_param<T, V>(
         FloatRange::Linear { min: *param.range.start() as f32, max: *param.range.end() as f32 }
     };
 
-    let mut float_param =
-        FloatParam::new(param.label, extract_value((param.get)(config)), range).with_callback(callback.clone());
+    let mut float_param = FloatParam::new(param.label, val, range).with_callback(callback.clone());
 
     if let Some(unit) = param.unit {
         float_param = float_param.with_unit(unit);
@@ -402,23 +423,23 @@ fn build_float_param<T, V>(
     float_param.with_value_to_string(Arc::new(|value| format!("{value:.2}")))
 }
 
-impl<T> ToParam<T> for Parameter<T, Duration> {
+impl ToParam<Duration> for Parameter<(), Duration> {
     type Param = FloatParam;
     type ParamType = f32;
     type Type = f32;
 
-    fn to_param(&self, config: &T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
-        build_float_param(self, config, callback, Duration::as_secs_f32)
+    fn to_param(&self, val: Duration, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
+        build_float_param(self, val.as_secs_f32(), callback)
     }
 }
 
-impl<T> ToParam<T> for Parameter<T, OnOff<f32>> {
+impl ToParam<OnOff<f32>> for Parameter<(), OnOff<f32>> {
     type Param = FloatParam;
     type ParamType = f32;
     type Type = f32;
 
-    fn to_param(&self, config: &T, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
-        build_float_param(self, config, callback, OnOff::value)
+    fn to_param(&self, val: OnOff<f32>, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
+        build_float_param(self, val.value(), callback)
     }
 }
 
@@ -428,14 +449,14 @@ impl_to_param_for_float!(f64);
 impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
 
-pub fn u16_range_to_logarithmic_param<T>(
-    parameter: &Parameter<T, u16>,
-    config: &T,
+pub fn u16_range_to_logarithmic_param(
+    parameter: &Parameter<(), u16>,
+    val: u16,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> FloatParam {
     let mut param = FloatParam::new(
         parameter.label,
-        f32::from(*(parameter.get)(config)),
+        f32::from(val),
         FloatRange::Skewed { min: *parameter.range.start() as f32, max: *parameter.range.end() as f32, factor: 0.3 },
     )
     .with_callback(callback.clone());

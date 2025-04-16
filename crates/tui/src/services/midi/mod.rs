@@ -4,7 +4,7 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use bpm_detection_core::{
-    DynamicBPMDetectionParameters, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionParameters, SysExCommand,
+    DynamicBPMDetectionConfig, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionConfig, SysExCommand,
     TimedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_in::MidiIn, restart,
 };
 use errors::{Report, Result};
@@ -24,8 +24,8 @@ where
     B: BPMDetectionReceiver,
 {
     midi_service_config: MidiServiceConfig,
-    bpm_detection_parameters: StaticBPMDetectionParameters,
-    dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+    bpm_detection_config: StaticBPMDetectionConfig,
+    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     event_tx: UnboundedSender<Event>,
     playing: bool,
     midi_service: ArcRwLock<bpm_detection_core::MidiService<B>>,
@@ -46,8 +46,8 @@ where
 
     pub async fn box_new(
         midi_service_config: &MidiServiceConfig,
-        bpm_detection_parameters: StaticBPMDetectionParameters,
-        dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+        bpm_detection_config: StaticBPMDetectionConfig,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         event_tx: UnboundedSender<Event>,
         bpm_detection_receiver: B,
     ) -> Result<Box<dyn Service>> {
@@ -62,13 +62,13 @@ where
 
         let midi_service = tokio::task::spawn_blocking({
             let midi_config = midi_service_config.clone();
-            let bpm_detection_parameters = bpm_detection_parameters.clone();
-            let dynamic_bpm_detection_parameters = dynamic_bpm_detection_parameters.clone();
+            let bpm_detection_config = bpm_detection_config.clone();
+            let dynamic_bpm_detection_config = dynamic_bpm_detection_config.clone();
             move || {
                 bpm_detection_core::MidiService::new(
                     midi_config,
-                    bpm_detection_parameters,
-                    dynamic_bpm_detection_parameters,
+                    bpm_detection_config,
+                    dynamic_bpm_detection_config,
                     send_devices_change_notification,
                     bpm_detection_receiver,
                 )
@@ -79,8 +79,8 @@ where
         event_tx.send(Event::DeviceChangeDetected)?;
         Ok(Box::new(Self {
             midi_service_config: midi_service_config.clone(),
-            bpm_detection_parameters,
-            dynamic_bpm_detection_parameters,
+            bpm_detection_config,
+            dynamic_bpm_detection_config,
             midi_service: Arc::new(RwLock::new(midi_service)),
             event_tx,
             playing: false,
@@ -94,19 +94,19 @@ where
 {
     fn handle_action(&mut self, action: &Action) -> Result<Option<Action>> {
         match action {
-            Action::DynamicBPMDetectionConfig(bpm_detection_parameters_live) => {
-                let bpm_detection_parameters_live = bpm_detection_parameters_live.clone();
-                self.dynamic_bpm_detection_parameters = bpm_detection_parameters_live.clone();
+            Action::DynamicBPMDetectionConfig(bpm_detection_config_live) => {
+                let bpm_detection_config_live = bpm_detection_config_live.clone();
+                self.dynamic_bpm_detection_config = bpm_detection_config_live.clone();
                 self.midi_service.read().execute(move |midi_in, _| {
-                    Ok(midi_in.change_bpm_detection_parameters_live(bpm_detection_parameters_live)?)
+                    Ok(midi_in.change_bpm_detection_config_live(bpm_detection_config_live)?)
                 })?;
             }
-            Action::StaticBPMDetectionConfig(bpm_detection_parameters) => {
-                let bpm_detection_parameters = bpm_detection_parameters.clone();
-                self.bpm_detection_parameters = bpm_detection_parameters.clone();
-                self.midi_service.read().execute(move |midi_in, _| {
-                    Ok(midi_in.change_bpm_detection_parameters(bpm_detection_parameters)?)
-                })?;
+            Action::StaticBPMDetectionConfig(bpm_detection_config) => {
+                let bpm_detection_config = bpm_detection_config.clone();
+                self.bpm_detection_config = bpm_detection_config.clone();
+                self.midi_service
+                    .read()
+                    .execute(move |midi_in, _| Ok(midi_in.change_bpm_detection_config(bpm_detection_config)?))?;
             }
             Action::MIDIRestart => {
                 if let Err(e) = restart() {

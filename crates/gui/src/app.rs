@@ -16,15 +16,14 @@ use log::error;
 use num_traits::identities::Zero;
 use sync::Mutex;
 
-use crate::{BPMDetectionParameters, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
+use crate::{BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
 
-pub struct BPMDetectionGUI<P: BPMDetectionParameters + 'static> {
+pub struct BPMDetectionGUI {
     // keys_sender, gui_exit_callback and buffer_redraw belong to the GUI Remote,
     // that ultimately is held by the main app, which can drop it to let know the GUI app that we are exiting
     pub(crate) keys_sender: Weak<Mutex<Option<Box<dyn FnMut(&'static str) + Send>>>>,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) on_gui_exit_callback: Weak<Mutex<Option<Box<dyn Fn() + Send>>>>,
-    pub live_parameters: P,
     pub(crate) histogram_data_points: Weak<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) interpolated_data_points: Vec<f32>,
     pub(crate) estimated_bpm: Weak<AtomicF32>,
@@ -34,9 +33,13 @@ pub struct BPMDetectionGUI<P: BPMDetectionParameters + 'static> {
 
 #[allow(forbidden_lint_groups)]
 #[allow(clippy::too_many_arguments)]
-impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
+impl BPMDetectionGUI {
     #[minitrace::trace]
-    fn attach_barchart(&mut self, plot_ui: &mut PlotUi) -> Option<bool> {
+    fn attach_barchart<Config: BPMDetectionConfig>(
+        &mut self,
+        config: &mut Config,
+        plot_ui: &mut PlotUi,
+    ) -> Option<bool> {
         let histogram_data_points = self
             .histogram_data_points
             .upgrade()
@@ -61,10 +64,9 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
         }
 
         let elapsed = histogram_data_points.inbound_histogram_data_update.elapsed();
-        let interpolation_duration = self.live_parameters.get_gui_config().interpolation_duration;
+        let interpolation_duration = config.interpolation_duration();
         let interpolation_ratio = (elapsed.as_micros() as f32 / interpolation_duration.as_micros() as f32).min(1.0);
-        let interpolation_ratio =
-            interpolation_ratio.powf(1.0 / self.live_parameters.get_gui_config().interpolation_curve);
+        let interpolation_ratio = interpolation_ratio.powf(1.0 / config.interpolation_curve());
 
         for (y, interpolated_y) in
             histogram_data_points.inbound_histogram_data_points.iter().zip(self.interpolated_data_points.iter_mut())
@@ -75,18 +77,17 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
         // so max is always 1 after interpolation, otherwise the y axis will be jumpy
         let max_interpolated_y = self.interpolated_data_points.iter().max_by(|x, y| x.total_cmp(y))?;
 
-        let live_parameters = self.live_parameters.get_static_bpm_detection_parameters();
-        let min_x = live_parameters.index_to_bpm(0);
-        let max_x = live_parameters.index_to_bpm(histogram_data_points.inbound_histogram_data_points.len());
+        let min_x = config.index_to_bpm(0);
+        let max_x = config.index_to_bpm(histogram_data_points.inbound_histogram_data_points.len());
 
         drop(histogram_data_points);
 
-        let mut prev = f64::from(self.live_parameters.get_static_bpm_detection_parameters().index_to_bpm(1));
+        let mut prev = f64::from(config.index_to_bpm(1));
 
         plot_ui.bar_chart(BarChart::new(
             (self.interpolated_data_points.iter().enumerate().map(|(x, y)| {
                 let y = f64::from(*y / max_interpolated_y);
-                let x = f64::from(self.live_parameters.get_static_bpm_detection_parameters().index_to_bpm(x));
+                let x = f64::from(config.index_to_bpm(x));
 
                 let width = ((x - prev) * 1.5).abs();
                 prev = x;
@@ -97,22 +98,10 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
             }))
             .chain(
                 [
-                    Bar::new(
-                        parameter::Asf64::as_f64(
-                            &self.live_parameters.get_static_bpm_detection_parameters().lowest_bpm(),
-                        ),
-                        0.0,
-                    )
-                    .width(0.0)
-                    .fill(Color32::TRANSPARENT),
-                    Bar::new(
-                        parameter::Asf64::as_f64(
-                            &self.live_parameters.get_static_bpm_detection_parameters().highest_bpm(),
-                        ),
-                        0.0,
-                    )
-                    .width(0.0)
-                    .fill(Color32::TRANSPARENT),
+                    Bar::new(parameter::Asf64::as_f64(&config.lowest_bpm()), 0.0).width(0.0).fill(Color32::TRANSPARENT),
+                    Bar::new(parameter::Asf64::as_f64(&config.highest_bpm()), 0.0)
+                        .width(0.0)
+                        .fill(Color32::TRANSPARENT),
                 ]
                 .into_iter(),
             )
@@ -122,20 +111,24 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
     }
 
     #[minitrace::trace]
-    fn draw_histogram(&mut self, ui: &mut Ui) -> PlotResponse<bool> {
+    fn draw_histogram<Config: BPMDetectionConfig>(&mut self, ui: &mut Ui, config: &mut Config) -> PlotResponse<bool> {
         egui_plot::Plot::new("BPMs")
             .allow_zoom(true)
             .allow_drag(true)
             .allow_scroll(true)
             .legend(Legend::default())
-            .show(ui, |plot_ui| self.attach_barchart(plot_ui).unwrap_or_default())
+            .show(ui, |plot_ui| self.attach_barchart(config, plot_ui).unwrap_or_default())
     }
 }
 
 pub struct UpdateError;
 
-impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
-    pub fn update(&mut self, ctx: &Context) -> Result<(), UpdateError> {
+impl BPMDetectionGUI {
+    pub fn update<Config: BPMDetectionConfig>(
+        &mut self,
+        ctx: &Context,
+        config: &mut Config,
+    ) -> Result<(), UpdateError> {
         let (Some(estimated_bpm), Some(daw_bpm), Some(should_save)) =
             (self.estimated_bpm.upgrade(), self.daw_bpm.upgrade(), self.should_save.upgrade())
         else {
@@ -144,7 +137,7 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
         };
 
         if should_save.swap(false, Ordering::Relaxed) {
-            self.live_parameters.save();
+            config.save();
         }
 
         let Some(sender) = self.keys_sender.upgrade().log_info_msg("key sender weak ref is gone") else {
@@ -166,9 +159,9 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
                 ui.horizontal_top(|ui| {
                     ui.vertical(|ui| {
                         ui.add_space(10.0);
-                        Self::legend(&estimated_bpm, &daw_bpm, ui);
+                        Self::legend(ui, &estimated_bpm, &daw_bpm);
                         ui.add_space(20.0);
-                        self.settings_panel(ui);
+                        Self::settings_panel(ui, config);
 
                         let available_size = ui.available_size();
                         ui.add_space(available_size.y - ui.spacing().interact_size.y);
@@ -178,7 +171,7 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
                             ui.label(BUILD_PROFILE);
                         });
                     });
-                    self.draw_histogram(ui).inner
+                    self.draw_histogram(ui, config).inner
                 })
                 .inner
             })
@@ -190,15 +183,20 @@ impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
     }
 }
 
-impl<P: BPMDetectionParameters> eframe::App for BPMDetectionGUI<P> {
+pub struct BPMDetectionApp<Config> {
+    pub base_config: Config,
+    pub bpm_detection_gui: BPMDetectionGUI,
+}
+
+impl<Config: BPMDetectionConfig> eframe::App for BPMDetectionApp<Config> {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        self.update(ctx).ok();
+        self.bpm_detection_gui.update(ctx, &mut self.base_config).ok();
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     fn on_exit(&mut self) {
         let Some(on_gui_exit_callback) =
-            self.on_gui_exit_callback.upgrade().log_error_msg("gui exit callback weakref is gone")
+            self.bpm_detection_gui.on_gui_exit_callback.upgrade().log_error_msg("gui exit callback weakref is gone")
         else {
             return;
         };
@@ -211,8 +209,8 @@ impl<P: BPMDetectionParameters> eframe::App for BPMDetectionGUI<P> {
     }
 }
 
-impl<P: BPMDetectionParameters> BPMDetectionGUI<P> {
-    fn legend(estimated_bpm: &AtomicF32, daw_bpm: &AtomicF32, ui: &mut Ui) {
+impl BPMDetectionGUI {
+    fn legend(ui: &mut Ui, estimated_bpm: &AtomicF32, daw_bpm: &AtomicF32) {
         let to_text = |bpm: &AtomicF32| {
             let bpm = bpm.load(Ordering::Relaxed);
             if bpm.is_nan() { format!("{:>6.2}", "-") } else { format!("{bpm:>6.2}") }

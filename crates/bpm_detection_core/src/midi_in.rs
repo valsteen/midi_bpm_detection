@@ -21,9 +21,9 @@ use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    DynamicBPMDetectionParameters, MidiServiceConfig, StaticBPMDetectionParameters, StaticMidiMessage,
-    TimedTypedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort,
-    sysex::SysExCommand, worker, worker_event::WorkerEvent,
+    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, StaticMidiMessage, TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort, sysex::SysExCommand, worker,
+    worker_event::WorkerEvent,
 };
 
 pub struct MidiIn<B: BPMDetectionReceiver> {
@@ -42,8 +42,8 @@ where
     #[allow(clippy::needless_pass_by_value)]
     fn new(
         midi_service_config: MidiServiceConfig,
-        bpm_detection_parameters: StaticBPMDetectionParameters,
-        dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+        bpm_detection_config: StaticBPMDetectionConfig,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_device_changes_notification: impl Fn() + Send + 'static,
         bpm_detection_receiver: B,
     ) -> Result<Self> {
@@ -53,8 +53,8 @@ where
 
         worker::spawn(
             &midi_service_config,
-            bpm_detection_parameters,
-            dynamic_bpm_detection_parameters,
+            bpm_detection_config,
+            dynamic_bpm_detection_config,
             worker_receiver,
             VirtualMidiOutput::new(midi_service_config.device_name.as_str())?,
             bpm_detection_receiver.clone(),
@@ -162,18 +162,18 @@ where
         self.worker_sender.send(WorkerEvent::Stop)
     }
 
-    pub fn change_bpm_detection_parameters_live(
+    pub fn change_bpm_detection_config_live(
         &self,
-        dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     ) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::DynamicBPMDetectionParameters(dynamic_bpm_detection_parameters))
+        self.worker_sender.send(WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config))
     }
 
-    pub fn change_bpm_detection_parameters(
+    pub fn change_bpm_detection_config(
         &self,
-        bpm_detection_parameters: StaticBPMDetectionParameters,
+        bpm_detection_config: StaticBPMDetectionConfig,
     ) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::StaticBPMDetectionParameters(bpm_detection_parameters))
+        self.worker_sender.send(WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config))
     }
 }
 
@@ -188,8 +188,8 @@ where
 {
     fn start_service(
         midi_service_config: MidiServiceConfig,
-        bpm_detection_parameters: StaticBPMDetectionParameters,
-        dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+        bpm_detection_config: StaticBPMDetectionConfig,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_devices_change_notification: impl Fn() + Send + 'static,
         bpm_detection_receiver: B,
     ) -> Result<
@@ -208,8 +208,8 @@ where
             let mut midi_input_connection = None; // just a value holder. Dropping it means we stop listening
             let midi_in = match MidiIn::new(
                 midi_service_config,
-                bpm_detection_parameters,
-                dynamic_bpm_detection_parameters,
+                bpm_detection_config,
+                dynamic_bpm_detection_config,
                 #[cfg(target_os = "macos")]
                 send_devices_change_notification,
                 bpm_detection_receiver,
@@ -235,16 +235,16 @@ where
 
     pub fn new(
         midi_service_config: MidiServiceConfig,
-        bpm_detection_parameters: StaticBPMDetectionParameters,
-        dynamic_bpm_detection_parameters: DynamicBPMDetectionParameters,
+        bpm_detection_config: StaticBPMDetectionConfig,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_devices_change_notification: impl Fn() + Send + 'static,
         bpm_detection_receiver: B,
     ) -> Result<Self> {
         Ok(Self {
             commands_sender: Self::start_service(
                 midi_service_config,
-                bpm_detection_parameters,
-                dynamic_bpm_detection_parameters,
+                bpm_detection_config,
+                dynamic_bpm_detection_config,
                 #[cfg(target_os = "macos")]
                 send_devices_change_notification,
                 bpm_detection_receiver,

@@ -28,7 +28,7 @@ use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Sp
 use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
 
 use crate::{
-    bpm_detector_configuration::Config,
+    bpm_detector_configuration::PluginConfig,
     gui::GuiEditor,
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
@@ -44,8 +44,8 @@ pub struct MidiBpmDetector {
     events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
     task_executor: Option<task_executor::TaskExecutor>,
     gui_editor: Option<GuiEditor>,
-    static_bpm_detection_parameters_changed_at: ArcAtomicOptional<usize>,
-    dynamic_bpm_detection_parameters_changed_at: ArcAtomicOptional<usize>,
+    static_bpm_detection_config_changed_at: ArcAtomicOptional<usize>,
+    dynamic_bpm_detection_config_changed_at: ArcAtomicOptional<usize>,
 }
 
 impl Default for MidiBpmDetector {
@@ -58,17 +58,17 @@ impl Default for MidiBpmDetector {
         let gui_remote = None;
         let daw_port = ArcAtomicOptional::<u16>::new(None);
 
-        let mut config = Config::default();
-        let bpm_detection = BPMDetection::new(config.static_bpm_detection_parameters.clone());
+        let mut config = PluginConfig::default();
+        let bpm_detection = BPMDetection::new(config.static_bpm_detection_config.clone());
 
         // set a dummy value so GUI params are updated from saved daw parameters at startup
-        let static_bpm_detection_parameters_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
-        let dynamic_bpm_detection_parameters_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
+        let static_bpm_detection_config_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
+        let dynamic_bpm_detection_config_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
 
         let params = Arc::new(MidiBpmDetectorParams::new(
             &mut config,
-            &static_bpm_detection_parameters_changed_at,
-            &dynamic_bpm_detection_parameters_changed_at,
+            &static_bpm_detection_config_changed_at,
+            &dynamic_bpm_detection_config_changed_at,
             &current_sample,
             &daw_port,
         ));
@@ -78,7 +78,7 @@ impl Default for MidiBpmDetector {
 
         let task_executor = task_executor::TaskExecutor {
             bpm_detection,
-            dynamic_bpm_detection_parameters: config.dynamic_bpm_detection_parameters,
+            dynamic_bpm_detection_config: config.dynamic_bpm_detection_config,
             gui_remote,
             params: params.clone(),
             gui_remote_receiver: gui_remote_receiver.clone(),
@@ -94,7 +94,7 @@ impl Default for MidiBpmDetector {
 
         let gui_editor = GuiEditor {
             editor_state: params.editor_state.clone(),
-            bpm_detection_gui: None,
+            bpm_detection_app: None,
             gui_remote_receiver: gui_remote_receiver.clone(),
             force_evaluate_bpm_detection: force_evaluate_bpm_detection.clone(),
             config: shared_config,
@@ -110,8 +110,8 @@ impl Default for MidiBpmDetector {
             events_sender,
             task_executor: Some(task_executor),
             gui_editor: Some(gui_editor),
-            static_bpm_detection_parameters_changed_at,
-            dynamic_bpm_detection_parameters_changed_at,
+            static_bpm_detection_config_changed_at,
+            dynamic_bpm_detection_config_changed_at,
         }
     }
 }
@@ -190,28 +190,28 @@ impl Plugin for MidiBpmDetector {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if let Some(static_bpm_detection_parameters_changed_at) =
-            self.static_bpm_detection_parameters_changed_at.load(Ordering::Relaxed)
+        if let Some(static_bpm_detection_config_changed_at) =
+            self.static_bpm_detection_config_changed_at.load(Ordering::Relaxed)
         {
             let duration_since_change = sample_to_duration(
                 self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed).saturating_sub(static_bpm_detection_parameters_changed_at),
+                self.current_sample.load(Ordering::Relaxed).saturating_sub(static_bpm_detection_config_changed_at),
             );
             if duration_since_change > Duration::milliseconds(50) {
-                context.execute_background(Task::StaticBPMDetectionParameters(UpdateOrigin::Daw));
-                self.static_bpm_detection_parameters_changed_at.store(None, Ordering::Relaxed);
+                context.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Daw));
+                self.static_bpm_detection_config_changed_at.store(None, Ordering::Relaxed);
             }
         }
-        if let Some(dynamic_bpm_detection_parameters_changed_at) =
-            self.dynamic_bpm_detection_parameters_changed_at.load(Ordering::Relaxed)
+        if let Some(dynamic_bpm_detection_config_changed_at) =
+            self.dynamic_bpm_detection_config_changed_at.load(Ordering::Relaxed)
         {
             let duration_since_change = sample_to_duration(
                 self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed).saturating_sub(dynamic_bpm_detection_parameters_changed_at),
+                self.current_sample.load(Ordering::Relaxed).saturating_sub(dynamic_bpm_detection_config_changed_at),
             );
             if duration_since_change > Duration::milliseconds(50) {
-                context.execute_background(Task::DynamicBPMDetectionParameters(UpdateOrigin::Daw));
-                self.dynamic_bpm_detection_parameters_changed_at.store(None, Ordering::Relaxed);
+                context.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw));
+                self.dynamic_bpm_detection_config_changed_at.store(None, Ordering::Relaxed);
             }
         }
         self.receive_notes(context);
@@ -298,7 +298,7 @@ impl ClapPlugin for MidiBpmDetector {
             section.add_page("Normal distribution", |page| {
                 page.add_param(&self.params.static_params.normal_distribution.resolution);
                 page.add_param(&self.params.static_params.normal_distribution.factor);
-                page.add_param(&self.params.static_params.normal_distribution.imprecision);
+                page.add_param(&self.params.static_params.normal_distribution.cutoff);
                 page.add_param(&self.params.static_params.normal_distribution.std_dev);
             });
         });
