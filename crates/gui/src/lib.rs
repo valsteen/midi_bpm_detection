@@ -91,8 +91,6 @@ pub fn start_gui<Config: BPMDetectionConfig>(app_builder: AppBuilder<Config>) ->
         options,
         Box::new({
             move |cc| {
-                // This gives us image support:
-                egui_extras::install_image_loaders(&cc.egui_ctx);
                 let bpm_detection_app = app_builder.build(cc.egui_ctx.clone());
                 Ok(Box::new(bpm_detection_app))
             }

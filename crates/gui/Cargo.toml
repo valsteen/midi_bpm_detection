@@ -10,7 +10,6 @@ sync = { path = "../sync" }
 parameter = { path = "../parameter" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 
-egui_extras = { version = "0.31.1", features = ["all_loaders"] }
 egui_plot = { version = "0.31.0" }
 
 serde = { version = "1.0.195", features = ["derive"] }
