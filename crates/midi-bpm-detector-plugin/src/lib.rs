@@ -244,7 +244,7 @@ impl MidiBpmDetector {
             let Ok(midi_message) = wmidi::MidiMessage::from_bytes(&bytes) else {
                 continue;
             };
-            let Ok(midi_note_on) = MidiNoteOn::try_from(midi_message.to_owned()) else {
+            let Ok(midi_note_on) = MidiNoteOn::try_from(midi_message) else {
                 continue;
             };
 

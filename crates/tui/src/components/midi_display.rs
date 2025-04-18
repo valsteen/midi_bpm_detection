@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use bpm_detection_core::StaticMidiMessage;
+use bpm_detection_core::MidiMessage;
 use derivative::Derivative;
 use errors::{MakeReportExt, Result};
 use ratatui::{
@@ -52,13 +52,13 @@ impl Component for MidiDisplay {
 impl EventHandler for MidiDisplay {
     fn handle_event(&mut self, event: &Event) -> Result<Option<Action>> {
         if let Event::Midi(midi_message) = event {
-            if midi_message.midi_message == StaticMidiMessage::ActiveSensing
-                || midi_message.midi_message == StaticMidiMessage::TimingClock
+            if midi_message.midi_message == MidiMessage::ActiveSensing
+                || midi_message.midi_message == MidiMessage::TimingClock
             {
                 return Ok(None);
             }
 
-            let text = if let StaticMidiMessage::OwnedSysEx(value) = &midi_message.midi_message {
+            let text = if let MidiMessage::OwnedSysEx(value) = &midi_message.midi_message {
                 let bytes = value.iter().map(|u7| u8::from(*u7)).collect();
                 let sysex_string = String::from_utf8(bytes).or(Err(()));
                 let Ok(text) = sysex_string.report_msg("invalid sysex received") else {

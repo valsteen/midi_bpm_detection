@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 
 use chrono::Duration;
 pub use wmidi;
+use wmidi::MidiMessage;
 
 use crate::StaticMidiMessage;
 
@@ -9,6 +10,14 @@ use crate::StaticMidiMessage;
 pub struct TimedTypedMidiMessage<T> {
     pub timestamp: Duration,
     pub midi_message: T,
+}
+
+impl TimedTypedMidiMessage<MidiMessage<'_>> {
+    #[must_use]
+    pub fn to_owned(self) -> TimedTypedMidiMessage<StaticMidiMessage> {
+        let Self { timestamp, midi_message } = self;
+        TimedTypedMidiMessage { timestamp, midi_message: midi_message.to_owned() }
+    }
 }
 
 pub type TimedMidiMessage = TimedTypedMidiMessage<StaticMidiMessage>;
@@ -20,19 +29,19 @@ pub struct MidiNoteOn {
     pub velocity: u8,
 }
 
-impl TryFrom<TimedTypedMidiMessage<StaticMidiMessage>> for TimedMidiNoteOn {
+impl TryFrom<TimedTypedMidiMessage<MidiMessage<'_>>> for TimedMidiNoteOn {
     type Error = ();
 
-    fn try_from(value: TimedTypedMidiMessage<StaticMidiMessage>) -> Result<Self, Self::Error> {
+    fn try_from(value: TimedTypedMidiMessage<MidiMessage<'_>>) -> Result<Self, Self::Error> {
         Ok(Self { timestamp: value.timestamp, midi_message: value.midi_message.try_into()? })
     }
 }
 
-impl TryFrom<StaticMidiMessage> for MidiNoteOn {
+impl TryFrom<MidiMessage<'_>> for MidiNoteOn {
     type Error = ();
 
-    fn try_from(value: StaticMidiMessage) -> Result<Self, Self::Error> {
-        if let StaticMidiMessage::NoteOn(channel, note, velocity) = value {
+    fn try_from(value: MidiMessage) -> Result<Self, Self::Error> {
+        if let MidiMessage::NoteOn(channel, note, velocity) = value {
             return Ok(Self { channel: channel.index(), note: note as u8, velocity: u8::from(velocity) });
         }
         Err(())

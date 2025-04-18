@@ -15,13 +15,14 @@ use log::error;
 #[cfg(unix)]
 use midir::os::unix::VirtualInput;
 use midir::{MidiInput, MidiInputConnection};
+use wmidi::MidiMessage;
 
 #[cfg(not(unix))]
 use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, StaticMidiMessage, TimedTypedMidiMessage,
+    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, TimedTypedMidiMessage,
     bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort, sysex::SysExCommand, worker,
     worker_event::WorkerEvent,
 };
@@ -93,7 +94,7 @@ where
         Ok(devices)
     }
 
-    pub fn listen<T: Fn(TimedTypedMidiMessage<StaticMidiMessage>) + Send + Sync + 'static>(
+    pub fn listen<T: Fn(TimedTypedMidiMessage<MidiMessage>) + Send + Sync + 'static>(
         &self,
         midi_input_port: &MidiInputPort,
         callback: T,
@@ -117,8 +118,6 @@ where
                 let Ok(midi_message) = wmidi::MidiMessage::try_from(data) else {
                     return;
                 };
-
-                let midi_message = midi_message.to_owned();
 
                 if let Ok(SysExCommand::Tempo(bpm)) = SysExCommand::try_from(&midi_message) {
                     bpm_detection_receiver.receive_daw_bpm(bpm);
