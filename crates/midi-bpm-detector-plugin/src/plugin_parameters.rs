@@ -1,7 +1,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -35,44 +35,44 @@ pub struct PluginDynamicParams {
     pub beats_lookback: IntParam,
     #[id = "velocity_current_note_weight"]
     pub velocity_current_note_weight: FloatParam,
-    #[id = "velocity_current_note_onoff"]
-    pub velocity_current_note_onoff: BoolParam,
+    #[persist = "velocity_current_note_onoff"]
+    pub velocity_current_note_onoff: AtomicBool,
     #[id = "velocity_note_from_weight"]
     pub velocity_note_from_weight: FloatParam,
-    #[id = "velocity_note_from_onoff"]
-    pub velocity_note_from_onoff: BoolParam,
+    #[persist = "velocity_note_from_onoff"]
+    pub velocity_note_from_onoff: AtomicBool,
     #[id = "time_distance_weight"]
     pub time_distance_weight: FloatParam,
-    #[id = "time_distance_onoff"]
-    pub time_distance_onoff: BoolParam,
+    #[persist = "time_distance_onoff"]
+    pub time_distance_onoff: AtomicBool,
     #[id = "octave_distance_weight"]
     pub octave_distance_weight: FloatParam,
-    #[id = "octave_distance_onoff"]
-    pub octave_distance_onoff: BoolParam,
+    #[persist = "octave_distance_onoff"]
+    pub octave_distance_onoff: AtomicBool,
     #[id = "pitch_distance_weight"]
     pub pitch_distance_weight: FloatParam,
-    #[id = "pitch_distance_onoff"]
-    pub pitch_distance_onoff: BoolParam,
+    #[persist = "pitch_distance_onoff"]
+    pub pitch_distance_onoff: AtomicBool,
     #[id = "multiplier_weight"]
     pub multiplier_weight: FloatParam,
-    #[id = "multiplier_onoff"]
-    pub multiplier_onoff: BoolParam,
+    #[persist = "multiplier_onoff"]
+    pub multiplier_onoff: AtomicBool,
     #[id = "subdivision_weight"]
     pub subdivision_weight: FloatParam,
-    #[id = "subdivision_onoff"]
-    pub subdivision_onoff: BoolParam,
+    #[persist = "subdivision_onoff"]
+    pub subdivision_onoff: AtomicBool,
     #[id = "in_beat_range_weight"]
     pub in_beat_range_weight: FloatParam,
-    #[id = "in_beat_range_onoff"]
-    pub in_beat_range_onoff: BoolParam,
+    #[persist = "in_beat_range_onoff"]
+    pub in_beat_range_onoff: AtomicBool,
     #[id = "normal_distribution_weight"]
     pub normal_distribution_weight: FloatParam,
-    #[id = "normal_distribution_onoff"]
-    pub normal_distribution_onoff: BoolParam,
+    #[persist = "normal_distribution_onoff"]
+    pub normal_distribution_onoff: AtomicBool,
     #[id = "high_tempo_bias"]
     pub high_tempo_bias: FloatParam,
-    #[id = "high_tempo_bias_onoff"]
-    pub high_tempo_bias_onoff: BoolParam,
+    #[persist = "high_tempo_bias_onoff"]
+    pub high_tempo_bias_onoff: AtomicBool,
 }
 
 #[derive(Params)]
@@ -136,18 +136,6 @@ impl UpdaterFactory {
         Arc::new(move |_: T| {
             changed_at.store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
         })
-    }
-
-    fn make_on_off_param(&self, val: OnOff<f32>, parameter: &Parameter<(), OnOff<f32>>) -> BoolParam {
-        let current_sample = self.current_sample.clone();
-        let changed_at = self.changed_at.clone();
-
-        BoolParam::new(format!("{} enabled", parameter.label), val.is_enabled())
-            .with_callback(Arc::new(move |_: bool| {
-                changed_at.store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
-            }))
-            .hide()
-            .hide_in_generic_ui()
     }
 }
 
@@ -221,72 +209,54 @@ impl MidiBpmDetectorParams {
                     config.dynamic_bpm_detection_config.velocity_current_note_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                velocity_current_note_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
-                    &DefaultDynamicBPMDetectionParameters::CURRENT_VELOCITY,
-                ),
+                velocity_current_note_onoff: config
+                    .dynamic_bpm_detection_config
+                    .velocity_current_note_weight
+                    .is_enabled()
+                    .into(),
                 velocity_note_from_weight: DefaultDynamicBPMDetectionParameters::VELOCITY_FROM.to_param(
                     config.dynamic_bpm_detection_config.velocity_note_from_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                velocity_note_from_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
-                    &DefaultDynamicBPMDetectionParameters::VELOCITY_FROM,
-                ),
+                velocity_note_from_onoff: config
+                    .dynamic_bpm_detection_config
+                    .velocity_current_note_weight
+                    .is_enabled()
+                    .into(),
                 time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE
                     .to_param(config.dynamic_bpm_detection_config.time_distance_weight, &update_dynamic_changed_at_f32),
-                time_distance_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.time_distance_weight,
-                    &DefaultDynamicBPMDetectionParameters::TIME_DISTANCE,
-                ),
+                time_distance_onoff: config.dynamic_bpm_detection_config.time_distance_weight.is_enabled().into(),
                 octave_distance_weight: DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE.to_param(
                     config.dynamic_bpm_detection_config.octave_distance_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                octave_distance_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.octave_distance_weight,
-                    &DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE,
-                ),
+                octave_distance_onoff: config.dynamic_bpm_detection_config.octave_distance_weight.is_enabled().into(),
                 pitch_distance_weight: DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE.to_param(
                     config.dynamic_bpm_detection_config.pitch_distance_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                pitch_distance_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.pitch_distance_weight,
-                    &DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE,
-                ),
+                pitch_distance_onoff: config.dynamic_bpm_detection_config.pitch_distance_weight.is_enabled().into(),
                 multiplier_weight: DefaultDynamicBPMDetectionParameters::MULTIPLIER_FACTOR
                     .to_param(config.dynamic_bpm_detection_config.multiplier_weight, &update_dynamic_changed_at_f32),
-                multiplier_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.multiplier_weight,
-                    &DefaultDynamicBPMDetectionParameters::MULTIPLIER_FACTOR,
-                ),
+                multiplier_onoff: config.dynamic_bpm_detection_config.multiplier_weight.is_enabled().into(),
                 subdivision_weight: DefaultDynamicBPMDetectionParameters::SUBDIVISION_FACTOR
                     .to_param(config.dynamic_bpm_detection_config.subdivision_weight, &update_dynamic_changed_at_f32),
-                subdivision_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.subdivision_weight,
-                    &DefaultDynamicBPMDetectionParameters::SUBDIVISION_FACTOR,
-                ),
+                subdivision_onoff: config.dynamic_bpm_detection_config.subdivision_weight.is_enabled().into(),
                 in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_RANGE
                     .to_param(config.dynamic_bpm_detection_config.in_beat_range_weight, &update_dynamic_changed_at_f32),
-                in_beat_range_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.in_beat_range_weight,
-                    &DefaultDynamicBPMDetectionParameters::IN_RANGE,
-                ),
+                in_beat_range_onoff: config.dynamic_bpm_detection_config.in_beat_range_weight.is_enabled().into(),
                 normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION.to_param(
                     config.dynamic_bpm_detection_config.normal_distribution_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                normal_distribution_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.normal_distribution_weight,
-                    &DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION,
-                ),
+                normal_distribution_onoff: config
+                    .dynamic_bpm_detection_config
+                    .normal_distribution_weight
+                    .is_enabled()
+                    .into(),
                 high_tempo_bias: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS
                     .to_param(config.dynamic_bpm_detection_config.high_tempo_bias, &update_dynamic_changed_at_f32),
-                high_tempo_bias_onoff: dynamic_updater_factory.make_on_off_param(
-                    config.dynamic_bpm_detection_config.high_tempo_bias,
-                    &DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS,
-                ),
+                high_tempo_bias_onoff: config.dynamic_bpm_detection_config.high_tempo_bias.is_enabled().into(),
             },
             daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).with_callback(Arc::new({
                 let daw_port = daw_port.clone();
@@ -317,16 +287,12 @@ where
 
 pub fn apply_onoff_param(
     value_param: &FloatParam,
-    enabled_param: &BoolParam,
+    enabled: &AtomicBool,
     previous_value: OnOff<f32>,
     value: OnOff<f32>,
     setter: &ParamSetter,
 ) {
-    if previous_value.is_enabled() != value.is_enabled() {
-        setter.begin_set_parameter(enabled_param);
-        setter.set_parameter(enabled_param, value.is_enabled());
-        setter.end_set_parameter(enabled_param);
-    }
+    enabled.store(value.is_enabled(), Ordering::Relaxed);
     if (previous_value.value() - value.value()).abs() > f32::EPSILON {
         setter.begin_set_parameter(value_param);
         setter.set_parameter(value_param, value.value());

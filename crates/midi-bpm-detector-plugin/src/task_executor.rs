@@ -182,43 +182,43 @@ impl TaskExecutor {
                         config.dynamic_bpm_detection_config.beats_lookback =
                             self.params.dynamic_params.beats_lookback.unmodulated_plain_value() as u8;
                         config.dynamic_bpm_detection_config.velocity_current_note_weight = OnOff::new(
-                            self.params.dynamic_params.velocity_current_note_onoff.value(),
+                            self.params.dynamic_params.velocity_current_note_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.velocity_current_note_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.velocity_note_from_weight = OnOff::new(
-                            self.params.dynamic_params.velocity_note_from_onoff.value(),
+                            self.params.dynamic_params.velocity_note_from_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.velocity_note_from_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.time_distance_weight = OnOff::new(
-                            self.params.dynamic_params.time_distance_onoff.value(),
+                            self.params.dynamic_params.time_distance_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.time_distance_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.octave_distance_weight = OnOff::new(
-                            self.params.dynamic_params.octave_distance_onoff.value(),
+                            self.params.dynamic_params.octave_distance_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.octave_distance_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.pitch_distance_weight = OnOff::new(
-                            self.params.dynamic_params.pitch_distance_onoff.value(),
+                            self.params.dynamic_params.pitch_distance_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.pitch_distance_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.multiplier_weight = OnOff::new(
-                            self.params.dynamic_params.multiplier_onoff.value(),
+                            self.params.dynamic_params.multiplier_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.multiplier_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.subdivision_weight = OnOff::new(
-                            self.params.dynamic_params.subdivision_onoff.value(),
+                            self.params.dynamic_params.subdivision_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.subdivision_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.in_beat_range_weight = OnOff::new(
-                            self.params.dynamic_params.in_beat_range_onoff.value(),
+                            self.params.dynamic_params.in_beat_range_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.in_beat_range_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.normal_distribution_weight = OnOff::new(
-                            self.params.dynamic_params.normal_distribution_onoff.value(),
+                            self.params.dynamic_params.normal_distribution_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.normal_distribution_weight.unmodulated_plain_value(),
                         );
                         config.dynamic_bpm_detection_config.high_tempo_bias = OnOff::new(
-                            self.params.dynamic_params.high_tempo_bias_onoff.value(),
+                            self.params.dynamic_params.high_tempo_bias_onoff.load(Ordering::Relaxed),
                             self.params.dynamic_params.high_tempo_bias.unmodulated_plain_value(),
                         );
                         config.send_tempo.store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
