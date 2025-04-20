@@ -17,7 +17,7 @@ use std::sync::{
 
 use bpm_detection_core::{
     BPMDetection, TimedMidiNoteOn,
-    bpm::sample_to_duration,
+    bpm::{duration_to_sample, sample_to_duration},
     midi_messages::{MidiNoteOn, wmidi},
 };
 use chrono::Duration;
@@ -190,30 +190,14 @@ impl Plugin for MidiBpmDetector {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if let Some(static_bpm_detection_config_changed_at) =
-            self.static_bpm_detection_config_changed_at.load(Ordering::Relaxed)
-        {
-            let duration_since_change = sample_to_duration(
-                self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed).saturating_sub(static_bpm_detection_config_changed_at),
-            );
-            if duration_since_change > Duration::milliseconds(50) {
-                context.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Daw));
-                self.static_bpm_detection_config_changed_at.store(None, Ordering::Relaxed);
-            }
-        }
-        if let Some(dynamic_bpm_detection_config_changed_at) =
-            self.dynamic_bpm_detection_config_changed_at.load(Ordering::Relaxed)
-        {
-            let duration_since_change = sample_to_duration(
-                self.sample_rate,
-                self.current_sample.load(Ordering::Relaxed).saturating_sub(dynamic_bpm_detection_config_changed_at),
-            );
-            if duration_since_change > Duration::milliseconds(50) {
-                context.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw));
-                self.dynamic_bpm_detection_config_changed_at.store(None, Ordering::Relaxed);
-            }
-        }
+        let current_sample = self.current_sample.load(Ordering::Relaxed);
+        let delay_by = duration_to_sample(self.sample_rate, Duration::milliseconds(50));
+        Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
+            context.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Daw));
+        });
+        Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
+            context.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw));
+        });
         self.receive_notes(context);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);
         if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal }
@@ -274,6 +258,21 @@ impl MidiBpmDetector {
     #[allow(unused)]
     fn current_time(&self) -> Duration {
         sample_to_duration(self.sample_rate, self.current_sample.load(Ordering::Relaxed))
+    }
+
+    fn execute_at_delay(
+        sample: usize,
+        delay_by: usize,
+        opt_changed_at_sample: &ArcAtomicOptional<usize>,
+        cb: impl Fn(),
+    ) {
+        let Some(changed_at_sample) = opt_changed_at_sample.load(Ordering::Relaxed) else {
+            return;
+        };
+        if changed_at_sample + delay_by >= sample {
+            cb();
+            opt_changed_at_sample.store(None, Ordering::Relaxed);
+        }
     }
 }
 
