@@ -22,8 +22,12 @@ use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, TimedTypedMidiMessage,
-    bpm_detection_receiver::BPMDetectionReceiver, midi_input_port::MidiInputPort, sysex::SysExCommand, worker,
+    TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    midi_input_port::MidiInputPort,
+    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig},
+    sysex::SysExCommand,
+    worker,
     worker_event::WorkerEvent,
 };
 

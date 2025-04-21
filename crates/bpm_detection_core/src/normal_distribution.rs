@@ -3,7 +3,7 @@ use std::ops::Index;
 use chrono::Duration;
 use statrs::distribution::{Continuous, Normal};
 
-use crate::NormalDistributionConfig;
+use crate::parameters::NormalDistributionConfig;
 
 pub(crate) struct NormalDistribution {
     normal_distribution_data_points: Vec<f32>,

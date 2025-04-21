@@ -3,9 +3,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bpm_detection_core::{
-    DynamicBPMDetectionConfig, NormalDistributionConfigAccessor, StaticBPMDetectionConfig,
-    bpm::{DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfigAccessor},
+use bpm_detection_core::parameters::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
+    StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
 };
 use errors::{error_backtrace, info};
 use gui::{BPMDetectionConfig, GUIConfig, GUIConfigAccessor};

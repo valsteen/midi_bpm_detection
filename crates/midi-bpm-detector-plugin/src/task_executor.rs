@@ -6,7 +6,7 @@ use std::{
 };
 
 use bpm_detection_core::{
-    BPMDetection, DynamicBPMDetectionConfig, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver,
+    BPMDetection, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
 };
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};

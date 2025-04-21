@@ -3,9 +3,12 @@
 use std::time::Duration;
 
 use bpm_detection_core::{
-    DynamicBPMDetectionConfig, NormalDistributionConfigAccessor, StaticBPMDetectionConfig, TimedTypedMidiMessage,
-    bpm::{DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfigAccessor},
+    TimedTypedMidiMessage,
     midi_messages::MidiNoteOn,
+    parameters::{
+        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
+        StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    },
 };
 use derivative::Derivative;
 use errors::{LogErrorWithExt, error_backtrace};

@@ -8,7 +8,7 @@ use std::{
 
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
-use bpm_detection_core::{bpm::max_histogram_data_buffer_size, bpm_detection_receiver::BPMDetectionReceiver};
+use bpm_detection_core::{bpm_detection_receiver::BPMDetectionReceiver, parameters::max_histogram_data_buffer_size};
 use derivative::Derivative;
 use eframe::egui::{Context, ViewportCommand, WindowLevel};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};

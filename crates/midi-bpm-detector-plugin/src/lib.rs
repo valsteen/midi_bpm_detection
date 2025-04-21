@@ -17,8 +17,8 @@ use std::sync::{
 
 use bpm_detection_core::{
     BPMDetection, TimedMidiNoteOn,
-    bpm::{duration_to_sample, sample_to_duration},
     midi_messages::{MidiNoteOn, wmidi},
+    parameters::{duration_to_sample, sample_to_duration},
 };
 use chrono::Duration;
 use crossbeam::atomic::AtomicCell;
