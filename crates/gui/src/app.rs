@@ -18,12 +18,14 @@ use sync::Mutex;
 
 use crate::{BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
 
+type WeakCallback<T> = Weak<Mutex<Option<Box<T>>>>;
+
 pub struct BPMDetectionGUI {
     // keys_sender, gui_exit_callback and buffer_redraw belong to the GUI Remote,
     // that ultimately is held by the main app, which can drop it to let know the GUI app that we are exiting
-    pub(crate) keys_sender: Weak<Mutex<Option<Box<dyn FnMut(&'static str) + Send>>>>,
+    pub(crate) keys_sender: WeakCallback<dyn FnMut(&'static str) + Send>,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) on_gui_exit_callback: Weak<Mutex<Option<Box<dyn Fn() + Send>>>>,
+    pub(crate) on_gui_exit_callback: WeakCallback<dyn Fn() + Send>,
     pub(crate) histogram_data_points: Weak<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) interpolated_data_points: Vec<f32>,
     pub(crate) estimated_bpm: Weak<AtomicF32>,

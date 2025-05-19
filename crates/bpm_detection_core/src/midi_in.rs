@@ -129,10 +129,10 @@ where
 
                 let midi_message = TimedTypedMidiMessage { timestamp: timestamp - start_timestamp, midi_message };
 
-                if let Ok(midi_note_on) = WorkerEvent::try_from(midi_message.clone()) {
-                    if let Err(e) = worker_sender.send(midi_note_on) {
-                        error!("Could not send midi message to worker: {e:?}");
-                    }
+                if let Ok(midi_note_on) = WorkerEvent::try_from(midi_message.clone())
+                    && let Err(e) = worker_sender.send(midi_note_on)
+                {
+                    error!("Could not send midi message to worker: {e:?}");
                 }
 
                 callback(midi_message);
@@ -179,10 +179,11 @@ where
         self.worker_sender.send(WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config))
     }
 }
+type CommandsSender<B> =
+    SyncSender<Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>>;
 
 pub struct MidiService<B: BPMDetectionReceiver> {
-    commands_sender:
-        SyncSender<Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>>,
+    commands_sender: CommandsSender<B>,
 }
 
 impl<B> MidiService<B>
@@ -195,14 +196,7 @@ where
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_devices_change_notification: impl Fn() + Send + 'static,
         bpm_detection_receiver: B,
-    ) -> Result<
-        Receiver<
-            Result<
-                SyncSender<Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>>,
-                Report,
-            >,
-        >,
-    > {
+    ) -> Result<Receiver<Result<CommandsSender<B>, Report>>> {
         let (result_sender, result_receiver) = std::sync::mpsc::sync_channel(0);
 
         thread::Builder::new().name("MIDI Service".to_string()).spawn(move || {

@@ -22,6 +22,7 @@ use bpm_detection_core::{
 };
 use chrono::Duration;
 use crossbeam::atomic::AtomicCell;
+use mimalloc::MiMalloc;
 use nih_plug::{log::error, midi::MidiResult, prelude::*};
 use nih_plug_egui::create_egui_editor;
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
@@ -33,6 +34,9 @@ use crate::{
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 pub struct MidiBpmDetector {
     params: Arc<MidiBpmDetectorParams>,

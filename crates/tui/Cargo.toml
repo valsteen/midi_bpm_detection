@@ -21,7 +21,7 @@ serde_json = "1.0.108"
 strum = { version = "0.27.1", features = ["derive"] }
 tokio = { version = "1.35.1", features = ["full"] }
 tokio-util = "0.7.10"
-
+mimalloc = "0.1.46"
 
 itertools = "0.14.0"
 toml = "0.8.8"

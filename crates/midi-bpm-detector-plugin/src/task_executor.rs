@@ -55,7 +55,7 @@ impl TaskExecutor {
     pub fn execute(&mut self, task: Task) {
         if let Some(daw_port) = self.daw_port.take(Ordering::Relaxed) {
             self.daw_connection = TcpStream::connect_timeout(
-                &SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), daw_port),
+                &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), daw_port),
                 Duration::from_millis(10),
             )
             .log_error_msg("could not connect to daw, ignoring")

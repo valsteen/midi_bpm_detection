@@ -15,7 +15,7 @@ members = [
 default-members = ["crates/tui"]
 
 [workspace.lints.clippy]
-pedantic = "forbid"
+pedantic = "warn"
 
 
 [profile.release]

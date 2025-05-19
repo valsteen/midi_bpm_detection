@@ -29,6 +29,7 @@ midir = "0.10.1"
 num-traits = "0.2.19"
 ringbuf = "0.4.7"
 serde = { version = "1.0.196", features = ["derive"] }
+mimalloc = "0.1.46"
 
 toml = "0.8.9"
 

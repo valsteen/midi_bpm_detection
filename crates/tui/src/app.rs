@@ -187,10 +187,10 @@ pub async fn run_tui(
                     tui.draw(|f| {
                         for component in &mut components {
                             let r = component.draw(f, f.size());
-                            if let Err(e) = r {
-                                if let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}"))) {
-                                    error_backtrace!("Error while sending to action_tx {:?}", e);
-                                }
+                            if let Err(e) = r
+                                && let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}")))
+                            {
+                                error_backtrace!("Error while sending to action_tx {:?}", e);
                             }
                         }
                     })?;
@@ -199,10 +199,10 @@ pub async fn run_tui(
                     tui.draw(|f| {
                         for component in &mut components {
                             let r = component.draw(f, f.size());
-                            if let Err(e) = r {
-                                if let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}"))) {
-                                    error_backtrace!("Error while sending to action_tx {:?}", e);
-                                }
+                            if let Err(e) = r
+                                && let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}")))
+                            {
+                                error_backtrace!("Error while sending to action_tx {:?}", e);
                             }
                         }
                     })?;
