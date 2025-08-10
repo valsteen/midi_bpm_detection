@@ -19,19 +19,19 @@ bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "9cb478550e245603c61dc888b15d1f8150aaa46d", features = ["assert_process_allocs", "standalone"] }
-nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "9cb478550e245603c61dc888b15d1f8150aaa46d" }
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "37fd84a222c61d02bb41737fad2b6020e165313d", features = ["assert_process_allocs", "standalone"] }
+nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "37fd84a222c61d02bb41737fad2b6020e165313d" }
 
-chrono = "0.4.34"
-cpal = "0.15.2"
+chrono = "0.4.41"
+cpal = "0.16.0"
 crossbeam = "0.8.4"
-midir = "0.10.1"
+midir = "0.10.2"
 num-traits = "0.2.19"
-ringbuf = "0.4.7"
-serde = { version = "1.0.196", features = ["derive"] }
-mimalloc = "0.1.46"
+ringbuf = "0.4.8"
+serde = { version = "1.0.219", features = ["derive"] }
+mimalloc = "0.1.47"
 
-toml = "0.8.9"
+toml = "0.9.5"
 
 [lints]
 workspace = true

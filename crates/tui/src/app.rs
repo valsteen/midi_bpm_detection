@@ -186,7 +186,7 @@ pub async fn run_tui(
                     tui.resize(Rect::new(0, 0, w, h))?;
                     tui.draw(|f| {
                         for component in &mut components {
-                            let r = component.draw(f, f.size());
+                            let r = component.draw(f, f.area());
                             if let Err(e) = r
                                 && let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}")))
                             {
@@ -198,7 +198,7 @@ pub async fn run_tui(
                 Action::Render => {
                     tui.draw(|f| {
                         for component in &mut components {
-                            let r = component.draw(f, f.size());
+                            let r = component.draw(f, f.area());
                             if let Err(e) = r
                                 && let Err(e) = action_tx.send(Action::Error(format!("Failed to draw: {e:?}")))
                             {

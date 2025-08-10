@@ -272,7 +272,7 @@ impl BPMDetectionConfig for BaseConfig {
 
 impl Default for WASMConfig {
     fn default() -> Self {
-        match WASMConfig::deserialize(toml::de::Deserializer::new(CONFIG)) {
+        match toml::de::Deserializer::parse(CONFIG).and_then(WASMConfig::deserialize) {
             Ok(config) => config,
             Err(err) => {
                 error_backtrace!("{err}");
@@ -297,7 +297,7 @@ pub mod test {
 
     impl Default for Config {
         fn default() -> Self {
-            match Config::deserialize(toml::de::Deserializer::new(CONFIG)) {
+            match toml::de::Deserializer::parse(CONFIG).and_then(Config::deserialize) {
                 Ok(config) => config,
                 Err(err) => {
                     error_backtrace!("{err}");

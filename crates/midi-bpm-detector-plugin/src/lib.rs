@@ -22,6 +22,7 @@ use bpm_detection_core::{
 };
 use chrono::Duration;
 use crossbeam::atomic::AtomicCell;
+#[cfg(not(debug_assertions))]
 use mimalloc::MiMalloc;
 use nih_plug::{log::error, midi::MidiResult, prelude::*};
 use nih_plug_egui::create_egui_editor;
@@ -35,6 +36,7 @@ use crate::{
     task_executor::{Event, Task, UpdateOrigin},
 };
 
+#[cfg(not(debug_assertions))]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
