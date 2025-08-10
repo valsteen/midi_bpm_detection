@@ -15,8 +15,10 @@ use std::{
 
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::{
-    BPMDetection, DynamicBPMDetectionConfig, StaticBPMDetectionConfig, TimedTypedMidiMessage,
-    bpm_detection_receiver::BPMDetectionReceiver, midi_messages::MidiNoteOn,
+    BPMDetection, TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    midi_messages::MidiNoteOn,
+    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};

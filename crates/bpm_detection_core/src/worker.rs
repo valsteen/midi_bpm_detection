@@ -14,11 +14,10 @@ use log::error;
 use sync::{ArcAtomicBool, Mutex};
 
 use crate::{
-    DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig,
-    bpm::bpm_to_midi_clock_interval,
     bpm_detection::{BPMDetection, NOTE_CAPACITY},
     bpm_detection_receiver::BPMDetectionReceiver,
     midi_output_trait::MidiOutput,
+    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval},
     worker_event::WorkerEvent,
 };
 

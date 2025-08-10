@@ -4,8 +4,11 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use bpm_detection_core::{
-    DynamicBPMDetectionConfig, MidiInputConnection, MidiServiceConfig, StaticBPMDetectionConfig, SysExCommand,
-    TimedMidiMessage, bpm_detection_receiver::BPMDetectionReceiver, midi_in::MidiIn, restart,
+    MidiInputConnection, SysExCommand, TimedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    midi_in::MidiIn,
+    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig},
+    restart,
 };
 use errors::{Report, Result};
 use log::{error, info};

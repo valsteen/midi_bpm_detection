@@ -3,6 +3,7 @@ use std::sync::mpsc::{SyncSender, sync_channel};
 use errors::{Result, initialize_logging, initialize_panic_handler};
 use gui::{GuiRemote, create_gui, start_gui};
 use log::info;
+use mimalloc::MiMalloc;
 use tokio::sync::{
     mpsc,
     mpsc::{UnboundedReceiver, UnboundedSender},
@@ -11,6 +12,9 @@ use tui::{
     action::Action, app::run_tui, cli::update_config, config::TUIConfig, live_parameters::BaseConfig,
     services::crossterm::reset_crossterm,
 };
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 async fn tokio_main(
     start_gui: SyncSender<()>,

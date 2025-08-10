@@ -1,6 +1,5 @@
-use bpm_detection_core::{
-    NormalDistributionParameters,
-    bpm::{DynamicBPMDetectionParameters, StaticBPMDetectionParameters},
+use bpm_detection_core::parameters::{
+    DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters,
 };
 use eframe::{egui, egui::Ui};
 

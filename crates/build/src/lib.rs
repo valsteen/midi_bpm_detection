@@ -84,7 +84,7 @@ pub fn create_build_info() {
         if git_info.contains(cargo_pkg_version) {
             // Remove the 'g' before the commit sha
             let git_info = &git_info.replace('g', "");
-            git_describe = git_info.to_string();
+            git_describe.clone_from(git_info);
         } else {
             git_describe = format!("v{cargo_pkg_version}-{git_info}");
         }

@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::{
+use bpm_detection_core::parameters::{
     DefaultDynamicBPMDetectionParameters, DefaultNormalDistributionParameters, DefaultStaticBPMDetectionParameters,
 };
 use gui::DefaultGUIParameters;

@@ -8,21 +8,23 @@ use std::{
 
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
-use bpm_detection_core::{bpm::max_histogram_data_buffer_size, bpm_detection_receiver::BPMDetectionReceiver};
+use bpm_detection_core::{bpm_detection_receiver::BPMDetectionReceiver, parameters::max_histogram_data_buffer_size};
 use derivative::Derivative;
 use eframe::egui::{Context, ViewportCommand, WindowLevel};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use instant::Instant;
 use sync::Mutex;
 
+type ArcCallback<T> = Arc<Mutex<Option<Box<T>>>>;
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct GuiRemote {
     pub(crate) context: Arc<AtomicRefCell<Option<Context>>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) keys_sender: Arc<Mutex<Option<Box<dyn FnMut(&'static str) + Send>>>>,
+    pub(crate) keys_sender: ArcCallback<dyn FnMut(&'static str) + Send>,
     #[derivative(Debug = "ignore")]
-    pub(crate) on_gui_exit_callback: Arc<Mutex<Option<Box<dyn Fn() + Send>>>>,
+    pub(crate) on_gui_exit_callback: ArcCallback<dyn Fn() + Send>,
     pub(crate) swap_histogram_data_points: Arc<AtomicRefCell<Vec<f32>>>,
     pub(crate) histogram_data_points: Arc<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) estimated_bpm: Arc<AtomicF32>,
@@ -89,28 +91,28 @@ impl GuiRemote {
 
     #[minitrace::trace]
     pub fn close(&self) {
-        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to close window") {
-            if let Some(context) = context.as_ref().log_error_msg("no context present") {
-                context.send_viewport_cmd(ViewportCommand::Close);
-            }
+        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to close window")
+            && let Some(context) = context.as_ref().log_error_msg("no context present")
+        {
+            context.send_viewport_cmd(ViewportCommand::Close);
         }
     }
 
     #[minitrace::trace]
     pub fn always_on_top(&self) {
-        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to put window on top") {
-            if let Some(context) = context.as_ref().log_error_msg("no context present") {
-                context.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
-            }
+        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to put window on top")
+            && let Some(context) = context.as_ref().log_error_msg("no context present")
+        {
+            context.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
         }
     }
 
     #[minitrace::trace]
     pub fn always_on_top_cancel(&self) {
-        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to cancel window on top") {
-            if let Some(context) = context.as_ref().log_error_msg("no context present") {
-                context.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
-            }
+        if let Ok(context) = self.context.try_borrow().log_error_msg("could not get context to cancel window on top")
+            && let Some(context) = context.as_ref().log_error_msg("no context present")
+        {
+            context.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
         }
     }
 

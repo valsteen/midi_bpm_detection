@@ -4,8 +4,9 @@ use chrono::Duration;
 use derivative::Derivative;
 use parameter::{Asf64, OnOff, Parameter};
 use serde::{Deserialize, Serialize};
+use sync::ArcAtomicBool;
 
-use crate::{DurationOps, NormalDistributionConfig};
+use crate::DurationOps;
 
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
@@ -466,4 +467,115 @@ pub fn max_histogram_data_buffer_size() -> usize {
         .checked_sub(&bpm_to_beat_duration(highest_bpm))
         .map(|duration| duration_to_sample(48000, duration))
         .expect("programming error, bpm_lower_bound > bpm_upper_bound")
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MidiServiceConfig {
+    pub device_name: String,
+    pub send_tempo: ArcAtomicBool,
+    pub enable_midi_clock: ArcAtomicBool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Derivative)]
+#[derivative(PartialEq, Eq)]
+#[serde(default)]
+pub struct NormalDistributionConfig {
+    #[derivative(PartialEq(compare_with = "f64::eq"))]
+    pub std_dev: f64,
+    #[derivative(PartialEq(compare_with = "f32::eq"))]
+    pub factor: f32,
+    #[derivative(PartialEq(compare_with = "f32::eq"))]
+    pub cutoff: f32, // in millisecond
+    #[derivative(PartialEq(compare_with = "f32::eq"))]
+    pub resolution: f32, // 1 means one index = 1 millisecond
+}
+
+pub trait NormalDistributionConfigAccessor {
+    fn std_dev(&self) -> f64;
+    fn factor(&self) -> f32;
+    fn cutoff(&self) -> f32;
+    fn resolution(&self) -> f32;
+
+    fn set_std_dev(&mut self, val: f64);
+    fn set_factor(&mut self, val: f32);
+    fn set_cutoff(&mut self, val: f32);
+    fn set_resolution(&mut self, val: f32);
+}
+
+impl NormalDistributionConfigAccessor for () {
+    fn std_dev(&self) -> f64 {
+        unimplemented!()
+    }
+
+    fn factor(&self) -> f32 {
+        unimplemented!()
+    }
+
+    fn cutoff(&self) -> f32 {
+        unimplemented!()
+    }
+
+    fn resolution(&self) -> f32 {
+        unimplemented!()
+    }
+
+    fn set_std_dev(&mut self, _: f64) {
+        unimplemented!()
+    }
+
+    fn set_factor(&mut self, _: f32) {
+        unimplemented!()
+    }
+
+    fn set_cutoff(&mut self, _: f32) {
+        unimplemented!()
+    }
+
+    fn set_resolution(&mut self, _: f32) {
+        unimplemented!()
+    }
+}
+
+pub type DefaultNormalDistributionParameters = NormalDistributionParameters<()>;
+
+impl Default for NormalDistributionConfig {
+    fn default() -> Self {
+        Self {
+            std_dev: DefaultNormalDistributionParameters::STD_DEV.default,
+            factor: DefaultNormalDistributionParameters::FACTOR.default,
+            cutoff: DefaultNormalDistributionParameters::CUTOFF.default,
+            resolution: DefaultNormalDistributionParameters::RESOLUTION.default,
+        }
+    }
+}
+
+pub struct NormalDistributionParameters<Config: NormalDistributionConfigAccessor> {
+    phantom: PhantomData<Config>,
+}
+
+impl<Config: NormalDistributionConfigAccessor> NormalDistributionParameters<Config> {
+    pub const CUTOFF: Parameter<Config, f32> = Parameter::new(
+        "Normal distribution cutoff",
+        Some("ms"),
+        1.0..=2000.,
+        0.0,
+        true,
+        100.0,
+        Config::cutoff,
+        Config::set_cutoff,
+    );
+    pub const FACTOR: Parameter<Config, f32> =
+        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Config::factor, Config::set_factor);
+    pub const RESOLUTION: Parameter<Config, f32> = Parameter::new(
+        "Normal distribution resolution",
+        Some("ms"),
+        0.01..=1000.,
+        0.0,
+        true,
+        0.6,
+        Config::resolution,
+        Config::set_resolution,
+    );
+    pub const STD_DEV: Parameter<Config, f64> =
+        Parameter::new("Standard deviation", None, 4.0..=40.0, 0.0, false, 24.0, Config::std_dev, Config::set_std_dev);
 }

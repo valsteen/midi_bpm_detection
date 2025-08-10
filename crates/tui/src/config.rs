@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, fs::write, path::PathBuf};
 
 use bitflags::Flags;
-use bpm_detection_core::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig};
 use build::{get_config_dir, get_data_dir};
 use config::ConfigError;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

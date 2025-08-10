@@ -1,8 +1,7 @@
 use std::{sync::atomic::Ordering, time::Duration};
 
-use bpm_detection_core::{
-    NormalDistributionConfigAccessor,
-    bpm::{DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfigAccessor},
+use bpm_detection_core::parameters::{
+    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
 };
 use errors::LogErrorWithExt;
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
