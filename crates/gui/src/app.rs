@@ -87,6 +87,7 @@ impl BPMDetectionGUI {
         let mut prev = f64::from(config.index_to_bpm(1));
 
         plot_ui.bar_chart(BarChart::new(
+            "BPM",
             (self.interpolated_data_points.iter().enumerate().map(|(x, y)| {
                 let y = f64::from(*y / max_interpolated_y);
                 let x = f64::from(config.index_to_bpm(x));

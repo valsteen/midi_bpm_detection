@@ -33,7 +33,7 @@ pub struct PluginConfig {
 
 impl Default for PluginConfig {
     fn default() -> Self {
-        match PluginConfig::deserialize(toml::de::Deserializer::new(CONFIG)) {
+        match toml::de::Deserializer::parse(CONFIG).and_then(PluginConfig::deserialize) {
             Ok(config) => config,
             Err(err) => {
                 error_backtrace!("{err}");

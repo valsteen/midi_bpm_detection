@@ -88,41 +88,39 @@ impl TaskExecutor {
                 if evaluate_bpm_detection {
                     let bpm_detection_result = self.bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config);
 
-                    if let (Some((_, bpm)), true) = (bpm_detection_result, self.send_tempo.load(Ordering::Relaxed)) {
-                        if let Some(daw_connection) = &mut self.daw_connection {
-                            let mut buffer = [0u8; 8];
-                            buffer[..4].copy_from_slice(&4u32.to_be_bytes());
-                            buffer[4..].copy_from_slice(&bpm.to_be_bytes());
+                    if let (Some((_, bpm)), true, Some(daw_connection)) =
+                        (bpm_detection_result, self.send_tempo.load(Ordering::Relaxed), &mut self.daw_connection)
+                    {
+                        let mut buffer = [0u8; 8];
+                        buffer[..4].copy_from_slice(&4u32.to_be_bytes());
+                        buffer[4..].copy_from_slice(&bpm.to_be_bytes());
 
-                            let must_close = match daw_connection.write(&buffer) {
-                                Ok(sent) => {
-                                    if sent == 8 {
-                                        info!("sent RPM");
-                                        false
-                                    } else {
-                                        error!("only {sent} bytes could be sent, closing daw connection");
-                                        true
-                                    }
-                                }
-                                Err(err) => {
-                                    error!("error while sending to daw {err:?}, closing");
+                        let must_close = match daw_connection.write(&buffer) {
+                            Ok(sent) => {
+                                if sent == 8 {
+                                    info!("sent RPM");
+                                    false
+                                } else {
+                                    error!("only {sent} bytes could be sent, closing daw connection");
                                     true
                                 }
-                            };
-                            if must_close {
-                                self.daw_connection = None;
                             }
+                            Err(err) => {
+                                error!("error while sending to daw {err:?}, closing");
+                                true
+                            }
+                        };
+                        if must_close {
+                            self.daw_connection = None;
                         }
                     }
 
-                    if self.params.editor_state.is_open() {
-                        if let Some(gui_remote) = &mut self.gui_remote {
-                            if let Some((histogram_data_points, bpm)) = bpm_detection_result {
-                                gui_remote.receive_bpm_histogram_data(histogram_data_points, bpm);
-                            } else {
-                                // happens when we still have no data but still have to see parameter changes
-                                gui_remote.request_repaint();
-                            }
+                    if let (true, Some(gui_remote)) = (self.params.editor_state.is_open(), &mut self.gui_remote) {
+                        if let Some((histogram_data_points, bpm)) = bpm_detection_result {
+                            gui_remote.receive_bpm_histogram_data(histogram_data_points, bpm);
+                        } else {
+                            // happens when we still have no data but still have to see parameter changes
+                            gui_remote.request_repaint();
                         }
                     }
                 }
