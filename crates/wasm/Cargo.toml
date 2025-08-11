@@ -24,7 +24,7 @@ futures = "0.3.31"
 js-sys = "0.3.77"
 web-sys = "0.3.77"
 
-[dev-dependencies]
+[target.wasm32-unknown-unknown.dev-dependencies]
 wasm-bindgen-test = "0.3.50"
 
 [lints]

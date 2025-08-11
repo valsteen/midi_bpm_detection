@@ -282,10 +282,12 @@ impl Default for WASMConfig {
     }
 }
 
-pub mod test {
+#[cfg(test)]
+mod tests {
     #![allow(forbidden_lint_groups)]
     #![allow(clippy::missing_panics_doc)]
     #[allow(clippy::module_name_repetitions)]
+    use wasm_bindgen_test::*;
     use errors::error_backtrace;
     use parameter::OnOff;
     use serde::{Deserialize, Serialize};
@@ -311,8 +313,8 @@ pub mod test {
 enabled = false
 value = 1";
 
-    #[test]
-    pub fn test_config() {
+    #[wasm_bindgen_test]
+    fn test_config() {
         let config = Config::default();
         assert_eq!(config.test, OnOff::Off(1.0));
     }
