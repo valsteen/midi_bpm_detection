@@ -102,7 +102,7 @@ impl Default for StaticBPMDetectionConfig {
     }
 }
 
-pub struct StaticBPMDetectionParameters<Config: StaticBPMDetectionConfigAccessor> {
+pub struct StaticBPMDetectionParameters<Config> {
     phantom: PhantomData<Config>,
 }
 
@@ -276,7 +276,7 @@ impl Default for DynamicBPMDetectionConfig {
     }
 }
 
-pub struct DynamicBPMDetectionParameters<Config: DynamicBPMDetectionConfigAccessor> {
+pub struct DynamicBPMDetectionParameters<Config> {
     phantom: PhantomData<Config>,
 }
 
@@ -549,7 +549,7 @@ impl Default for NormalDistributionConfig {
     }
 }
 
-pub struct NormalDistributionParameters<Config: NormalDistributionConfigAccessor> {
+pub struct NormalDistributionParameters<Config> {
     phantom: PhantomData<Config>,
 }
 
