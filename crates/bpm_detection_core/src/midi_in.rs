@@ -31,7 +31,7 @@ use crate::{
     worker_event::WorkerEvent,
 };
 
-pub struct MidiIn<B: BPMDetectionReceiver> {
+pub struct MidiIn<B> {
     midi_input: MidiInput,
     start_timestamp: Arc<AtomicU64>,
     worker_sender: Sender<WorkerEvent>,
@@ -182,7 +182,7 @@ where
 type CommandsSender<B> =
     SyncSender<Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>>;
 
-pub struct MidiService<B: BPMDetectionReceiver> {
+pub struct MidiService<B> {
     commands_sender: CommandsSender<B>,
 }
 
