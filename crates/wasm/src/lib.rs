@@ -286,11 +286,11 @@ impl Default for WASMConfig {
 mod tests {
     #![allow(forbidden_lint_groups)]
     #![allow(clippy::missing_panics_doc)]
-    #[allow(clippy::module_name_repetitions)]
-    use wasm_bindgen_test::*;
     use errors::error_backtrace;
     use parameter::OnOff;
     use serde::{Deserialize, Serialize};
+    #[allow(clippy::module_name_repetitions)]
+    use wasm_bindgen_test::*;
 
     #[derive(Serialize, Deserialize)]
     pub struct Config {
