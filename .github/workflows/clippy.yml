@@ -62,5 +62,9 @@ jobs:
             ${{ runner.os }}-cargo-build-target-${{ matrix.target }}-
             ${{ runner.os }}-cargo-build-
 
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Run clippy
         run: cargo clippy --target ${{ matrix.target }} ${{ matrix.args }} -- -D warnings
