@@ -1,0 +1,11 @@
+[package]
+name = "midi-reset"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+coremidi = { workspace = true }
+core-foundation-sys = { workspace = true }
+
+[lints]
+workspace = true

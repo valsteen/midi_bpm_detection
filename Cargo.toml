@@ -12,6 +12,7 @@ members = [
     "crates/midi-bpm-detector-plugin",
     "crates/midi-bpm-detector-plugin/xtask",
     "crates/midi-reset",
+    "ci",
 ]
 default-members = ["crates/tui", "crates/midi-reset"]
 
