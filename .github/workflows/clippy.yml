@@ -73,7 +73,12 @@ jobs:
 
       - name: Run clippy
         if: matrix.target != 'wasm32-unknown-unknown'
-        run: cargo clippy --target ${{ matrix.target }} ${{ matrix.pkg }} ${{ matrix.args }} -- -D warnings
+        run: |
+          PKG_FLAG=""
+          if [ -n "${{ matrix.pkg }}" ]; then
+            PKG_FLAG="-p ${{ matrix.pkg }}"
+          fi
+          cargo clippy --target ${{ matrix.target }} $PKG_FLAG ${{ matrix.args }} -- -D warnings
 
       - name: Run clippy (wasm32)
         if: matrix.target == 'wasm32-unknown-unknown'
