@@ -17,7 +17,7 @@ use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::{
     BPMDetection, TimedEvent,
     bpm_detection_receiver::BPMDetectionReceiver,
-    note_events::MidiNoteOn,
+    note_events::NoteOn,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use chrono::Duration;
@@ -52,7 +52,7 @@ impl GuiRemoteWrapper {
     pub fn event_in(&mut self, channel: u8, note: u8, velocity: u8, timestamp: f64) {
         let note = TimedEvent {
             timestamp: Duration::milliseconds(timestamp as i64),
-            event: MidiNoteOn { channel, note, velocity },
+            event: NoteOn { channel, pitch: note, velocity },
         };
 
         self.redraw_sender.try_send(QueueItem::Note(note)).log_error_msg("channel full").ok();

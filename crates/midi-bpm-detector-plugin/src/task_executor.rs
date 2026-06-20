@@ -6,7 +6,7 @@ use std::{
 };
 
 use bpm_detection_core::{
-    BPMDetection, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
+    BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
 };
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
@@ -31,7 +31,7 @@ pub enum Task {
 }
 
 pub enum Event {
-    TimedMidiNoteOn(TimedMidiNoteOn),
+    TimedNoteOn(TimedNoteOn),
     DawBPM(f32),
 }
 
@@ -73,9 +73,9 @@ impl TaskExecutor {
                 }
                 for event in self.events_receiver.pop_iter() {
                     match event {
-                        Event::TimedMidiNoteOn(timed_midi_note_on) => {
+                        Event::TimedNoteOn(timed_note_on) => {
                             evaluate_bpm_detection = true;
-                            self.bpm_detection.receive_note(timed_midi_note_on);
+                            self.bpm_detection.receive_note(timed_note_on);
                         }
                         Event::DawBPM(bpm) => {
                             if let Some(gui_remote) = &self.gui_remote {

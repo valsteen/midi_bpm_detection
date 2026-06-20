@@ -86,7 +86,7 @@ where
 
                 for worker_event in buffered_events.drain(..) {
                     match worker_event {
-                        WorkerEvent::TimedMidiNoteOn(event) => {
+                        WorkerEvent::TimedNoteOn(event) => {
                             evaluate_bpm = true;
                             bpm_detection.receive_note(event);
                         }

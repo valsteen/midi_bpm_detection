@@ -3,7 +3,7 @@ use chrono::Duration;
 use itertools::Itertools;
 
 use crate::{
-    TimedMidiNoteOn,
+    TimedNoteOn,
     normal_distribution::NormalDistribution,
     parameters::{
         DynamicBPMDetectionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm, bpm_to_beat_duration,
@@ -17,7 +17,7 @@ pub struct BPMDetection {
     interval_high: Duration,
     interval_low: Duration,
     normal_distribution: NormalDistribution,
-    notes: ArrayDeque<TimedMidiNoteOn, NOTE_CAPACITY, Wrapping>,
+    notes: ArrayDeque<TimedNoteOn, NOTE_CAPACITY, Wrapping>,
     static_bpm_detection_config: StaticBPMDetectionConfig,
     histogram_data_points: Vec<f32>,
 }
@@ -47,7 +47,7 @@ impl BPMDetection {
         self.histogram_data_points.resize(self.static_bpm_detection_config.buffer_size(), 0.0);
     }
 
-    pub fn receive_note(&mut self, event: TimedMidiNoteOn) {
+    pub fn receive_note(&mut self, event: TimedNoteOn) {
         self.notes.push_back(event);
     }
 
@@ -134,10 +134,10 @@ impl BPMDetection {
 
             let pitch_distance = 1.
                 - f32::from({
-                    let interval = (note_to.event.note % 12).abs_diff(note_from.event.note % 12);
+                    let interval = (note_to.event.pitch % 12).abs_diff(note_from.event.pitch % 12);
                     interval.min(12 - interval)
                 }) / 12.0;
-            let octave_distance = 1. - f32::from((note_to.event.note / 12).abs_diff(note_from.event.note / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
+            let octave_distance = 1. - f32::from((note_to.event.pitch / 12).abs_diff(note_from.event.pitch / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
 
             let age = (*maximum_interval - note_age).num_microseconds().unwrap() as f32
                 / maximum_interval.num_microseconds().unwrap() as f32;

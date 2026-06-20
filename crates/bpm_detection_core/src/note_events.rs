@@ -8,11 +8,11 @@ pub struct TimedEvent<T> {
     pub event: T,
 }
 
-pub type TimedMidiNoteOn = TimedEvent<MidiNoteOn>;
+pub type TimedNoteOn = TimedEvent<NoteOn>;
 
-pub struct MidiNoteOn {
+pub struct NoteOn {
     pub channel: u8,
-    pub note: u8,
+    pub pitch: u8,
     pub velocity: u8,
 }
 

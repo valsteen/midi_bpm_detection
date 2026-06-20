@@ -2,7 +2,7 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 
-use bpm_detection_core::{TimedEvent, note_events::MidiNoteOn};
+use bpm_detection_core::{TimedEvent, note_events::NoteOn};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub use coremidi::restart;
 pub use midi_in::{MidiIn, MidiService};
@@ -32,9 +32,9 @@ pub struct MidiServiceConfig {
     pub enable_midi_clock: ArcAtomicBool,
 }
 
-pub fn midi_note_on_from_message(event: MidiMessage<'_>) -> Option<MidiNoteOn> {
+pub fn midi_note_on_from_message(event: MidiMessage<'_>) -> Option<NoteOn> {
     if let MidiMessage::NoteOn(channel, note, velocity) = event {
-        return Some(MidiNoteOn { channel: channel.index(), note: note as u8, velocity: u8::from(velocity) });
+        return Some(NoteOn { channel: channel.index(), pitch: note as u8, velocity: u8::from(velocity) });
     }
     None
 }
