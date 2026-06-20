@@ -53,6 +53,38 @@ enum MidiOutputCommand {
     Tempo(f32),
 }
 
+#[derive(Default)]
+struct BpmEvaluationSchedule {
+    scheduled_at: Option<Instant>,
+    pending_static_config: Option<StaticBPMDetectionConfig>,
+}
+
+impl BpmEvaluationSchedule {
+    fn wait_for(&self) -> Option<StdDuration> {
+        self.scheduled_at.map(|scheduled_at| BPM_EVALUATION_DEBOUNCE.saturating_sub(scheduled_at.elapsed()))
+    }
+
+    fn is_due(&self) -> bool {
+        self.scheduled_at.is_some_and(|scheduled_at| scheduled_at.elapsed() >= BPM_EVALUATION_DEBOUNCE)
+    }
+
+    fn schedule_dynamic_update(&mut self) {
+        if self.scheduled_at.is_none() {
+            self.scheduled_at = Some(Instant::now());
+        }
+    }
+
+    fn schedule_static_update(&mut self, static_config: StaticBPMDetectionConfig) {
+        self.pending_static_config = Some(static_config);
+        self.schedule_dynamic_update();
+    }
+
+    fn complete_due_evaluation(&mut self) -> Option<StaticBPMDetectionConfig> {
+        self.scheduled_at = None;
+        self.pending_static_config.take()
+    }
+}
+
 impl<B> Worker<B>
 where
     B: BPMDetectionReceiver,
@@ -62,13 +94,11 @@ where
     #[allow(clippy::too_many_lines)]
     fn worker_loop(&mut self, static_bpm_detection_config: StaticBPMDetectionConfig) {
         let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
-        let mut scheduled_bpm_detection_config_change: Option<StaticBPMDetectionConfig> = None;
-        let mut schedule_evaluate_bpm: Option<Instant> = None;
+        let mut bpm_evaluation_schedule = BpmEvaluationSchedule::default();
 
         loop {
             // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
-            let worker_event = if let Some(schedule_evaluate_bpm) = &schedule_evaluate_bpm {
-                let wait_for = BPM_EVALUATION_DEBOUNCE.saturating_sub(schedule_evaluate_bpm.elapsed());
+            let worker_event = if let Some(wait_for) = bpm_evaluation_schedule.wait_for() {
                 match self.worker_events_receiver.recv_timeout(wait_for) {
                     Ok(worker_event) => Some(worker_event),
                     Err(RecvTimeoutError::Timeout) => None,
@@ -83,10 +113,9 @@ where
 
             let mut evaluate_bpm = false;
 
-            if schedule_evaluate_bpm.is_some_and(|scheduled_at| scheduled_at.elapsed() > BPM_EVALUATION_DEBOUNCE) {
-                schedule_evaluate_bpm = None;
+            if bpm_evaluation_schedule.is_due() {
                 evaluate_bpm = true;
-                if let Some(scheduled_bpm_detection_config) = scheduled_bpm_detection_config_change.take() {
+                if let Some(scheduled_bpm_detection_config) = bpm_evaluation_schedule.complete_due_evaluation() {
                     // Static config changes rebuild buffers/precomputed data, so apply them at the debounce boundary.
                     bpm_detection.update_static_config(scheduled_bpm_detection_config);
                 }
@@ -95,20 +124,15 @@ where
             if let Some(worker_event) = worker_event {
                 // Consume all pending events, then compute BPM once for the whole batch.
                 let mut worker_events_disconnected = false;
-                evaluate_bpm |= self.handle_worker_event(
-                    worker_event,
-                    &mut bpm_detection,
-                    &mut scheduled_bpm_detection_config_change,
-                    &mut schedule_evaluate_bpm,
-                );
+                evaluate_bpm |=
+                    self.handle_worker_event(worker_event, &mut bpm_detection, &mut bpm_evaluation_schedule);
                 loop {
                     match self.worker_events_receiver.try_recv() {
                         Ok(worker_event) => {
                             evaluate_bpm |= self.handle_worker_event(
                                 worker_event,
                                 &mut bpm_detection,
-                                &mut scheduled_bpm_detection_config_change,
-                                &mut schedule_evaluate_bpm,
+                                &mut bpm_evaluation_schedule,
                             );
                         }
                         Err(TryRecvError::Empty) => break,
@@ -146,8 +170,7 @@ where
         &mut self,
         worker_event: WorkerEvent,
         bpm_detection: &mut BPMDetection,
-        scheduled_bpm_detection_config_change: &mut Option<StaticBPMDetectionConfig>,
-        schedule_evaluate_bpm: &mut Option<Instant>,
+        bpm_evaluation_schedule: &mut BpmEvaluationSchedule,
     ) -> bool {
         match worker_event {
             WorkerEvent::TimedNoteOn(event) => {
@@ -169,22 +192,15 @@ where
             WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
                 // Dynamic config changes scoring weights only; reuse the existing detection buffers.
                 self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
-                schedule_bpm_evaluation(schedule_evaluate_bpm);
+                bpm_evaluation_schedule.schedule_dynamic_update();
                 false
             }
             WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
                 // Static config changes detection model shape and is applied after the debounce delay.
-                *scheduled_bpm_detection_config_change = Some(bpm_detection_config);
-                schedule_bpm_evaluation(schedule_evaluate_bpm);
+                bpm_evaluation_schedule.schedule_static_update(bpm_detection_config);
                 false
             }
         }
-    }
-}
-
-fn schedule_bpm_evaluation(schedule_evaluate_bpm: &mut Option<Instant>) {
-    if schedule_evaluate_bpm.is_none() {
-        *schedule_evaluate_bpm = Some(Instant::now());
     }
 }
 
