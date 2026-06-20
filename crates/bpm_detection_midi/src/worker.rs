@@ -21,6 +21,7 @@ use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::Work
 
 const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
+const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
 
 pub struct Worker<B, C>
 where
@@ -188,7 +189,7 @@ where
                 if clock_emitter_loop(
                     &midi_output,
                     &playback_receiver,
-                    &enable_midi_clock.clone(),
+                    &enable_midi_clock,
                     &clock_interval_microseconds,
                 )
                 .is_err()
@@ -238,8 +239,10 @@ where
         next_tick = schedule_next_tick(next_tick, Instant::now(), interval);
 
         // Sleep for the most part of the interval, leaving a small amount of time for busy-waiting
-        while Instant::now() < next_tick.checked_sub(StdDuration::from_millis(1)).unwrap() {
-            thread::sleep(StdDuration::from_millis(1));
+        if let Some(sleep_until) = next_tick.checked_sub(CLOCK_BUSY_WAIT_MARGIN) {
+            while Instant::now() < sleep_until {
+                thread::sleep(CLOCK_BUSY_WAIT_MARGIN);
+            }
         }
 
         // Busy-waiting for fine-grained control
