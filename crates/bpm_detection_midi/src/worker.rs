@@ -19,6 +19,9 @@ use sync::{ArcAtomicBool, Mutex};
 
 use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::WorkerEvent};
 
+const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
+const FALLBACK_CLOCK_BPM: f32 = 120.0;
+
 pub struct Worker<B, C>
 where
     B: BPMDetectionReceiver,
@@ -123,8 +126,7 @@ where
                     continue;
                 };
 
-                self.clock_interval_microseconds
-                    .store(bpm_to_midi_clock_interval(bpm).num_microseconds().unwrap() as u64, Ordering::Relaxed);
+                self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
                 if self.send_tempo.load(Ordering::Relaxed) {
                     self.midi_output.lock().sysex(&format!("TEMPO|{bpm}"));
                 }
@@ -143,8 +145,9 @@ pub fn spawn(
     midi_output: impl MidiOutput + Send + 'static,
     bpm_detection_receiver: impl BPMDetectionReceiver,
 ) -> Result<()> {
+    let initial_clock_interval_microseconds = midi_clock_interval_microseconds(static_bpm_detection_config.bpm_center);
     let midi_output = Arc::new(Mutex::new(midi_output));
-    let clock_interval_microseconds = Arc::<AtomicU64>::default();
+    let clock_interval_microseconds = Arc::new(AtomicU64::new(initial_clock_interval_microseconds));
     let playback_sender = spawn_playback_controller(
         midi_service_config.enable_midi_clock.clone(),
         clock_interval_microseconds.clone(),
@@ -227,7 +230,7 @@ where
             Err(TryRecvError::Empty) => {}
         }
 
-        let interval_micros = clock_interval_microseconds.load(Ordering::Relaxed).min(1_000_000);
+        let interval_micros = sanitize_clock_interval_microseconds(clock_interval_microseconds.load(Ordering::Relaxed));
 
         // Calculate when the next tick should happen
         next_tick += StdDuration::from_micros(interval_micros);
@@ -245,4 +248,40 @@ where
         next_tick = Instant::now() + StdDuration::from_micros(interval_micros);
     }
     Ok(())
+}
+
+fn midi_clock_interval_microseconds(bpm: f32) -> u64 {
+    if !bpm.is_finite() || bpm <= 0.0 {
+        return fallback_clock_interval_microseconds();
+    }
+    let Some(interval) = bpm_to_midi_clock_interval(bpm).num_microseconds() else {
+        return fallback_clock_interval_microseconds();
+    };
+    sanitize_clock_interval_microseconds(interval as u64)
+}
+
+fn sanitize_clock_interval_microseconds(interval_microseconds: u64) -> u64 {
+    match interval_microseconds {
+        0 => fallback_clock_interval_microseconds(),
+        interval_microseconds => interval_microseconds.min(MAX_CLOCK_INTERVAL_MICROSECONDS),
+    }
+}
+
+fn fallback_clock_interval_microseconds() -> u64 {
+    bpm_to_midi_clock_interval(FALLBACK_CLOCK_BPM).num_microseconds().unwrap() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitizes_missing_clock_interval_to_fallback_tempo() {
+        assert_eq!(sanitize_clock_interval_microseconds(0), fallback_clock_interval_microseconds());
+    }
+
+    #[test]
+    fn caps_unusually_slow_clock_interval() {
+        assert_eq!(sanitize_clock_interval_microseconds(2_000_000), MAX_CLOCK_INTERVAL_MICROSECONDS);
+    }
 }
