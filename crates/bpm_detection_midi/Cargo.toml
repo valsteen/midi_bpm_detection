@@ -1,0 +1,25 @@
+[package]
+name = "bpm_detection_midi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bpm_detection_core = { path = "../bpm_detection_core" }
+build = { path = "../build" }
+errors = { path = "../errors" }
+sync = { path = "../sync" }
+
+chrono = "0.4.41"
+derivative = "2.2.0"
+itertools = "0.14.0"
+log = "0.4.27"
+midir = "0.11.0"
+serde = { version = "1.0.219", features = ["derive"] }
+wmidi = "4.0.10"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+coremidi-hotplug-notification = "0.1.3"
+coremidi = { workspace = true }
+
+[lints]
+workspace = true

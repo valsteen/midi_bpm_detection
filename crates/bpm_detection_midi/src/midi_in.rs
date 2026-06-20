@@ -7,6 +7,11 @@ use std::{
     thread,
 };
 
+use bpm_detection_core::{
+    TimedTypedMidiMessage,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
+};
 use build::PROJECT_NAME;
 use chrono::Duration;
 use errors::{MakeReportExt, Report, Result, error_backtrace};
@@ -22,13 +27,7 @@ use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    TimedTypedMidiMessage,
-    bpm_detection_receiver::BPMDetectionReceiver,
-    midi_input_port::MidiInputPort,
-    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig},
-    sysex::SysExCommand,
-    worker,
-    worker_event::WorkerEvent,
+    MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_event::WorkerEvent,
 };
 
 pub struct MidiIn<B> {

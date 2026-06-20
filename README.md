@@ -27,6 +27,8 @@ In the meantime curious developers may simply have a look at the model, the core
 Development build, formatter, linter, plugin, and WASM commands are documented in
 [docs/development.md](docs/development.md).
 
+A first-pass architecture map is available in [docs/architecture.md](docs/architecture.md).
+
 ## Building and using the Clap/VST3 Plugin
 
 This has not been thoroughly tested and only on Mac.

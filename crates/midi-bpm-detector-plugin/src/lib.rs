@@ -17,7 +17,7 @@ use std::sync::{
 
 use bpm_detection_core::{
     BPMDetection, TimedMidiNoteOn,
-    midi_messages::{MidiNoteOn, wmidi},
+    midi_messages::MidiNoteOn,
     parameters::{duration_to_sample, sample_to_duration},
 };
 use chrono::Duration;
@@ -35,6 +35,13 @@ use crate::{
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
+
+fn midi_note_on_from_message(midi_message: wmidi::MidiMessage<'_>) -> Option<MidiNoteOn> {
+    if let wmidi::MidiMessage::NoteOn(channel, note, velocity) = midi_message {
+        return Some(MidiNoteOn { channel: channel.index(), note: note as u8, velocity: u8::from(velocity) });
+    }
+    None
+}
 
 #[cfg(not(debug_assertions))]
 #[global_allocator]
@@ -234,7 +241,7 @@ impl MidiBpmDetector {
             let Ok(midi_message) = wmidi::MidiMessage::from_bytes(&bytes) else {
                 continue;
             };
-            let Ok(midi_note_on) = MidiNoteOn::try_from(midi_message) else {
+            let Some(midi_note_on) = midi_note_on_from_message(midi_message) else {
                 continue;
             };
 

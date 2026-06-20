@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use bpm_detection_core::MidiMessage;
+use bpm_detection_midi::MidiMessage;
 use derivative::Derivative;
 use errors::{MakeReportExt, Result};
 use ratatui::{

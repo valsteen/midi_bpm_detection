@@ -1,9 +1,10 @@
-use wmidi::MidiMessage;
-
-use crate::{
+use bpm_detection_core::{
     TimedMidiNoteOn, TimedTypedMidiMessage,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
+use wmidi::MidiMessage;
+
+use crate::midi_note_on_from_message;
 
 pub enum WorkerEvent {
     TimedMidiNoteOn(TimedMidiNoteOn),
@@ -21,6 +22,9 @@ impl TryFrom<TimedTypedMidiMessage<MidiMessage<'_>>> for WorkerEvent {
         if let MidiMessage::TimingClock = value.midi_message {
             return Ok(Self::TimingClock);
         }
-        Ok(Self::TimedMidiNoteOn(TimedMidiNoteOn::try_from(value)?))
+        Ok(Self::TimedMidiNoteOn(TimedMidiNoteOn {
+            timestamp: value.timestamp,
+            midi_message: midi_note_on_from_message(value.midi_message).ok_or(())?,
+        }))
     }
 }

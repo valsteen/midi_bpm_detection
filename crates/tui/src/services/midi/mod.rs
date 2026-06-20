@@ -4,11 +4,11 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use bpm_detection_core::{
-    MidiInputConnection, SysExCommand, TimedMidiMessage,
     bpm_detection_receiver::BPMDetectionReceiver,
-    midi_in::MidiIn,
-    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig},
-    restart,
+    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
+};
+use bpm_detection_midi::{
+    MidiIn, MidiInputConnection, MidiServiceConfig, SysExCommand, TimedMidiMessage, restart, to_owned_midi_message,
 };
 use errors::{Report, Result};
 use log::{error, info};
@@ -31,7 +31,7 @@ where
     dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     event_tx: UnboundedSender<Event>,
     playing: bool,
-    midi_service: ArcRwLock<bpm_detection_core::MidiService<B>>,
+    midi_service: ArcRwLock<bpm_detection_midi::MidiService<B>>,
 }
 
 impl<B> MidiService<B>
@@ -68,7 +68,7 @@ where
             let bpm_detection_config = bpm_detection_config.clone();
             let dynamic_bpm_detection_config = dynamic_bpm_detection_config.clone();
             move || {
-                bpm_detection_core::MidiService::new(
+                bpm_detection_midi::MidiService::new(
                     midi_config,
                     bpm_detection_config,
                     dynamic_bpm_detection_config,
@@ -123,7 +123,7 @@ where
 
                 self.execute(move |midi_in, midi_input_connection| {
                     match midi_in.listen(&midi_input_port, move |midi_message| {
-                        if let Err(send_error) = event_tx.send(Event::Midi(midi_message.to_owned())) {
+                        if let Err(send_error) = event_tx.send(Event::Midi(to_owned_midi_message(midi_message))) {
                             error!("error while dispatching midi notes: {send_error:?}");
                         }
                     }) {

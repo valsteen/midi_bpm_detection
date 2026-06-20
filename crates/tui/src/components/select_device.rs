@@ -1,4 +1,4 @@
-use bpm_detection_core::MidiInputPort;
+use bpm_detection_midi::MidiInputPort;
 use crossterm::event::MouseEvent;
 use derivative::Derivative;
 use errors::{Result, minitrace};

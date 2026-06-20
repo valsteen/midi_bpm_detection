@@ -5,21 +5,19 @@ use std::{
         mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
     },
     thread,
-    time::Duration as StdDuration,
+    time::{Duration as StdDuration, Instant},
 };
 
+use bpm_detection_core::{
+    BPMDetection, NOTE_CAPACITY,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval},
+};
 use errors::Result;
-use instant::Instant;
 use log::error;
 use sync::{ArcAtomicBool, Mutex};
 
-use crate::{
-    bpm_detection::{BPMDetection, NOTE_CAPACITY},
-    bpm_detection_receiver::BPMDetectionReceiver,
-    midi_output_trait::MidiOutput,
-    parameters::{DynamicBPMDetectionConfig, MidiServiceConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval},
-    worker_event::WorkerEvent,
-};
+use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::WorkerEvent};
 
 pub struct Worker<B, C>
 where

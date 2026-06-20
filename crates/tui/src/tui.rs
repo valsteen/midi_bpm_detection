@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::{MidiInputPort, midi_messages::TimedMidiMessage};
+use bpm_detection_midi::{MidiInputPort, TimedMidiMessage};
 use crossterm::{
     cursor,
     event::{

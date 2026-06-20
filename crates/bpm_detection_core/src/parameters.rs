@@ -4,7 +4,6 @@ use chrono::Duration;
 use derivative::Derivative;
 use parameter::{Asf64, OnOff, Parameter};
 use serde::{Deserialize, Serialize};
-use sync::ArcAtomicBool;
 
 use crate::DurationOps;
 
@@ -467,13 +466,6 @@ pub fn max_histogram_data_buffer_size() -> usize {
         .checked_sub(&bpm_to_beat_duration(highest_bpm))
         .map(|duration| duration_to_sample(48000, duration))
         .expect("programming error, bpm_lower_bound > bpm_upper_bound")
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MidiServiceConfig {
-    pub device_name: String,
-    pub send_tempo: ArcAtomicBool,
-    pub enable_midi_clock: ArcAtomicBool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Derivative)]

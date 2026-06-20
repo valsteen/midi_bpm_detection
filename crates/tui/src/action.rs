@@ -1,7 +1,5 @@
-use bpm_detection_core::{
-    MidiInputPort,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_midi::MidiInputPort;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use strum::{Display, IntoStaticStr, VariantNames};
 
