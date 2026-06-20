@@ -26,5 +26,5 @@ strip = true
 codegen-units = 4
 
 [workspace.dependencies]
-coremidi = "0.8.0"
+coremidi = "0.9.1"
 core-foundation-sys = "0.8.7"
