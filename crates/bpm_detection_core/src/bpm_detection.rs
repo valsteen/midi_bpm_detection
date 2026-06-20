@@ -137,7 +137,8 @@ impl BPMDetection {
                     let interval = (note_to.event.pitch % 12).abs_diff(note_from.event.pitch % 12);
                     interval.min(12 - interval)
                 }) / 12.0;
-            let octave_distance = 1. - f32::from((note_to.event.pitch / 12).abs_diff(note_from.event.pitch / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
+            // 11 is approximately the number of octaves representable by the incoming pitch value.
+            let octave_distance = 1. - f32::from((note_to.event.pitch / 12).abs_diff(note_from.event.pitch / 12)) / 11.;
 
             let age = (*maximum_interval - note_age).num_microseconds().unwrap() as f32
                 / maximum_interval.num_microseconds().unwrap() as f32;
