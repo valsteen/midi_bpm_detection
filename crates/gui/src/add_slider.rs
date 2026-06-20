@@ -28,7 +28,7 @@ pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
 pub fn add_slider_default<GuiValueType, Config, ParameterValueType>(
     ui: &mut egui::Ui,
     parameter: &Parameter<Config, ParameterValueType>,
-    mut get_set_as_f64: impl for<'a> FnMut(Option<GuiValueType>) -> GuiValueType,
+    mut get_set_as_f64: impl FnMut(Option<GuiValueType>) -> GuiValueType,
 ) where
     GuiValueType: Debug + Asf64,
 {
