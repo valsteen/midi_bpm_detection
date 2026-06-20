@@ -92,7 +92,6 @@ where
                             evaluate_bpm = true;
                             bpm_detection.receive_note_on(event);
                         }
-                        WorkerEvent::TimingClock => {}
                         WorkerEvent::Play => {
                             if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
                                 error!("could not send play to MIDI output thread : {err:?}");
