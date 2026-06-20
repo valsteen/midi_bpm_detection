@@ -191,6 +191,7 @@ scripts/dev.sh check-wasm
 scripts/dev.sh test-wasm
 scripts/dev.sh clippy-wasm
 scripts/dev.sh build-wasm
+scripts/dev.sh serve-wasm
 scripts/dev.sh verify-wasm
 ```
 
@@ -201,12 +202,45 @@ cargo check -p wasm --target wasm32-unknown-unknown
 cargo test -p wasm --target wasm32-unknown-unknown
 cargo clippy -p wasm --target wasm32-unknown-unknown
 cd crates/wasm && NO_COLOR=false trunk build
+cd crates/wasm && NO_COLOR=false trunk serve --port 8080 --open false
 ```
 
 Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
-`--no-color` option. The helper script sets this for `build-wasm`.
+`--no-color` option. The helper script sets this for the Trunk commands.
 
 `verify-wasm` runs `doctor-wasm`, `fmt-check`, `check-wasm`, `test-wasm`, `clippy-wasm`, and `build-wasm`.
+
+### Browser Check
+
+For the local browser loop:
+
+```shell
+scripts/dev.sh serve-wasm
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080/midi_bpm_detection/#dev
+```
+
+The path comes from `crates/wasm/Trunk.toml`, which sets `public_url = "/midi_bpm_detection/"`. The `#dev` suffix matters
+during local development because `crates/wasm/index.html` skips service-worker registration when the hash is `#dev`.
+Without it, a previous service worker can keep serving cached WASM/JS assets.
+
+Expected smoke check:
+
+- The page title is `Midi beat detector`.
+- The top text says to tap computer keyboard or MIDI device.
+- The egui canvas fills the browser window.
+- Tapping keyboard keys should not produce console errors.
+- If the browser does not grant Web MIDI permission, `Access to MIDI devices not granted.` is expected in the console.
+
+To use another port:
+
+```shell
+WASM_PORT=8081 scripts/dev.sh serve-wasm
+```
 
 ## Useful Groups
 

@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 WASM_BINDGEN_CLI_VERSION="0.2.125"
+WASM_PORT="${WASM_PORT:-8080}"
+WASM_DEV_URL="http://127.0.0.1:${WASM_PORT}/midi_bpm_detection/#dev"
 
 usage() {
     cat <<'EOF'
@@ -42,6 +44,7 @@ WASM commands:
   test-wasm       Test the wasm crate with wasm-bindgen-test-runner
   clippy-wasm     Run clippy for the wasm crate
   build-wasm      Build the Trunk web app
+  serve-wasm      Serve the Trunk web app for browser testing
   verify-wasm     Run the usual wasm build/lint checks
 EOF
 }
@@ -175,6 +178,13 @@ case "$command" in
         (
             cd crates/wasm
             NO_COLOR=false trunk build
+        )
+        ;;
+    serve-wasm)
+        echo "Open: $WASM_DEV_URL"
+        (
+            cd crates/wasm
+            NO_COLOR=false trunk serve --port "$WASM_PORT" --open false
         )
         ;;
     verify-wasm)
