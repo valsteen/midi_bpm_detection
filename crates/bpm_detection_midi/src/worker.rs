@@ -23,31 +23,29 @@ const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
 const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
 
-pub struct Worker<B, C>
+pub struct Worker<B>
 where
     B: BPMDetectionReceiver,
-    C: MidiOutput + Send + 'static,
 {
-    midi_output: Arc<Mutex<C>>,
     bpm_detection_receiver: B,
     #[allow(forbidden_lint_groups)]
     #[allow(clippy::struct_field_names)]
     worker_events_receiver: Receiver<WorkerEvent>,
-    playback_sender: Sender<Playback>,
+    midi_output_sender: Sender<MidiOutputCommand>,
     dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     clock_interval_microseconds: Arc<AtomicU64>,
     send_tempo: ArcAtomicBool,
 }
 
-enum Playback {
+enum MidiOutputCommand {
     Play,
     Stop,
+    Tempo(f32),
 }
 
-impl<B, C> Worker<B, C>
+impl<B> Worker<B>
 where
     B: BPMDetectionReceiver,
-    C: MidiOutput + Send + 'static,
 {
     #[allow(forbidden_lint_groups)]
     #[allow(clippy::needless_pass_by_value)]
@@ -96,13 +94,13 @@ where
                         }
                         WorkerEvent::TimingClock => {}
                         WorkerEvent::Play => {
-                            if let Err(err) = self.playback_sender.send(Playback::Play) {
-                                error!("could not send play to clock thread : {err:?}");
+                            if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
+                                error!("could not send play to MIDI output thread : {err:?}");
                             }
                         }
                         WorkerEvent::Stop => {
-                            if let Err(err) = self.playback_sender.send(Playback::Stop) {
-                                error!("could not send stop to clock thread : {err:?}");
+                            if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Stop) {
+                                error!("could not send stop to MIDI output thread : {err:?}");
                             }
                         }
                         WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
@@ -128,8 +126,10 @@ where
                 };
 
                 self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
-                if self.send_tempo.load(Ordering::Relaxed) {
-                    self.midi_output.lock().sysex(&format!("TEMPO|{bpm}"));
+                if self.send_tempo.load(Ordering::Relaxed)
+                    && let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Tempo(bpm))
+                {
+                    error!("could not send tempo to MIDI output thread : {err:?}");
                 }
 
                 self.bpm_detection_receiver.receive_bpm_histogram_data(histogram_data_points, bpm);
@@ -149,17 +149,16 @@ pub fn spawn(
     let initial_clock_interval_microseconds = midi_clock_interval_microseconds(static_bpm_detection_config.bpm_center);
     let midi_output = Arc::new(Mutex::new(midi_output));
     let clock_interval_microseconds = Arc::new(AtomicU64::new(initial_clock_interval_microseconds));
-    let playback_sender = spawn_playback_controller(
+    let midi_output_sender = spawn_midi_output_controller(
         midi_service_config.enable_midi_clock.clone(),
         clock_interval_microseconds.clone(),
         midi_output.clone(),
     )?;
 
     let mut worker = Worker {
-        midi_output,
         bpm_detection_receiver,
         worker_events_receiver: worker_receiver,
-        playback_sender,
+        midi_output_sender,
         dynamic_bpm_detection_config,
         clock_interval_microseconds,
         send_tempo: midi_service_config.send_tempo.clone(),
@@ -171,15 +170,15 @@ pub fn spawn(
     Ok(())
 }
 
-fn spawn_playback_controller<C>(
+fn spawn_midi_output_controller<C>(
     enable_midi_clock: ArcAtomicBool,
     clock_interval_microseconds: Arc<AtomicU64>,
     midi_output: Arc<Mutex<C>>,
-) -> Result<Sender<Playback>>
+) -> Result<Sender<MidiOutputCommand>>
 where
     C: MidiOutput + Send + 'static,
 {
-    let (playback_sender, playback_receiver) = std::sync::mpsc::channel();
+    let (midi_output_sender, midi_output_receiver) = std::sync::mpsc::channel();
 
     let midi_output_thread = thread::Builder::new().name("MIDI output".to_string());
 
@@ -188,7 +187,7 @@ where
             if enable_midi_clock.load(Ordering::Relaxed) {
                 if clock_emitter_loop(
                     &midi_output,
-                    &playback_receiver,
+                    &midi_output_receiver,
                     &enable_midi_clock,
                     &clock_interval_microseconds,
                 )
@@ -198,9 +197,8 @@ where
                 }
             } else {
                 while !enable_midi_clock.load(Ordering::Relaxed) {
-                    match playback_receiver.recv_timeout(StdDuration::from_secs(1)) {
-                        Ok(Playback::Play) => midi_output.lock().play(),
-                        Ok(Playback::Stop) => midi_output.lock().stop(),
+                    match midi_output_receiver.recv_timeout(StdDuration::from_secs(1)) {
+                        Ok(command) => handle_midi_output_command(&midi_output, command),
                         Err(RecvTimeoutError::Disconnected) => return,
                         Err(RecvTimeoutError::Timeout) => (),
                     }
@@ -209,12 +207,12 @@ where
         }
     })?;
 
-    Ok(playback_sender)
+    Ok(midi_output_sender)
 }
 
 fn clock_emitter_loop<C>(
     clock_emitter: &Arc<Mutex<C>>,
-    playback: &Receiver<Playback>,
+    midi_output_receiver: &Receiver<MidiOutputCommand>,
     enable_midi_clock: &ArcAtomicBool,
     clock_interval_microseconds: &Arc<AtomicU64>,
 ) -> Result<(), ()>
@@ -224,12 +222,7 @@ where
     let mut next_tick = Instant::now();
 
     while enable_midi_clock.load(Ordering::Relaxed) {
-        match playback.try_recv() {
-            Ok(Playback::Play) => clock_emitter.lock().play(),
-            Ok(Playback::Stop) => clock_emitter.lock().stop(),
-            Err(TryRecvError::Disconnected) => return Err(()),
-            Err(TryRecvError::Empty) => {}
-        }
+        drain_midi_output_commands(clock_emitter, midi_output_receiver)?;
 
         let interval = StdDuration::from_micros(sanitize_clock_interval_microseconds(
             clock_interval_microseconds.load(Ordering::Relaxed),
@@ -252,6 +245,40 @@ where
         clock_emitter.lock().tick(); // Replace with actual call to send MIDI event
     }
     Ok(())
+}
+
+fn drain_midi_output_commands<C>(
+    midi_output: &Arc<Mutex<C>>,
+    midi_output_receiver: &Receiver<MidiOutputCommand>,
+) -> Result<(), ()>
+where
+    C: MidiOutput + Send + 'static,
+{
+    let mut latest_tempo = None;
+    loop {
+        match midi_output_receiver.try_recv() {
+            Ok(MidiOutputCommand::Tempo(bpm)) => latest_tempo = Some(bpm),
+            Ok(command) => handle_midi_output_command(midi_output, command),
+            Err(TryRecvError::Disconnected) => return Err(()),
+            Err(TryRecvError::Empty) => {
+                if let Some(bpm) = latest_tempo {
+                    handle_midi_output_command(midi_output, MidiOutputCommand::Tempo(bpm));
+                }
+                return Ok(());
+            }
+        }
+    }
+}
+
+fn handle_midi_output_command<C>(midi_output: &Arc<Mutex<C>>, command: MidiOutputCommand)
+where
+    C: MidiOutput + Send + 'static,
+{
+    match command {
+        MidiOutputCommand::Play => midi_output.lock().play(),
+        MidiOutputCommand::Stop => midi_output.lock().stop(),
+        MidiOutputCommand::Tempo(bpm) => midi_output.lock().sysex(&format!("TEMPO|{bpm}")),
+    }
 }
 
 fn schedule_next_tick(previous_tick: Instant, now: Instant, interval: StdDuration) -> Instant {
@@ -282,7 +309,28 @@ fn fallback_clock_interval_microseconds() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use wmidi::{Channel, ControlFunction, U7};
+
     use super::*;
+
+    #[derive(Default)]
+    struct TestMidiOutput {
+        sysex_messages: Vec<String>,
+    }
+
+    impl MidiOutput for TestMidiOutput {
+        fn tick(&mut self) {}
+
+        fn play(&mut self) {}
+
+        fn stop(&mut self) {}
+
+        fn cc(&mut self, _channel: Channel, _cc: ControlFunction, _value: U7) {}
+
+        fn sysex(&mut self, value: &str) {
+            self.sysex_messages.push(value.to_string());
+        }
+    }
 
     #[test]
     fn sanitizes_missing_clock_interval_to_fallback_tempo() {
@@ -309,5 +357,18 @@ mod tests {
         let now = previous_tick + StdDuration::from_millis(30);
 
         assert_eq!(schedule_next_tick(previous_tick, now, interval), now + interval);
+    }
+
+    #[test]
+    fn coalesces_pending_tempo_commands() {
+        let midi_output = Arc::new(Mutex::new(TestMidiOutput::default()));
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        sender.send(MidiOutputCommand::Tempo(100.0)).unwrap();
+        sender.send(MidiOutputCommand::Tempo(120.0)).unwrap();
+
+        drain_midi_output_commands(&midi_output, &receiver).unwrap();
+
+        assert_eq!(midi_output.lock().sysex_messages.as_slice(), ["TEMPO|120"]);
     }
 }
