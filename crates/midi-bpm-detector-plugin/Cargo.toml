@@ -25,7 +25,7 @@ nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "37fd8
 chrono = "0.4.41"
 cpal = "0.16.0"
 crossbeam = "0.8.4"
-midir = "0.10.2"
+midir = "0.11.0"
 num-traits = "0.2.19"
 ringbuf = "0.4.8"
 serde = { version = "1.0.219", features = ["derive"] }

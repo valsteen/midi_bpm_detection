@@ -141,9 +141,8 @@ cargo clippy -p wasm --target wasm32-unknown-unknown
 cd crates/wasm && NO_COLOR=false trunk build
 ```
 
-Current status: these WASM commands fail on this branch in `midir`'s WebMIDI backend with a type inference error. Trunk
-also needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
-`--no-color` option.
+Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
+`--no-color` option. The helper script sets this for `build-wasm`.
 
 ## Useful Groups
 

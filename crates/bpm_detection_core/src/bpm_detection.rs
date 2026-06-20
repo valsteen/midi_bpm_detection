@@ -72,11 +72,7 @@ impl BPMDetection {
 
         let max_note_age = bpm_to_beat_duration(bpm) * i32::from(dynamic_bpm_detection_config.beats_lookback);
 
-        loop {
-            let Some(note) = self.notes.front() else {
-                break;
-            };
-
+        while let Some(note) = self.notes.front() {
             if now - note.timestamp > max_note_age {
                 self.notes.pop_front();
                 continue;

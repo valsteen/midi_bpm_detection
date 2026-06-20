@@ -30,9 +30,6 @@ WASM commands:
   check-wasm      Check the wasm crate for wasm32-unknown-unknown
   clippy-wasm     Run clippy for the wasm crate
   build-wasm      Build the Trunk web app
-
-Current note: WASM commands are known to fail on this branch because midir's
-WebMIDI backend does not type-check with the current compiler.
 EOF
 }
 
