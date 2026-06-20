@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use chrono::Duration;
 
@@ -10,6 +10,7 @@ pub struct TimedEvent<T> {
 
 pub type TimedNoteOn = TimedEvent<NoteOn>;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct NoteOn {
     pub channel: u8,
     pub pitch: u8,
@@ -26,6 +27,6 @@ where
         let minutes = (total_seconds % 3600) / 60;
         let seconds = total_seconds % 60;
         let milliseconds = self.timestamp.subsec_nanos() / 1_000_000;
-        Display::fmt(&format!("{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03} {:?}", self.event), f)
+        write!(f, "{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03} {:?}", self.event)
     }
 }

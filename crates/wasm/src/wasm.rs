@@ -113,7 +113,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                             continue 'main;
                         }
                         QueueItem::Note(note) => {
-                            bpm_detection.receive_note(note);
+                            bpm_detection.receive_note_on(note);
 
                             if !update_notes.fetch_or(true, Ordering::Relaxed) {
                                 wasm_bindgen_futures::spawn_local({

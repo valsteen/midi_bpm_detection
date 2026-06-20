@@ -88,7 +88,7 @@ where
                     match worker_event {
                         WorkerEvent::TimedNoteOn(event) => {
                             evaluate_bpm = true;
-                            bpm_detection.receive_note(event);
+                            bpm_detection.receive_note_on(event);
                         }
                         WorkerEvent::TimingClock => {}
                         WorkerEvent::Play => {
