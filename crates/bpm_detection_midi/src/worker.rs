@@ -230,10 +230,12 @@ where
             Err(TryRecvError::Empty) => {}
         }
 
-        let interval_micros = sanitize_clock_interval_microseconds(clock_interval_microseconds.load(Ordering::Relaxed));
+        let interval = StdDuration::from_micros(sanitize_clock_interval_microseconds(
+            clock_interval_microseconds.load(Ordering::Relaxed),
+        ));
 
         // Calculate when the next tick should happen
-        next_tick += StdDuration::from_micros(interval_micros);
+        next_tick = schedule_next_tick(next_tick, Instant::now(), interval);
 
         // Sleep for the most part of the interval, leaving a small amount of time for busy-waiting
         while Instant::now() < next_tick.checked_sub(StdDuration::from_millis(1)).unwrap() {
@@ -245,9 +247,13 @@ where
 
         // It's time to send the MIDI Timing Clock event
         clock_emitter.lock().tick(); // Replace with actual call to send MIDI event
-        next_tick = Instant::now() + StdDuration::from_micros(interval_micros);
     }
     Ok(())
+}
+
+fn schedule_next_tick(previous_tick: Instant, now: Instant, interval: StdDuration) -> Instant {
+    let scheduled_tick = previous_tick + interval;
+    if scheduled_tick <= now { now + interval } else { scheduled_tick }
 }
 
 fn midi_clock_interval_microseconds(bpm: f32) -> u64 {
@@ -283,5 +289,22 @@ mod tests {
     #[test]
     fn caps_unusually_slow_clock_interval() {
         assert_eq!(sanitize_clock_interval_microseconds(2_000_000), MAX_CLOCK_INTERVAL_MICROSECONDS);
+    }
+
+    #[test]
+    fn schedules_next_tick_from_previous_tick_when_on_time() {
+        let previous_tick = Instant::now();
+        let interval = StdDuration::from_millis(20);
+
+        assert_eq!(schedule_next_tick(previous_tick, previous_tick, interval), previous_tick + interval);
+    }
+
+    #[test]
+    fn schedules_next_tick_from_now_when_already_late() {
+        let previous_tick = Instant::now();
+        let interval = StdDuration::from_millis(20);
+        let now = previous_tick + StdDuration::from_millis(30);
+
+        assert_eq!(schedule_next_tick(previous_tick, now, interval), now + interval);
     }
 }
