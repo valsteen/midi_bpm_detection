@@ -19,6 +19,39 @@ scripts/dev.sh help
 The script does not hide the underlying commands. It exists to keep the command list in one repo-owned place instead of
 scattering it across IDE run configurations.
 
+## Local Setup
+
+The project uses the stable Rust toolchain for builds and checks, plus nightly rustfmt for formatting. Install the Rust
+components from `rust-toolchain.toml` with:
+
+```shell
+rustup component add clippy rustfmt rust-src
+rustup toolchain install nightly --component rustfmt
+```
+
+Check the local setup with:
+
+```shell
+scripts/dev.sh doctor
+```
+
+For WASM work, install:
+
+```shell
+rustup target add wasm32-unknown-unknown
+cargo install trunk
+cargo install -f wasm-bindgen-cli --version 0.2.125
+```
+
+`wasm-bindgen-cli` must match the `wasm-bindgen` version resolved by Cargo. A mismatch shows up as a bindgen schema
+error when running `cargo test -p wasm --target wasm32-unknown-unknown`.
+
+Check only the WASM setup with:
+
+```shell
+scripts/dev.sh doctor-wasm
+```
+
 ## Formatting
 
 Formatting intentionally uses nightly rustfmt:
@@ -46,6 +79,12 @@ Check:
 scripts/dev.sh check-desktop
 ```
 
+Run tests:
+
+```shell
+scripts/dev.sh test-desktop
+```
+
 Run with local development config/data directories:
 
 ```shell
@@ -56,6 +95,7 @@ Equivalent commands:
 
 ```shell
 cargo check -p tui
+cargo test -p tui
 BPM_DETECTION_CONFIG=.data BPM_DETECTION_DATA=.data MIDI_TUI_CONFIG=.config MIDI_TUI_DATA=.data MIDI_TUI_LOG_LEVEL=info cargo run -p tui --bin bpm_detector_tui
 ```
 
@@ -117,26 +157,48 @@ cargo clippy -p tui -p midi-bpm-detector-plugin -p midi-reset --all-targets
 
 The workspace enables `clippy::pedantic` as warnings. Add `-- -D warnings` manually when you want CI-style strictness.
 
+## Native Verification
+
+For the usual native pre-commit pass:
+
+```shell
+scripts/dev.sh verify-native
+```
+
+This runs:
+
+```shell
+scripts/dev.sh fmt-check
+scripts/dev.sh test-native
+scripts/dev.sh check-native
+scripts/dev.sh clippy-native
+```
+
 ## WASM
 
-Install the target once:
+Install the target and local tools once:
 
 ```shell
 rustup target add wasm32-unknown-unknown
+cargo install trunk
+cargo install -f wasm-bindgen-cli --version 0.2.125
 ```
 
 Intended commands:
 
 ```shell
 scripts/dev.sh check-wasm
+scripts/dev.sh test-wasm
 scripts/dev.sh clippy-wasm
 scripts/dev.sh build-wasm
+scripts/dev.sh verify-wasm
 ```
 
 Equivalent commands:
 
 ```shell
 cargo check -p wasm --target wasm32-unknown-unknown
+cargo test -p wasm --target wasm32-unknown-unknown
 cargo clippy -p wasm --target wasm32-unknown-unknown
 cd crates/wasm && NO_COLOR=false trunk build
 ```
@@ -144,29 +206,24 @@ cd crates/wasm && NO_COLOR=false trunk build
 Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
 `--no-color` option. The helper script sets this for `build-wasm`.
 
+`verify-wasm` runs `doctor-wasm`, `fmt-check`, `check-wasm`, `test-wasm`, `clippy-wasm`, and `build-wasm`.
+
 ## Useful Groups
 
 Before committing native-only changes:
 
 ```shell
-scripts/dev.sh fmt-check
-scripts/dev.sh check-native
-scripts/dev.sh clippy-native
+scripts/dev.sh verify-native
 ```
 
 Before touching the web demo:
 
 ```shell
-scripts/dev.sh fmt-check
-scripts/dev.sh check-wasm
-scripts/dev.sh clippy-wasm
-scripts/dev.sh build-wasm
+scripts/dev.sh verify-wasm
 ```
 
 Before releasing/testing the plugin in a DAW:
 
 ```shell
-scripts/dev.sh fmt-check
-scripts/dev.sh clippy-plugin
-scripts/dev.sh bundle-plugin
+scripts/dev.sh verify-plugin
 ```
