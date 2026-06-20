@@ -103,6 +103,21 @@ The important difference is where that pipeline is allowed to do work:
 - In WASM mode, there are no native worker threads in the current design. Browser events and delayed recomputation are
   coordinated through async tasks and channels.
 
+## Tempo Feedback
+
+Tempo feedback has two historically different implementations:
+
+- Desktop mode can act as a native virtual MIDI device through `bpm_detection_midi`. It can emit MIDI clock, play/stop,
+  and small text SysEx messages such as `TEMPO|...`. This was useful for experimenting with a standalone app that could
+  still talk to a DAW, but it makes the DAW depend on an external MIDI clock and is ergonomically limited by host clock
+  integration.
+- Plugin mode cannot act as a system MIDI device. It runs as a CLAP/VST3 instrument inside the host, so its production
+  tempo feedback path is a localhost controller bridge. The plugin sends detected BPM to an external Bitwig controller
+  extension, which can set the DAW tempo while still allowing the user to adjust tempo manually.
+
+The native MIDI clock code should be read as desktop/experimental support, not as the production plugin integration
+strategy.
+
 ## Realtime Constraints
 
 The plugin crate is the production runtime and has the strictest execution constraints. The code reflects these
