@@ -23,6 +23,7 @@ const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
 const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
 const BPM_EVALUATION_DEBOUNCE: StdDuration = StdDuration::from_millis(50);
+const MIDI_OUTPUT_IDLE_POLL_INTERVAL: StdDuration = StdDuration::from_millis(50);
 
 /// Native desktop BPM worker.
 ///
@@ -262,8 +263,9 @@ where
                     return;
                 }
             } else {
+                // Clock enable is an atomic flag, not a queued command, so poll while idle to react promptly.
                 while !enable_midi_clock.load(Ordering::Relaxed) {
-                    match midi_output_receiver.recv_timeout(StdDuration::from_secs(1)) {
+                    match midi_output_receiver.recv_timeout(MIDI_OUTPUT_IDLE_POLL_INTERVAL) {
                         Ok(command) => handle_midi_output_command(&midi_output, command),
                         Err(RecvTimeoutError::Disconnected) => return,
                         Err(RecvTimeoutError::Timeout) => (),
