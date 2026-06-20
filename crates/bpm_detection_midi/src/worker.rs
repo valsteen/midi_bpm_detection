@@ -24,6 +24,11 @@ const FALLBACK_CLOCK_BPM: f32 = 120.0;
 const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
 const BPM_EVALUATION_DEBOUNCE: StdDuration = StdDuration::from_millis(50);
 
+/// Native desktop BPM worker.
+///
+/// This receives parsed worker events from `MidiIn`, updates `BPMDetection`, and publishes detected BPM/histogram
+/// data back to the desktop UI. It does not own the virtual MIDI output directly; output is serialized through the
+/// MIDI output thread so clock ticks, play/stop, and tempo SysEx share one owner.
 pub struct Worker<B>
 where
     B: BPMDetectionReceiver,
@@ -38,6 +43,10 @@ where
     send_tempo: ArcAtomicBool,
 }
 
+/// Commands owned by the native MIDI output thread.
+///
+/// These are not MIDI input events. They are side effects emitted by the desktop mode: transport messages, clock ticks
+/// from the clock loop, or tempo feedback SysEx.
 enum MidiOutputCommand {
     Play,
     Stop,
@@ -57,6 +66,7 @@ where
         let mut schedule_evaluate_bpm: Option<Instant> = None;
 
         loop {
+            // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
             let worker_event = if let Some(schedule_evaluate_bpm) = &schedule_evaluate_bpm {
                 let wait_for = BPM_EVALUATION_DEBOUNCE.saturating_sub(schedule_evaluate_bpm.elapsed());
                 match self.worker_events_receiver.recv_timeout(wait_for) {
@@ -77,6 +87,7 @@ where
                 schedule_evaluate_bpm = None;
                 evaluate_bpm = true;
                 if let Some(scheduled_bpm_detection_config) = scheduled_bpm_detection_config_change.take() {
+                    // Static config changes rebuild buffers/precomputed data, so apply them at the debounce boundary.
                     bpm_detection.update_static_config(scheduled_bpm_detection_config);
                 }
             }
@@ -118,6 +129,7 @@ where
                     continue;
                 };
 
+                // Detected BPM drives two desktop side effects: MIDI clock interval and optional tempo SysEx.
                 self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
                 if self.send_tempo.load(Ordering::Relaxed)
                     && let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Tempo(bpm))
@@ -155,11 +167,13 @@ where
                 false
             }
             WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
+                // Dynamic config changes scoring weights only; reuse the existing detection buffers.
                 self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
                 schedule_bpm_evaluation(schedule_evaluate_bpm);
                 false
             }
             WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
+                // Static config changes detection model shape and is applied after the debounce delay.
                 *scheduled_bpm_detection_config_change = Some(bpm_detection_config);
                 schedule_bpm_evaluation(schedule_evaluate_bpm);
                 false
@@ -258,6 +272,7 @@ where
     let mut next_tick = Instant::now();
 
     while enable_midi_clock.load(Ordering::Relaxed) {
+        // Apply queued output commands before each tick; tempo commands are coalesced by the drain helper.
         drain_midi_output_commands(clock_emitter, midi_output_receiver)?;
 
         let interval = StdDuration::from_micros(sanitize_clock_interval_microseconds(
@@ -293,6 +308,7 @@ where
     let mut latest_tempo = None;
     loop {
         match midi_output_receiver.try_recv() {
+            // Tempo updates are state-like: when several are queued, only the newest one matters.
             Ok(MidiOutputCommand::Tempo(bpm)) => latest_tempo = Some(bpm),
             Ok(command) => handle_midi_output_command(midi_output, command),
             Err(TryRecvError::Disconnected) => return Err(()),

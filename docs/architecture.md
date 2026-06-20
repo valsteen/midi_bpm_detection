@@ -18,6 +18,18 @@ The main architectural goal is to keep these modes from importing unnecessary de
 owns its host/runtime integration, while shared crates carry the algorithm, configuration shapes, reusable GUI, and small
 cross-platform abstractions.
 
+## Terminology
+
+- Note-on event: the core input observation used for BPM detection. It includes timestamp, MIDI channel, pitch, and
+  velocity. It is more precise than "note", which can also mean only pitch.
+- Timed MIDI message: a runtime MIDI message with a timestamp, kept in native/host-facing crates for display, parsing,
+  and protocol handling.
+- Worker event: a message sent to a background BPM worker. It is already filtered to something the worker can act on,
+  such as a note-on event, config change, or transport command.
+- MIDI output command: a side effect owned by the native MIDI output thread, such as play, stop, or tempo feedback.
+- Static BPM config: settings that reshape the detection model and require buffer/precomputed-data updates.
+- Dynamic BPM config: scoring weights and lookback values that can be applied without rebuilding the detection model.
+
 ## Crate Map
 
 ### Core Domain
