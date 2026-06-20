@@ -7,11 +7,11 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_precision_loss)]
 
-pub use crate::midi_messages::{TimedMidiNoteOn, TimedTypedMidiMessage};
+pub use crate::note_events::{TimedEvent, TimedMidiNoteOn};
 
 pub mod bpm_detection_receiver;
-pub mod midi_messages;
 mod normal_distribution;
+pub mod note_events;
 pub mod parameters;
 
 mod bpm_detection;

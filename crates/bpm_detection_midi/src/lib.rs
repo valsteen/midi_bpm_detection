@@ -2,7 +2,7 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 
-use bpm_detection_core::{TimedTypedMidiMessage, midi_messages::MidiNoteOn};
+use bpm_detection_core::{TimedEvent, note_events::MidiNoteOn};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub use coremidi::restart;
 pub use midi_in::{MidiIn, MidiService};
@@ -14,7 +14,7 @@ pub use sysex::SysExCommand;
 pub use wmidi::{self, MidiMessage};
 
 pub type StaticMidiMessage = MidiMessage<'static>;
-pub type TimedMidiMessage = TimedTypedMidiMessage<StaticMidiMessage>;
+pub type TimedMidiMessage = TimedEvent<StaticMidiMessage>;
 
 mod fake_midi_output;
 pub mod midi_in;
@@ -32,15 +32,15 @@ pub struct MidiServiceConfig {
     pub enable_midi_clock: ArcAtomicBool,
 }
 
-pub fn midi_note_on_from_message(midi_message: MidiMessage<'_>) -> Option<MidiNoteOn> {
-    if let MidiMessage::NoteOn(channel, note, velocity) = midi_message {
+pub fn midi_note_on_from_message(event: MidiMessage<'_>) -> Option<MidiNoteOn> {
+    if let MidiMessage::NoteOn(channel, note, velocity) = event {
         return Some(MidiNoteOn { channel: channel.index(), note: note as u8, velocity: u8::from(velocity) });
     }
     None
 }
 
 #[must_use]
-pub fn to_owned_midi_message(value: TimedTypedMidiMessage<MidiMessage<'_>>) -> TimedMidiMessage {
-    let TimedTypedMidiMessage { timestamp, midi_message } = value;
-    TimedTypedMidiMessage { timestamp, midi_message: midi_message.to_owned() }
+pub fn to_owned_event(value: TimedEvent<MidiMessage<'_>>) -> TimedMidiMessage {
+    let TimedEvent { timestamp, event } = value;
+    TimedEvent { timestamp, event: event.to_owned() }
 }

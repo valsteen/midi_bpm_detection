@@ -51,14 +51,12 @@ impl Component for MidiDisplay {
 
 impl EventHandler for MidiDisplay {
     fn handle_event(&mut self, event: &Event) -> Result<Option<Action>> {
-        if let Event::Midi(midi_message) = event {
-            if midi_message.midi_message == MidiMessage::ActiveSensing
-                || midi_message.midi_message == MidiMessage::TimingClock
-            {
+        if let Event::Midi(event) = event {
+            if event.event == MidiMessage::ActiveSensing || event.event == MidiMessage::TimingClock {
                 return Ok(None);
             }
 
-            let text = if let MidiMessage::OwnedSysEx(value) = &midi_message.midi_message {
+            let text = if let MidiMessage::OwnedSysEx(value) = &event.event {
                 let bytes = value.iter().map(|u7| u8::from(*u7)).collect();
                 let sysex_string = String::from_utf8(bytes).or(Err(()));
                 let Ok(text) = sysex_string.report_msg("invalid sysex received") else {
@@ -66,7 +64,7 @@ impl EventHandler for MidiDisplay {
                 };
                 text
             } else {
-                format!("{midi_message:?}\n")
+                format!("{event:?}\n")
             };
             self.received.push_back(text);
             let exceed = self.received.len().saturating_sub(CAPACITY);

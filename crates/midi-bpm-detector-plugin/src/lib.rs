@@ -17,7 +17,7 @@ use std::sync::{
 
 use bpm_detection_core::{
     BPMDetection, TimedMidiNoteOn,
-    midi_messages::MidiNoteOn,
+    note_events::MidiNoteOn,
     parameters::{duration_to_sample, sample_to_duration},
 };
 use chrono::Duration;
@@ -36,8 +36,8 @@ use crate::{
     task_executor::{Event, Task, UpdateOrigin},
 };
 
-fn midi_note_on_from_message(midi_message: wmidi::MidiMessage<'_>) -> Option<MidiNoteOn> {
-    if let wmidi::MidiMessage::NoteOn(channel, note, velocity) = midi_message {
+fn midi_note_on_from_message(event: wmidi::MidiMessage<'_>) -> Option<MidiNoteOn> {
+    if let wmidi::MidiMessage::NoteOn(channel, note, velocity) = event {
         return Some(MidiNoteOn { channel: channel.index(), note: note as u8, velocity: u8::from(velocity) });
     }
     None
@@ -250,7 +250,7 @@ impl MidiBpmDetector {
 
             if self
                 .events_sender
-                .try_push(Event::TimedMidiNoteOn(TimedMidiNoteOn { timestamp, midi_message: midi_note_on }))
+                .try_push(Event::TimedMidiNoteOn(TimedMidiNoteOn { timestamp, event: midi_note_on }))
                 .is_err()
             {
                 error!("event ringbuffer is full");

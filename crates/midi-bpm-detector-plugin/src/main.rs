@@ -15,7 +15,7 @@ fn main() {
     let bpm_output = midir::MidiOutput::new("TUI").unwrap().create_virtual("BPM").unwrap();
     let _midi_input = midir::MidiInput::new("TUI")
         .unwrap()
-        .create_virtual("TUI", |_time, midi_message, midi_output| midi_output.send(midi_message).unwrap(), bpm_output)
+        .create_virtual("TUI", |_time, event, midi_output| midi_output.send(event).unwrap(), bpm_output)
         .unwrap();
     let _out = cpal::host_from_id(HostId::CoreAudio).unwrap().output_devices().unwrap().next().unwrap();
 

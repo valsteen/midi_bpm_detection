@@ -15,9 +15,9 @@ use std::{
 
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::{
-    BPMDetection, TimedTypedMidiMessage,
+    BPMDetection, TimedEvent,
     bpm_detection_receiver::BPMDetectionReceiver,
-    midi_messages::MidiNoteOn,
+    note_events::MidiNoteOn,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use chrono::Duration;
@@ -50,9 +50,9 @@ pub struct GuiRemoteWrapper {
 #[wasm_bindgen]
 impl GuiRemoteWrapper {
     pub fn event_in(&mut self, channel: u8, note: u8, velocity: u8, timestamp: f64) {
-        let note = TimedTypedMidiMessage {
+        let note = TimedEvent {
             timestamp: Duration::milliseconds(timestamp as i64),
-            midi_message: MidiNoteOn { channel, note, velocity },
+            event: MidiNoteOn { channel, note, velocity },
         };
 
         self.redraw_sender.try_send(QueueItem::Note(note)).log_error_msg("channel full").ok();
@@ -113,7 +113,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                             continue 'main;
                         }
                         QueueItem::Note(note) => {
-                            bpm_detection.receive_midi_message(note);
+                            bpm_detection.receive_note(note);
 
                             if !update_notes.fetch_or(true, Ordering::Relaxed) {
                                 wasm_bindgen_futures::spawn_local({

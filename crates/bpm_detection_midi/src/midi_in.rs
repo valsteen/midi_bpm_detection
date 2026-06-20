@@ -8,7 +8,7 @@ use std::{
 };
 
 use bpm_detection_core::{
-    TimedTypedMidiMessage,
+    TimedEvent,
     bpm_detection_receiver::BPMDetectionReceiver,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
@@ -97,7 +97,7 @@ where
         Ok(devices)
     }
 
-    pub fn listen<T: Fn(TimedTypedMidiMessage<MidiMessage>) + Send + Sync + 'static>(
+    pub fn listen<T: Fn(TimedEvent<MidiMessage>) + Send + Sync + 'static>(
         &self,
         midi_input_port: &MidiInputPort,
         callback: T,
@@ -118,23 +118,23 @@ where
                 let start_timestamp = Duration::microseconds(start_timestamp as i64);
                 let timestamp = Duration::microseconds(timestamp as i64);
 
-                let Ok(midi_message) = wmidi::MidiMessage::try_from(data) else {
+                let Ok(event) = wmidi::MidiMessage::try_from(data) else {
                     return;
                 };
 
-                if let Ok(SysExCommand::Tempo(bpm)) = SysExCommand::try_from(&midi_message) {
+                if let Ok(SysExCommand::Tempo(bpm)) = SysExCommand::try_from(&event) {
                     bpm_detection_receiver.receive_daw_bpm(bpm);
                 }
 
-                let midi_message = TimedTypedMidiMessage { timestamp: timestamp - start_timestamp, midi_message };
+                let event = TimedEvent { timestamp: timestamp - start_timestamp, event };
 
-                if let Ok(midi_note_on) = WorkerEvent::try_from(midi_message.clone())
+                if let Ok(midi_note_on) = WorkerEvent::try_from(event.clone())
                     && let Err(e) = worker_sender.send(midi_note_on)
                 {
                     error!("Could not send midi message to worker: {e:?}");
                 }
 
-                callback(midi_message);
+                callback(event);
             }
         };
 

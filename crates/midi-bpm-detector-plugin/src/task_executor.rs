@@ -75,7 +75,7 @@ impl TaskExecutor {
                     match event {
                         Event::TimedMidiNoteOn(timed_midi_note_on) => {
                             evaluate_bpm_detection = true;
-                            self.bpm_detection.receive_midi_message(timed_midi_note_on);
+                            self.bpm_detection.receive_note(timed_midi_note_on);
                         }
                         Event::DawBPM(bpm) => {
                             if let Some(gui_remote) = &self.gui_remote {

@@ -1,5 +1,5 @@
 use bpm_detection_core::{
-    TimedMidiNoteOn, TimedTypedMidiMessage,
+    TimedEvent, TimedMidiNoteOn,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use wmidi::MidiMessage;
@@ -15,16 +15,16 @@ pub enum WorkerEvent {
     StaticBPMDetectionConfig(StaticBPMDetectionConfig),
 }
 
-impl TryFrom<TimedTypedMidiMessage<MidiMessage<'_>>> for WorkerEvent {
+impl TryFrom<TimedEvent<MidiMessage<'_>>> for WorkerEvent {
     type Error = ();
 
-    fn try_from(value: TimedTypedMidiMessage<MidiMessage<'_>>) -> Result<Self, Self::Error> {
-        if let MidiMessage::TimingClock = value.midi_message {
+    fn try_from(value: TimedEvent<MidiMessage<'_>>) -> Result<Self, Self::Error> {
+        if let MidiMessage::TimingClock = value.event {
             return Ok(Self::TimingClock);
         }
         Ok(Self::TimedMidiNoteOn(TimedMidiNoteOn {
             timestamp: value.timestamp,
-            midi_message: midi_note_on_from_message(value.midi_message).ok_or(())?,
+            event: midi_note_on_from_message(value.event).ok_or(())?,
         }))
     }
 }

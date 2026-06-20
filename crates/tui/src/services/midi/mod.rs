@@ -8,7 +8,7 @@ use bpm_detection_core::{
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use bpm_detection_midi::{
-    MidiIn, MidiInputConnection, MidiServiceConfig, SysExCommand, TimedMidiMessage, restart, to_owned_midi_message,
+    MidiIn, MidiInputConnection, MidiServiceConfig, SysExCommand, TimedMidiMessage, restart, to_owned_event,
 };
 use errors::{Report, Result};
 use log::{error, info};
@@ -122,8 +122,8 @@ where
                 let midi_input_port = midi_input_port.clone();
 
                 self.execute(move |midi_in, midi_input_connection| {
-                    match midi_in.listen(&midi_input_port, move |midi_message| {
-                        if let Err(send_error) = event_tx.send(Event::Midi(to_owned_midi_message(midi_message))) {
+                    match midi_in.listen(&midi_input_port, move |event| {
+                        if let Err(send_error) = event_tx.send(Event::Midi(to_owned_event(event))) {
                             error!("error while dispatching midi notes: {send_error:?}");
                         }
                     }) {
@@ -176,8 +176,8 @@ where
     B: BPMDetectionReceiver,
 {
     fn handle_event(&mut self, event: &Event) -> Result<Option<Action>> {
-        if let Event::Midi(TimedMidiMessage { midi_message, .. }) = &event {
-            match SysExCommand::try_from(midi_message) {
+        if let Event::Midi(TimedMidiMessage { event, .. }) = &event {
+            match SysExCommand::try_from(event) {
                 Ok(SysExCommand::Stop) => self.playing = false,
                 Ok(SysExCommand::Play) => self.playing = true,
                 _ => (),

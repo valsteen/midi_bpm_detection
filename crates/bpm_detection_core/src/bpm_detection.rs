@@ -47,8 +47,8 @@ impl BPMDetection {
         self.histogram_data_points.resize(self.static_bpm_detection_config.buffer_size(), 0.0);
     }
 
-    pub fn receive_midi_message(&mut self, midi_message: TimedMidiNoteOn) {
-        self.notes.push_back(midi_message);
+    pub fn receive_note(&mut self, event: TimedMidiNoteOn) {
+        self.notes.push_back(event);
     }
 
     pub fn compute_bpm(&mut self, dynamic_bpm_detection_config: &DynamicBPMDetectionConfig) -> Option<(&[f32], f32)> {
@@ -134,16 +134,15 @@ impl BPMDetection {
 
             let pitch_distance = 1.
                 - f32::from({
-                    let interval = (note_to.midi_message.note % 12).abs_diff(note_from.midi_message.note % 12);
+                    let interval = (note_to.event.note % 12).abs_diff(note_from.event.note % 12);
                     interval.min(12 - interval)
                 }) / 12.0;
-            let octave_distance =
-                1. - f32::from((note_to.midi_message.note / 12).abs_diff(note_from.midi_message.note / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
+            let octave_distance = 1. - f32::from((note_to.event.note / 12).abs_diff(note_from.event.note / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
 
             let age = (*maximum_interval - note_age).num_microseconds().unwrap() as f32
                 / maximum_interval.num_microseconds().unwrap() as f32;
-            let velocity_note_from = f32::from(note_from.midi_message.velocity) / 127.;
-            let velocity_current_note = f32::from(note_to.midi_message.velocity) / 127.;
+            let velocity_note_from = f32::from(note_from.event.velocity) / 127.;
+            let velocity_current_note = f32::from(note_to.event.velocity) / 127.;
 
             let high_tempo_bias = {
                 let interval_low_num = self.interval_low.num_microseconds().unwrap() as f32;

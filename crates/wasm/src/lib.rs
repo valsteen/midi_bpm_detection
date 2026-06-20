@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use bpm_detection_core::{
-    TimedTypedMidiMessage,
-    midi_messages::MidiNoteOn,
+    TimedEvent,
+    note_events::MidiNoteOn,
     parameters::{
         DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
         StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
@@ -32,7 +32,7 @@ pub struct WASMConfig {
 enum QueueItem {
     StaticParameters(StaticBPMDetectionConfig),
     DynamicParameters(DynamicBPMDetectionConfig),
-    Note(TimedTypedMidiMessage<MidiNoteOn>),
+    Note(TimedEvent<MidiNoteOn>),
     DelayedDynamicUpdate,
     DelayedStaticUpdate,
 }
