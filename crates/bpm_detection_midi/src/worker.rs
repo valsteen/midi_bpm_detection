@@ -9,7 +9,7 @@ use std::{
 };
 
 use bpm_detection_core::{
-    BPMDetection, NOTE_CAPACITY,
+    BPMDetection,
     bpm_detection_receiver::BPMDetectionReceiver,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval},
 };
@@ -22,6 +22,7 @@ use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::Work
 const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
 const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
+const BPM_EVALUATION_DEBOUNCE: StdDuration = StdDuration::from_millis(50);
 
 pub struct Worker<B>
 where
@@ -54,11 +55,10 @@ where
         let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
         let mut scheduled_bpm_detection_config_change: Option<StaticBPMDetectionConfig> = None;
         let mut schedule_evaluate_bpm: Option<Instant> = None;
-        let mut buffered_events = Vec::with_capacity(NOTE_CAPACITY);
 
         loop {
             let worker_event = if let Some(schedule_evaluate_bpm) = &schedule_evaluate_bpm {
-                let wait_for = StdDuration::from_millis(50).saturating_sub(schedule_evaluate_bpm.elapsed());
+                let wait_for = BPM_EVALUATION_DEBOUNCE.saturating_sub(schedule_evaluate_bpm.elapsed());
                 match self.worker_events_receiver.recv_timeout(wait_for) {
                     Ok(worker_event) => Some(worker_event),
                     Err(RecvTimeoutError::Timeout) => None,
@@ -73,7 +73,7 @@ where
 
             let mut evaluate_bpm = false;
 
-            if schedule_evaluate_bpm.is_some_and(|scheduled_at| scheduled_at.elapsed() > StdDuration::from_millis(50)) {
+            if schedule_evaluate_bpm.is_some_and(|scheduled_at| scheduled_at.elapsed() > BPM_EVALUATION_DEBOUNCE) {
                 schedule_evaluate_bpm = None;
                 evaluate_bpm = true;
                 if let Some(scheduled_bpm_detection_config) = scheduled_bpm_detection_config_change.take() {
@@ -82,39 +82,33 @@ where
             }
 
             if let Some(worker_event) = worker_event {
-                // consume all pending events, only compute bpm once we have all pending notes
-                buffered_events.push(worker_event);
-                buffered_events.extend(self.worker_events_receiver.try_iter());
-
-                for worker_event in buffered_events.drain(..) {
-                    match worker_event {
-                        WorkerEvent::TimedNoteOn(event) => {
-                            evaluate_bpm = true;
-                            bpm_detection.receive_note_on(event);
+                // Consume all pending events, then compute BPM once for the whole batch.
+                let mut worker_events_disconnected = false;
+                evaluate_bpm |= self.handle_worker_event(
+                    worker_event,
+                    &mut bpm_detection,
+                    &mut scheduled_bpm_detection_config_change,
+                    &mut schedule_evaluate_bpm,
+                );
+                loop {
+                    match self.worker_events_receiver.try_recv() {
+                        Ok(worker_event) => {
+                            evaluate_bpm |= self.handle_worker_event(
+                                worker_event,
+                                &mut bpm_detection,
+                                &mut scheduled_bpm_detection_config_change,
+                                &mut schedule_evaluate_bpm,
+                            );
                         }
-                        WorkerEvent::Play => {
-                            if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
-                                error!("could not send play to MIDI output thread : {err:?}");
-                            }
-                        }
-                        WorkerEvent::Stop => {
-                            if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Stop) {
-                                error!("could not send stop to MIDI output thread : {err:?}");
-                            }
-                        }
-                        WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
-                            self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
-                            if schedule_evaluate_bpm.is_none() {
-                                schedule_evaluate_bpm = Some(Instant::now());
-                            }
-                        }
-                        WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
-                            scheduled_bpm_detection_config_change = Some(bpm_detection_config);
-                            if schedule_evaluate_bpm.is_none() {
-                                schedule_evaluate_bpm = Some(Instant::now());
-                            }
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => {
+                            worker_events_disconnected = true;
+                            break;
                         }
                     }
+                }
+                if worker_events_disconnected && !evaluate_bpm {
+                    break;
                 }
             }
 
@@ -134,6 +128,49 @@ where
                 self.bpm_detection_receiver.receive_bpm_histogram_data(histogram_data_points, bpm);
             }
         }
+    }
+
+    fn handle_worker_event(
+        &mut self,
+        worker_event: WorkerEvent,
+        bpm_detection: &mut BPMDetection,
+        scheduled_bpm_detection_config_change: &mut Option<StaticBPMDetectionConfig>,
+        schedule_evaluate_bpm: &mut Option<Instant>,
+    ) -> bool {
+        match worker_event {
+            WorkerEvent::TimedNoteOn(event) => {
+                bpm_detection.receive_note_on(event);
+                true
+            }
+            WorkerEvent::Play => {
+                if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
+                    error!("could not send play to MIDI output thread : {err:?}");
+                }
+                false
+            }
+            WorkerEvent::Stop => {
+                if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Stop) {
+                    error!("could not send stop to MIDI output thread : {err:?}");
+                }
+                false
+            }
+            WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
+                self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
+                schedule_bpm_evaluation(schedule_evaluate_bpm);
+                false
+            }
+            WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
+                *scheduled_bpm_detection_config_change = Some(bpm_detection_config);
+                schedule_bpm_evaluation(schedule_evaluate_bpm);
+                false
+            }
+        }
+    }
+}
+
+fn schedule_bpm_evaluation(schedule_evaluate_bpm: &mut Option<Instant>) {
+    if schedule_evaluate_bpm.is_none() {
+        *schedule_evaluate_bpm = Some(Instant::now());
     }
 }
 
