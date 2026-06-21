@@ -161,6 +161,30 @@ Each runtime mode adapts this shared config into its own host surface:
 The current plugin code also distinguishes whether updates originate from the DAW parameter system or the GUI. That
 origin matters because it determines which side is authoritative and which side needs to be refreshed.
 
+### Plugin Parameter Synchronization
+
+Plugin parameters have two interactive surfaces:
+
+- the DAW/plugin-host parameter surface;
+- the egui plugin editor.
+
+Both surfaces need to stay in sync, but blindly reflecting every update in both directions can create feedback loops:
+the DAW updates the plugin, the GUI mirrors the change, the GUI writes the value back through the plugin setter, and the
+host treats that as another user edit.
+
+The current plugin code handles this by tagging config tasks with `UpdateOrigin::Daw` or `UpdateOrigin::Gui`. The origin
+decides which side is considered authoritative for that update and whether the other side must refresh its local config.
+This is intentional architecture, but some surrounding code should be treated as archeology from that struggle:
+
+- startup forces an initial parameter sync so saved DAW parameters populate the GUI config;
+- `gui_must_update_config` tells the editor to reload config after DAW-originated changes;
+- GUI-originated changes are delayed and batched before they reach the background task executor;
+- static and dynamic config updates use similar but not identical refresh/recompute paths.
+
+This area is a likely refactor target. The desired end state is a small, explicit parameter-sync protocol that documents
+which surface owns an update, which side must refresh, and when BPM recomputation is required. That protocol should make
+feedback-loop prevention obvious instead of depending on scattered flags and timing behavior.
+
 ## Validation Notes
 
 These points are worth validating before writing deeper runtime diagrams:
@@ -172,6 +196,8 @@ These points are worth validating before writing deeper runtime diagrams:
   and egui rendering.
 - Plugin mode is the production target and drives the realtime constraints. Desktop and WASM preserve the same model but
   can use less restrictive runtime mechanisms.
+- Plugin parameter synchronization is intentionally bidirectional, but the current implementation may still contain
+  workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design.
 - The most useful next diagram is probably a data-flow/thread-boundary diagram, not a sequence diagram. Sequence diagrams
   will be useful later for specific flows such as "plugin MIDI note received" or "GUI parameter change propagates".
 
