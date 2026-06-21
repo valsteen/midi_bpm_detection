@@ -159,6 +159,11 @@ handles the awkward native lifecycle without an `Option<DesktopController>` comm
 be registered before other MIDI initialization, those callbacks can enqueue work if they fire early, and the queued work
 runs only after the real controller is installed.
 
+The desktop MIDI input list refresh is platform-dependent. macOS registers CoreMIDI hotplug notifications and refreshes
+the list automatically, so the GUI should not show a manual refresh button there. Other native platforms currently rely
+on manual refresh because no equivalent hotplug callback is wired yet; the refresh still works by asking `midir` for the
+current input ports again.
+
 ### Placement Options
 
 There are three plausible places for this boundary:

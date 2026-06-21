@@ -301,7 +301,9 @@ where
 
     fn desktop_controls(&mut self, ui: &mut gui::eframe::egui::Ui) {
         let Some(controller) = self.controller.try_lock() else {
+            ui.label("MIDI input");
             ui.label("MIDI service is updating");
+            ui.end_row();
             return;
         };
 
@@ -315,14 +317,28 @@ where
         drop(controller);
 
         let mut selected_index_clicked = false;
-        gui::eframe::egui::ComboBox::from_label("MIDI input")
-            .selected_text(selected.as_ref().map_or("<none selected>", MidiInputPort::as_str))
-            .show_ui(ui, |ui| {
-                for (index, device) in devices.iter().enumerate() {
-                    selected_index_clicked |=
-                        ui.selectable_value(&mut selected_index, index, device.as_str()).clicked();
-                }
-            });
+        ui.label("MIDI input");
+        ui.horizontal(|ui| {
+            gui::eframe::egui::ComboBox::from_id_salt("desktop-midi-input")
+                .selected_text(selected.as_ref().map_or("<none selected>", MidiInputPort::as_str))
+                .show_ui(ui, |ui| {
+                    for (index, device) in devices.iter().enumerate() {
+                        selected_index_clicked |=
+                            ui.selectable_value(&mut selected_index, index, device.as_str()).clicked();
+                    }
+                });
+
+            #[cfg(not(target_os = "macos"))]
+            if ui.button("Refresh MIDI inputs").clicked() {
+                let ctx = ui.ctx().clone();
+                self.controller_commands.send("Could not refresh MIDI input list", move |controller| {
+                    let result = controller.refresh_devices();
+                    ctx.request_repaint();
+                    result
+                });
+            }
+        });
+        ui.end_row();
 
         let selected_index_changed = Some(selected_index) != current_selected_index;
         let confirmed_displayed_fallback =
@@ -330,15 +346,6 @@ where
         if !devices.is_empty() && (selected_index_changed || confirmed_displayed_fallback) {
             self.controller_commands
                 .send("Could not select MIDI input", move |controller| controller.select_device_index(selected_index));
-        }
-
-        if ui.button("Refresh MIDI inputs").clicked() {
-            let ctx = ui.ctx().clone();
-            self.controller_commands.send("Could not refresh MIDI input list", move |controller| {
-                let result = controller.refresh_devices();
-                ctx.request_repaint();
-                result
-            });
         }
     }
 }
