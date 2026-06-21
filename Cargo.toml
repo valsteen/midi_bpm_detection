@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/tui",
+    "crates/desktop",
     "crates/errors",
     "crates/build",
     "crates/bpm_detection_core",
