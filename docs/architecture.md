@@ -189,10 +189,26 @@ blocking I/O, lock contention, or unbounded work, it belongs outside the realtim
 The plugin path currently uses forks of `nih-plug` and `egui-baseview`. This should be treated as a pragmatic extension
 of upstream crates, not as a permanent divergence goal.
 
-The original reason for forking `nih-plug` was API surface: the project needed host/plugin integration hooks that were
-not exposed cleanly upstream. Some upstream types also used `non_exhaustive`, which made downstream extension and precise
-matching more awkward for this use case. The fork lets the plugin integration stay explicit while the project validates
-which host-facing behaviors it actually needs.
+The `nih-plug` fork currently carries three kinds of changes.
+
+First, the fork changes `TaskExecutor` from `Fn` to `FnMut`. This project hands NIH-plug a closure that owns the plugin's
+background executor and calls `TaskExecutor::execute(&mut self, task)`. That executor mutates the BPM model, shared config,
+GUI remote, DAW tempo connection, and ring-buffer receiver. A plain `Fn` executor cannot express that owned mutable state
+without introducing extra interior-mutability ceremony around the whole executor.
+
+Second, the fork keeps the plugin editor aligned with the shared GUI stack. `nih_plug_egui` is pointed at the local
+`egui-baseview` fork, now on the same egui generation as the desktop and WASM GUI. The fork also removes NIH-plug-egui's
+unconditional `request_repaint()` in the editor update loop because this project has explicit repaint paths through
+`GuiRemote`; always repainting kept the editor active even while visually idle.
+
+Third, the fork carries small compatibility fixes required by the newer egui generation, including the
+`ResizableWindow` integration update and one explicit `f32` literal in NIH-plug-egui widget code.
+
+The fork used to carry an `UnsupportedMidi` escape hatch in `NoteEvent`. That was archeology from an experiment that tried
+to send tempo data through SysEx or SysEx-like MIDI routing so a DAW-side controller script could read it. Host behavior
+around SysEx routing was too inconsistent and under-documented for that path to be a stable feature. The cleaned fork drops
+that hack and keeps upstream MIDI event handling intact. The standalone binary also uses NIH-plug's public standalone entry
+point now, so the fork no longer exposes private standalone wrapper modules.
 
 Forks should follow a forward-only policy:
 

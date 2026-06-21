@@ -19,8 +19,8 @@ bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "b3c983a69d24ea43d2dcaace30c54325b5626eee", features = ["assert_process_allocs", "standalone"] }
-nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "b3c983a69d24ea43d2dcaace30c54325b5626eee" }
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "11ef31570f6c1ce107566e49a2b4b018711df051", features = ["assert_process_allocs", "standalone"] }
+nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "11ef31570f6c1ce107566e49a2b4b018711df051" }
 
 chrono = "0.4.41"
 cpal = "0.16.0"
