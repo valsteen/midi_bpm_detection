@@ -153,6 +153,12 @@ DesktopController
 This is intentionally not a direct translation of `Action`. For example, `Action::Down` and `Action::Switch` are TUI
 interaction details and should disappear. `select_midi_input(port)` is a desktop capability and should remain.
 
+The current desktop runtime uses a pending command runtime during bootstrap. The command sender exists before
+`DesktopController` exists, but the command worker is only started once the controller has been fully constructed. This
+handles the awkward native lifecycle without an `Option<DesktopController>` command target: macOS hotplug callbacks can
+be registered before other MIDI initialization, those callbacks can enqueue work if they fire early, and the queued work
+runs only after the real controller is installed.
+
 ### Placement Options
 
 There are three plausible places for this boundary:

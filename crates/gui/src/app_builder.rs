@@ -5,6 +5,24 @@ use eframe::egui::Context;
 
 use crate::{BPMDetectionApp, app::BPMDetectionGUI};
 
+pub struct AppBuilderShell {
+    context_receiver: Arc<AtomicRefCell<Option<Context>>>,
+    bpm_detection_gui: BPMDetectionGUI,
+}
+
+impl AppBuilderShell {
+    pub(crate) fn new(
+        context_receiver: Arc<AtomicRefCell<Option<Context>>>,
+        bpm_detection_gui: BPMDetectionGUI,
+    ) -> Self {
+        Self { context_receiver, bpm_detection_gui }
+    }
+
+    pub fn with_config<Config>(self, base_config: Config) -> AppBuilder<Config> {
+        AppBuilder::new(self.context_receiver, self.bpm_detection_gui, base_config)
+    }
+}
+
 pub struct AppBuilder<Config> {
     context_receiver: Arc<AtomicRefCell<Option<Context>>>,
     bpm_detection_gui: BPMDetectionGUI,
