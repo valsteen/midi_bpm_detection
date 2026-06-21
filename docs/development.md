@@ -147,13 +147,18 @@ scripts/dev.sh clippy-desktop
 scripts/dev.sh clippy-plugin
 scripts/dev.sh clippy-reset
 scripts/dev.sh clippy-native
+scripts/dev.sh clippy-all
 ```
 
 Equivalent combined command:
 
 ```shell
 cargo clippy -p tui -p midi-bpm-detector-plugin -p midi-reset --all-targets
+cargo clippy -p wasm --target wasm32-unknown-unknown
 ```
+
+`clippy-all` runs both `clippy-native` and `clippy-wasm`. Use it when you want to lint every supported build mode from
+one command.
 
 The workspace enables `clippy::pedantic` as warnings. Add `-- -D warnings` manually when you want CI-style strictness.
 
@@ -254,6 +259,12 @@ Before touching the web demo:
 
 ```shell
 scripts/dev.sh verify-wasm
+```
+
+Before checking all lint targets:
+
+```shell
+scripts/dev.sh clippy-all
 ```
 
 Before releasing/testing the plugin in a DAW:

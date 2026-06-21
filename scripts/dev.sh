@@ -32,6 +32,7 @@ Native macOS/dev checks:
   clippy-plugin   Run clippy for the CLAP/VST3 plugin crate
   clippy-reset    Run clippy for the MIDI reset utility
   clippy-native   Run clippy for desktop, plugin, and reset crates
+  clippy-all      Run clippy for all native and WASM build modes
   verify-native   Run the usual native pre-commit checks
 
 Run/build commands:
@@ -147,6 +148,10 @@ case "$command" in
         ;;
     clippy-native)
         cargo clippy -p tui -p midi-bpm-detector-plugin -p midi-reset --all-targets
+        ;;
+    clippy-all)
+        "$0" clippy-native
+        "$0" clippy-wasm
         ;;
     verify-native)
         "$0" fmt-check
