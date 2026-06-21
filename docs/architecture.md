@@ -184,6 +184,27 @@ constraints:
 These constraints should be treated as design rules when changing plugin-mode code. If a change requires allocation,
 blocking I/O, lock contention, or unbounded work, it belongs outside the realtime callback.
 
+## Forked Plugin Dependencies
+
+The plugin path currently uses forks of `nih-plug` and `egui-baseview`. This should be treated as a pragmatic extension
+of upstream crates, not as a permanent divergence goal.
+
+The original reason for forking `nih-plug` was API surface: the project needed host/plugin integration hooks that were
+not exposed cleanly upstream. Some upstream types also used `non_exhaustive`, which made downstream extension and precise
+matching more awkward for this use case. The fork lets the plugin integration stay explicit while the project validates
+which host-facing behaviors it actually needs.
+
+Forks should follow a forward-only policy:
+
+- prefer moving to newer upstream dependency generations over patching stale transitive crates;
+- keep fork diffs small, boring, and shaped like upstreamable compatibility work;
+- pin commits in this repository so plugin builds are reproducible;
+- periodically check whether upstream has caught up enough to drop the fork or reduce its diff.
+
+The egui/wgpu update that removed `block v0.1.6` follows this policy. Instead of patching `block`, `metal`, or
+`wgpu-hal` 25, the project moved to the upstream generation where Metal uses `block2`/`objc2`. The only fork updates
+needed were compatibility bumps so the plugin editor and shared desktop/WASM GUI could stay on the same egui generation.
+
 ## Configuration Shape
 
 The BPM model has two broad config groups:
