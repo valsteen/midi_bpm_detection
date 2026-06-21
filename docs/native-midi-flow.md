@@ -56,6 +56,128 @@ The long-term direction is probably a native full-GUI desktop mode:
 Until that refactor happens, code in `crates/tui` should be read as desktop shell scaffolding. It can still be useful and
 working, but it is not the architectural model the rest of the project should copy.
 
+## Current Desktop Startup
+
+The native desktop binary currently splits startup into two typed phases:
+
+1. `PreparedTui` owns the configuration, action channel, `GuiRemote`, and `AppBuilder`.
+2. `RunningTui` owns the Tokio runtime, the one-shot "start the GUI now" receiver, and the `AppBuilder`.
+
+This shape is clever in a useful way: after preparation, the only operation left is to spawn the TUI runtime; after the
+runtime is spawned, the only operation left on the main thread is waiting for the GUI start signal and running egui.
+Those types encode lifecycle order instead of relying only on comments.
+
+The runtime split exists because the current desktop app starts in the terminal:
+
+```text
+main thread
+  -> read/update TUIConfig
+  -> create GuiRemote + AppBuilder
+  -> spawn Tokio runtime for the TUI shell
+  -> block until Action::ShowGUI asks for egui
+  -> run egui on the main thread
+
+Tokio runtime
+  -> run_tui()
+      -> create TUI Event channel
+      -> install signal handling
+      -> install GUI exit callback
+      -> start MIDI service wrapper
+      -> start Ratatui event/render loops
+      -> dispatch Event values into Action values
+      -> dispatch Actions to TUI components and services
+```
+
+The GUI exit callback is part of that lifecycle handoff. When egui exits, it sends `Action::Quit` into the TUI loop and
+then waits until the Tokio side reports that it has exited. This keeps terminal cleanup and MIDI service teardown under
+the TUI runtime, but it also couples GUI shutdown to the terminal shell.
+
+When the TUI is retired, the useful invariant is not "start Ratatui before egui". The useful invariant is that desktop
+bootstrap should make ownership obvious:
+
+- one owner starts the native MIDI service;
+- one owner starts the GUI on the platform-required thread;
+- closing the GUI has one clear path for stopping MIDI input, background workers, and config persistence;
+- lifecycle order remains encoded in types or a small bootstrap object instead of being reconstructed from comments.
+
+## TUI Port/Delete Checklist
+
+The pieces to port into a GUI-native desktop mode are small:
+
+- native MIDI input discovery and selection;
+- hotplug refresh notifications;
+- stable selection behavior when the device list changes;
+- selected-device listening, where replacing the held `MidiInputConnection` stops the old listener;
+- parameter/config propagation from the GUI into `MidiService`;
+- optional desktop-only controls for native MIDI playback, MIDI clock, and tempo feedback if those experiments remain
+  useful.
+
+The pieces that should disappear with Ratatui unless they prove otherwise are broader:
+
+- terminal drawing and alternate-screen lifecycle;
+- TUI screen switching;
+- TUI keybinding dispatch as the way the GUI talks back to the shell;
+- `tui::Event` and `Action` as a runtime-wide bus;
+- generic component/service dispatch over trait objects for the desktop GUI path.
+
+If a replacement still needs events, they should be local to the thing that owns them. For example, a GUI device selector
+may have a small model/update API, and the native MIDI service may keep closure commands or a narrow command enum. The
+goal is not to avoid events; it is to avoid rebuilding the same global bus under an egui name.
+
+## Proposed Desktop Controller Boundary
+
+The future desktop GUI needs an integration layer above `gui` and `bpm_detection_midi`.
+
+That layer should depend on both crates, but neither shared crate should depend back on it:
+
+- `gui` should stay reusable by plugin and WASM mode, so it should not learn about `midir`, `MidiInputPort`, native
+  hotplug callbacks, or desktop-only playback/clock controls.
+- `bpm_detection_midi` should stay UI-free. It should own native MIDI service mechanics, not egui widgets or window
+  lifecycle.
+- The desktop controller should own the relationship between the two: native device selection, selected input lifetime,
+  MIDI display/debug state if still useful, config propagation, and desktop-only MIDI side effects.
+
+The controller should expose capabilities that map to user intent rather than TUI actions:
+
+```text
+DesktopController
+  -> list MIDI inputs
+  -> select MIDI input
+  -> observe MIDI input list changes
+  -> apply static BPM config
+  -> apply dynamic BPM config
+  -> toggle native playback / MIDI clock / tempo feedback, if kept
+  -> stop native services on shutdown
+```
+
+This is intentionally not a direct translation of `Action`. For example, `Action::Down` and `Action::Switch` are TUI
+interaction details and should disappear. `select_midi_input(port)` is a desktop capability and should remain.
+
+### Placement Options
+
+There are three plausible places for this boundary:
+
+1. Keep it temporarily inside `crates/tui` while deleting Ratatui-specific code around it.
+2. Rename or replace `crates/tui` with a desktop/native app crate once the terminal UI is gone.
+3. Add a new desktop integration crate and leave `crates/tui` as a shrinking compatibility shell until it can be removed.
+
+The likely direction is option 2 or 3. Option 1 is useful only as a short migration step. The final shape should make the
+dependency purpose obvious from the crate name: this code is the native desktop runtime, not a terminal UI.
+
+### First Extraction Candidate
+
+The first useful extraction is not a widget. It is the non-visual model behind MIDI input selection:
+
+- current device list;
+- current selected port;
+- stable selection update when the device list changes;
+- command to select a port and replace the active `MidiInputConnection`;
+- callback/signal for a GUI widget to refresh when the device list changes.
+
+Once that exists, egui can render it as a combo box or selector without owning MIDI service synchronization itself. The
+existing `SelectDevice` component is the reference behavior to preserve, but its Ratatui drawing and `Action::Up` /
+`Action::Down` handling are not part of the model.
+
 ## MIDI Service Closure Boundary
 
 `bpm_detection_midi::MidiService` owns a dedicated service thread. Callers do not send a large public enum of every
