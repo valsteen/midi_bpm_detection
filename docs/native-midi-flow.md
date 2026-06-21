@@ -48,6 +48,8 @@ The long-term direction is probably a native full-GUI desktop mode:
 - controller selection moves into egui;
 - the desktop event loop is rebuilt around the GUI/runtime actually being used;
 - MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all TUI bus;
+- producers and consumers are connected during bootstrap through narrow typed protocols, then communicate directly
+  through those protocols;
 - async is used only where cooperative scheduling is needed, not as the default shape for a fixed set of background
   workers.
 

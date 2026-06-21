@@ -130,6 +130,28 @@ Tempo feedback has two historically different implementations:
 The native MIDI clock code should be read as desktop/experimental support, not as the production plugin integration
 strategy.
 
+## Communication Direction
+
+The project should prefer typed peer boundaries over a single runtime-wide event bus. A central bus can be useful early
+because it lists "everything that can happen" in one place, but it also tends to become a dependency magnet: the event
+enum, dispatcher, and orchestrator eventually need to know about every component.
+
+The preferred direction is:
+
+- producers expose narrow capabilities, such as publishing BPM estimates or MIDI device changes;
+- consumers depend on those narrow capabilities, not on a whole application event enum;
+- shared protocols live at the smallest dependency level that can express the relationship;
+- runtime/bootstrap code wires producers and consumers together explicitly;
+- after bootstrap, peers communicate through the connection they actually need instead of returning to a universal bus.
+
+The tradeoff is that connections become more distributed. Bootstrap therefore becomes important documentation: it should
+read like clean configuration of the runtime graph, not like a second hidden orchestrator. If future runtime features
+need pluggable components, they should follow the same shape: discover compatible producers and consumers, connect them,
+then let that pair communicate through its own protocol.
+
+Small explicit enums are still valid when the protocol is narrow and stable. `WorkerEvent` is a good example: it belongs
+to one worker boundary and does not try to describe the whole application.
+
 ## Realtime Constraints
 
 The plugin crate is the production runtime and has the strictest execution constraints. The code reflects these
@@ -198,6 +220,8 @@ These points are worth validating before writing deeper runtime diagrams:
   can use less restrictive runtime mechanisms.
 - Plugin parameter synchronization is intentionally bidirectional, but the current implementation may still contain
   workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design.
+- Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
+  section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
 - The most useful next diagram is probably a data-flow/thread-boundary diagram, not a sequence diagram. Sequence diagrams
   will be useful later for specific flows such as "plugin MIDI note received" or "GUI parameter change propagates".
 
