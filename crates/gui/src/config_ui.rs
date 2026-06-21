@@ -38,6 +38,7 @@ impl BPMDetectionGUI {
             if ui.toggle_value(&mut send_tempo_enabled, "Send tempo").changed() {
                 config.set_send_tempo(send_tempo_enabled);
             }
+            config.desktop_controls(ui);
         });
     }
 }
