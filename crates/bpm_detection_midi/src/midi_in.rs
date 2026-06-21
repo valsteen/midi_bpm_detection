@@ -30,11 +30,41 @@ use crate::{
     MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_command::BpmWorkerCommand,
 };
 
-const UNSET_START_TIMESTAMP_MICROS: u64 = u64::MAX;
+#[derive(Debug)]
+struct AtomicOptionU64 {
+    value: AtomicU64,
+}
+
+impl AtomicOptionU64 {
+    const NONE: u64 = u64::MAX;
+
+    fn none() -> Self {
+        Self { value: AtomicU64::new(Self::NONE) }
+    }
+
+    fn load(&self, order: Ordering) -> Option<u64> {
+        Self::decode(self.value.load(order))
+    }
+
+    fn store(&self, value: Option<u64>, order: Ordering) {
+        self.value.store(value.unwrap_or(Self::NONE), order);
+    }
+
+    fn get_or_insert(&self, value: u64, order: Ordering) -> u64 {
+        self.load(order).unwrap_or_else(|| {
+            self.store(Some(value), order);
+            value
+        })
+    }
+
+    fn decode(value: u64) -> Option<u64> {
+        (value != Self::NONE).then_some(value)
+    }
+}
 
 pub struct MidiIn<B> {
     midi_input: MidiInput,
-    start_timestamp: Arc<AtomicU64>,
+    start_timestamp: Arc<AtomicOptionU64>,
     worker_sender: Sender<BpmWorkerCommand>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     midi_config: MidiServiceConfig,
@@ -70,7 +100,7 @@ where
             #[cfg(target_os = "macos")]
             midi_config: midi_service_config,
             midi_input: MidiInput::new(PROJECT_NAME)?,
-            start_timestamp: Arc::new(AtomicU64::new(UNSET_START_TIMESTAMP_MICROS)),
+            start_timestamp: Arc::new(AtomicOptionU64::none()),
             worker_sender: worker_commands_sender,
             bpm_detection_receiver,
         })
@@ -105,19 +135,13 @@ where
         callback: T,
     ) -> Result<Option<MidiInputConnection<()>>> {
         let bpm_detection_receiver = self.bpm_detection_receiver.clone();
-        self.start_timestamp.store(UNSET_START_TIMESTAMP_MICROS, Ordering::Relaxed);
+        self.start_timestamp.store(None, Ordering::Relaxed);
 
         let listener = move || {
             let start_timestamp = self.start_timestamp.clone();
             let worker_sender = self.worker_sender.clone();
             move |timestamp: u64, data: &[u8], (): &mut ()| {
-                let start_timestamp = match start_timestamp.load(Ordering::Relaxed) {
-                    UNSET_START_TIMESTAMP_MICROS => {
-                        start_timestamp.store(timestamp, Ordering::Relaxed);
-                        timestamp
-                    }
-                    timestamp => timestamp,
-                };
+                let start_timestamp = start_timestamp.get_or_insert(timestamp, Ordering::Relaxed);
                 let Some(timestamp) = midi_timestamp_to_elapsed_duration(timestamp, start_timestamp) else {
                     error!(
                         "Dropping MIDI message with invalid timestamp {timestamp} relative to start {start_timestamp}"
@@ -280,6 +304,37 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn atomic_option_u64_starts_empty() {
+        assert_eq!(AtomicOptionU64::none().load(Ordering::Relaxed), None);
+    }
+
+    #[test]
+    fn atomic_option_u64_stores_some_values_including_zero() {
+        let value = AtomicOptionU64::none();
+
+        value.store(Some(0), Ordering::Relaxed);
+        assert_eq!(value.load(Ordering::Relaxed), Some(0));
+    }
+
+    #[test]
+    fn atomic_option_u64_get_or_insert_keeps_existing_value() {
+        let value = AtomicOptionU64::none();
+
+        assert_eq!(value.get_or_insert(10, Ordering::Relaxed), 10);
+        assert_eq!(value.get_or_insert(20, Ordering::Relaxed), 10);
+    }
+
+    #[test]
+    fn atomic_option_u64_can_be_reset_to_none() {
+        let value = AtomicOptionU64::none();
+
+        value.store(Some(10), Ordering::Relaxed);
+        value.store(None, Ordering::Relaxed);
+
+        assert_eq!(value.load(Ordering::Relaxed), None);
+    }
 
     #[test]
     fn midi_timestamp_to_elapsed_duration_allows_zero_start() {
