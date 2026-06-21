@@ -179,3 +179,5 @@ These points are worth validating before writing deeper runtime diagrams:
 
 - [Native MIDI flow](native-midi-flow.md) documents the desktop MIDI service, BPM worker, output thread, and the
   closure-command boundary used by `MidiService::execute()`.
+- [Plugin flow](plugin-flow.md) documents host buffer processing, realtime handoff, background BPM work, and plugin
+  tempo feedback.
