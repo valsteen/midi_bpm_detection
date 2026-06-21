@@ -70,7 +70,7 @@ impl GuiEditor {
                 }
 
                 // error may happen if corresponding remote was dropped
-                if bpm_detection_gui.update(egui_ctx, &mut live_config).is_ok() {
+                if bpm_detection_gui.update_context(egui_ctx, &mut live_config).is_ok() {
                     if live_config.base_config.has_config_changes_via_ui {
                         let mut config = self.config.write();
                         *config = live_config.base_config.config.clone();
