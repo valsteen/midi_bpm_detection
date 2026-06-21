@@ -152,6 +152,24 @@ then let that pair communicate through its own protocol.
 Small explicit enums are still valid when the protocol is narrow and stable. `WorkerEvent` is a good example: it belongs
 to one worker boundary and does not try to describe the whole application.
 
+### Design Goals For Communication Boundaries
+
+These goals are guidance, not doctrine. They are inspired by existing patterns such as composition root/bootstrap wiring,
+ports and adapters, observer/signals, and actor-style worker mailboxes:
+
+- keep the core model independent from runtime dependencies;
+- make stable runtime relationships visible at bootstrap;
+- prefer small typed protocols over a catch-all application event enum;
+- use explicit messages when crossing ownership, thread, async task, or realtime boundaries;
+- keep high-volume/realtime paths predictable: bounded work, bounded queues, no accidental blocking;
+- avoid service-locator style lookup, where components can silently find anything at runtime;
+- document the wiring well enough that distributed peer connections remain understandable.
+
+These choices should be re-evaluated as the architecture becomes clearer. A central enum, bus, or dispatcher can still
+be the right tool for a narrow UI loop, worker mailbox, host callback adapter, or dynamic plugin/discovery boundary. The
+goal is not to ban event-driven design; it is to avoid turning early orchestration convenience into a permanent
+dependency magnet.
+
 ## Realtime Constraints
 
 The plugin crate is the production runtime and has the strictest execution constraints. The code reflects these
