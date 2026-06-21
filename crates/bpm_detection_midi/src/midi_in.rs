@@ -178,8 +178,13 @@ where
         self.worker_sender.send(WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config))
     }
 }
-type CommandsSender<B> =
-    SyncSender<Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>>;
+/// Closure command executed on the MIDI service thread.
+///
+/// The closure receives the service-owned `MidiIn` plus the current input connection holder. Replacing that holder is
+/// how callers switch or clear the active MIDI input listener.
+type MidiServiceCommand<B> = Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>;
+
+type CommandsSender<B> = SyncSender<MidiServiceCommand<B>>;
 
 pub struct MidiService<B> {
     commands_sender: CommandsSender<B>,
@@ -216,9 +221,7 @@ where
                     return;
                 }
             };
-            let (commands_sender, commands_receiver) = std::sync::mpsc::sync_channel::<
-                Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>,
-            >(0);
+            let (commands_sender, commands_receiver) = std::sync::mpsc::sync_channel::<MidiServiceCommand<B>>(0);
             if let Err(e) = result_sender.send(Ok(commands_sender)) {
                 error!("error while reporting on thread start {e:?}");
             }

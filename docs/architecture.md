@@ -174,3 +174,8 @@ These points are worth validating before writing deeper runtime diagrams:
   can use less restrictive runtime mechanisms.
 - The most useful next diagram is probably a data-flow/thread-boundary diagram, not a sequence diagram. Sequence diagrams
   will be useful later for specific flows such as "plugin MIDI note received" or "GUI parameter change propagates".
+
+## Detailed Flow Notes
+
+- [Native MIDI flow](native-midi-flow.md) documents the desktop MIDI service, BPM worker, output thread, and the
+  closure-command boundary used by `MidiService::execute()`.
