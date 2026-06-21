@@ -189,7 +189,7 @@ blocking I/O, lock contention, or unbounded work, it belongs outside the realtim
 The plugin path currently uses forks of `nih-plug` and `egui-baseview`. This should be treated as a pragmatic extension
 of upstream crates, not as a permanent divergence goal.
 
-The `nih-plug` fork currently carries three kinds of changes.
+The `nih-plug` fork currently carries four kinds of changes.
 
 First, the fork changes `TaskExecutor` from `Fn` to `FnMut`. This project hands NIH-plug a closure that owns the plugin's
 background executor and calls `TaskExecutor::execute(&mut self, task)`. That executor mutates the BPM model, shared config,
@@ -204,11 +204,15 @@ unconditional `request_repaint()` in the editor update loop because this project
 Third, the fork carries small compatibility fixes required by the newer egui generation, including the
 `ResizableWindow` integration update and one explicit `f32` literal in NIH-plug-egui widget code.
 
-The fork used to carry an `UnsupportedMidi` escape hatch in `NoteEvent`. That was archeology from an experiment that tried
-to send tempo data through SysEx or SysEx-like MIDI routing so a DAW-side controller script could read it. Host behavior
-around SysEx routing was too inconsistent and under-documented for that path to be a stable feature. The cleaned fork drops
-that hack and keeps upstream MIDI event handling intact. The standalone binary also uses NIH-plug's public standalone entry
-point now, so the fork no longer exposes private standalone wrapper modules.
+Fourth, the fork restores exhaustive matching for `NoteEvent` and adds `NoteEvent::UnsupportedMidi` as an explicit raw
+MIDI escape hatch. That variant is for compact MIDI-shaped messages NIH-plug does not model as first-class events, while
+real SysEx messages starting with `0xf0` still use NIH-plug's `SysExMessage` path. This keeps the low-level passthrough
+feature available for adjacent controller/host experiments without keeping the old SysEx-tempo hack in this project.
+
+The abandoned experiment was to send tempo data through SysEx or SysEx-like MIDI routing so a DAW-side controller script
+could read it. Host behavior around SysEx routing was too inconsistent and under-documented for that path to be a stable
+feature. The standalone binary also uses NIH-plug's public standalone entry point now, so the fork no longer exposes
+private standalone wrapper modules.
 
 Forks should follow a forward-only policy:
 
