@@ -56,7 +56,11 @@ enum MidiOutputCommand {
 
 #[derive(Default)]
 struct BpmEvaluationSchedule {
+    // The worker computes BPM at batch boundaries, not after every control/config message. This timestamp marks the
+    // debounce window used to coalesce quick parameter edits and MIDI input bursts into one evaluation.
     scheduled_at: Option<Instant>,
+    // Static config changes rebuild the detection model, so only the newest pending shape is applied when the
+    // debounce window expires.
     pending_static_config: Option<StaticBPMDetectionConfig>,
 }
 
@@ -99,6 +103,8 @@ where
         loop {
             // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
             let worker_command = if let Some(wait_for) = bpm_evaluation_schedule.wait_for() {
+                // This is not a polling loop. `recv_timeout` sleeps until either a worker command arrives or the
+                // scheduled BPM evaluation becomes due.
                 match self.worker_commands_receiver.recv_timeout(wait_for) {
                     Ok(worker_command) => Some(worker_command),
                     Err(RecvTimeoutError::Timeout) => None,
@@ -375,6 +381,8 @@ fn sanitize_clock_interval_microseconds(interval_microseconds: u64) -> u64 {
 }
 
 fn fallback_clock_interval_microseconds() -> u64 {
+    // 120 BPM does not map to an integer number of microseconds per MIDI clock pulse, so keep the same conversion and
+    // truncation path used for detected tempos instead of hardcoding a rounded constant.
     u64::try_from(bpm_to_midi_clock_interval(FALLBACK_CLOCK_BPM).num_microseconds().unwrap())
         .expect("fallback MIDI clock interval should be positive")
 }

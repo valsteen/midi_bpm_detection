@@ -216,6 +216,12 @@ Instead it sends `MidiOutputCommand` values.
 This keeps clock ticks, play/stop, and optional tempo SysEx serialized through one owner. Tempo updates are coalesced
 while draining output commands: when several tempo values are queued, only the newest value is emitted.
 
+MIDI clock enablement is currently a shared atomic flag read by the output thread. That avoids blocking a GUI caller on
+the output owner, but it also means the output thread uses a short idle timeout while the clock is disabled. A better
+future shape is likely an event plus state pair: writers update cheap shared state, then wake the output owner so it can
+react without polling. Any change here should keep the clock tick path owned by one thread and avoid introducing native
+MIDI dependencies into `gui`.
+
 ## Config Timing
 
 Static and dynamic BPM config changes are both debounce points, but they mean different things:
