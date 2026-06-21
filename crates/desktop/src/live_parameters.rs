@@ -1,5 +1,6 @@
 use std::{
     sync::{Arc, atomic::Ordering},
+    thread,
     time::Duration,
 };
 
@@ -10,7 +11,7 @@ use bpm_detection_core::{
         StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
     },
 };
-use errors::LogErrorWithExt;
+use errors::{LogErrorWithExt, Result};
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
 use parameter::OnOff;
 
@@ -19,6 +20,37 @@ use crate::{config::DesktopConfig, controller::DesktopController};
 pub type StaticConfigCallback = Arc<dyn Fn(StaticBPMDetectionConfig) + Send + Sync>;
 pub type DynamicConfigCallback = Arc<dyn Fn(DynamicBPMDetectionConfig) + Send + Sync>;
 pub type DesktopControllerSlot<B> = Arc<sync::Mutex<Option<DesktopController<B>>>>;
+
+pub fn spawn_controller_command<B>(
+    controller: &DesktopControllerSlot<B>,
+    error_message: &'static str,
+    command: impl FnOnce(&mut DesktopController<B>) -> Result<()> + Send + 'static,
+) where
+    B: BPMDetectionReceiver,
+{
+    spawn_slot_command(Arc::clone(controller), error_message, command);
+}
+
+fn spawn_slot_command<T>(
+    slot: Arc<sync::Mutex<Option<T>>>,
+    error_message: &'static str,
+    command: impl FnOnce(&mut T) -> Result<()> + Send + 'static,
+) where
+    T: Send + 'static,
+{
+    thread::Builder::new()
+        .name("desktop-controller-command".to_string())
+        .spawn(move || {
+            let mut slot = slot.lock();
+            let Some(value) = slot.as_mut() else {
+                return;
+            };
+
+            command(value).log_error_msg(error_message).ok();
+        })
+        .log_error_msg("Could not spawn desktop controller command")
+        .ok();
+}
 
 pub struct DesktopBaseConfig<B>
 where
@@ -272,8 +304,11 @@ where
     }
 
     fn desktop_controls(&mut self, ui: &mut gui::eframe::egui::Ui) {
-        let mut controller_slot = self.controller.lock();
-        let Some(controller) = controller_slot.as_mut() else {
+        let Some(controller_slot) = self.controller.try_lock() else {
+            ui.label("MIDI service is updating");
+            return;
+        };
+        let Some(controller) = controller_slot.as_ref() else {
             ui.label("MIDI service is starting");
             return;
         };
@@ -281,6 +316,8 @@ where
         let devices = controller.device_selection().devices().to_vec();
         let selected = controller.device_selection().selected().clone();
         let mut selected_index = controller.device_selection().selected_index().unwrap_or_default();
+        let current_selected_index = controller.device_selection().selected_index();
+        drop(controller_slot);
 
         gui::eframe::egui::ComboBox::from_label("MIDI input").selected_text(selected.as_str()).show_ui(ui, |ui| {
             for (index, device) in devices.iter().enumerate() {
@@ -288,12 +325,16 @@ where
             }
         });
 
-        if Some(selected_index) != controller.device_selection().selected_index() {
-            controller.select_device_index(selected_index).log_error_msg("Could not select MIDI input").ok();
+        if !devices.is_empty() && Some(selected_index) != current_selected_index {
+            spawn_controller_command(&self.controller, "Could not select MIDI input", move |controller| {
+                controller.select_device_index(selected_index)
+            });
         }
 
         if ui.button("Refresh MIDI inputs").clicked() {
-            controller.refresh_devices().log_error_msg("Could not refresh MIDI input list").ok();
+            spawn_controller_command(&self.controller, "Could not refresh MIDI input list", |controller| {
+                controller.refresh_devices()
+            });
         }
     }
 }
@@ -301,7 +342,8 @@ where
 #[cfg(test)]
 mod tests {
     use std::{
-        sync::{Arc, Mutex as StdMutex},
+        sync::{Arc, Mutex as StdMutex, mpsc},
+        thread,
         time::Duration,
     };
 
@@ -383,5 +425,40 @@ mod tests {
         assert!(static_changes.is_empty());
         assert_eq!(dynamic_changes.len(), 1);
         assert_eq!(config.interpolation_duration(), Duration::from_millis(250));
+    }
+
+    #[test]
+    fn spawned_slot_command_runs_away_from_caller_thread() {
+        let slot = Arc::new(sync::Mutex::new(Some(0_u8)));
+        let caller_thread = thread::current().id();
+        let (sender, receiver) = mpsc::channel();
+
+        spawn_slot_command(Arc::clone(&slot), "test command", move |value| {
+            *value = 1;
+            sender
+                .send(thread::current().id() != caller_thread)
+                .expect("receiver should still be waiting for the command result");
+            Ok(())
+        });
+
+        assert!(
+            receiver.recv_timeout(Duration::from_secs(2)).expect("command should run within the timeout"),
+            "command should run on a background thread"
+        );
+        assert_eq!(*slot.lock().as_ref().expect("slot should still hold a value"), 1);
+    }
+
+    #[test]
+    fn spawned_slot_command_skips_missing_controller() {
+        let slot = Arc::new(sync::Mutex::new(None::<u8>));
+        let (sender, receiver) = mpsc::channel();
+
+        spawn_slot_command(slot, "test command", move |value| {
+            *value = 1;
+            sender.send(()).expect("receiver should still be available");
+            Ok(())
+        });
+
+        assert!(receiver.recv_timeout(Duration::from_millis(100)).is_err());
     }
 }
