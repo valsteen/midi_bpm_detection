@@ -80,6 +80,9 @@ pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder
 pub fn start_gui<Config: BPMDetectionConfig>(app_builder: AppBuilder<Config>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
+        // The native TUI owns shutdown. Keep eframe on the returning event-loop path so closing the window
+        // returns to the caller instead of taking the process down from inside winit/eframe.
+        run_and_return: true,
         persist_window: true,
 
         ..Default::default()

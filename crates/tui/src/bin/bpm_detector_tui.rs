@@ -62,11 +62,9 @@ impl RunningTui {
     fn start_gui_when_requested(self) -> Result<()> {
         if self.should_start_gui_receiver.recv().is_ok() {
             start_gui(self.app_builder)?;
+            info!("GUI event loop returned; dropping TUI runtime");
         }
         Ok(())
-
-        // Don't add anything here. Due to macOS application lifecycle, when the main window exits, the process exits,
-        // the rest of `main` is not executed.
     }
 }
 
@@ -87,8 +85,6 @@ async fn tokio_main(
     run_tui(start_gui, action_tx, action_rx, config, gui_exit_receiver, gui_remote.clone()).await?;
     tokio_has_exited_sender.try_send(()).ok();
     gui_remote.close();
-    // Nothing should be added here : due to macOS application lifecycle, once the GUI exits, which happens when
-    // calling gui_remote.close(), the process will exit without going through the rest of `main`.
     Ok(())
 }
 
