@@ -15,7 +15,7 @@ use bpm_detection_core::{
 };
 use errors::Result;
 use log::error;
-use sync::{ArcAtomicBool, Mutex};
+use sync::ArcAtomicBool;
 
 use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::WorkerEvent};
 
@@ -214,12 +214,11 @@ pub fn spawn(
     bpm_detection_receiver: impl BPMDetectionReceiver,
 ) -> Result<()> {
     let initial_clock_interval_microseconds = midi_clock_interval_microseconds(static_bpm_detection_config.bpm_center);
-    let midi_output = Arc::new(Mutex::new(midi_output));
     let clock_interval_microseconds = Arc::new(AtomicU64::new(initial_clock_interval_microseconds));
     let midi_output_sender = spawn_midi_output_controller(
         midi_service_config.enable_midi_clock.clone(),
         clock_interval_microseconds.clone(),
-        midi_output.clone(),
+        midi_output,
     )?;
 
     let mut worker = Worker {
@@ -240,7 +239,7 @@ pub fn spawn(
 fn spawn_midi_output_controller<C>(
     enable_midi_clock: ArcAtomicBool,
     clock_interval_microseconds: Arc<AtomicU64>,
-    midi_output: Arc<Mutex<C>>,
+    mut midi_output: C,
 ) -> Result<Sender<MidiOutputCommand>>
 where
     C: MidiOutput + Send + 'static,
@@ -253,7 +252,7 @@ where
         loop {
             if enable_midi_clock.load(Ordering::Relaxed) {
                 if clock_emitter_loop(
-                    &midi_output,
+                    &mut midi_output,
                     &midi_output_receiver,
                     &enable_midi_clock,
                     &clock_interval_microseconds,
@@ -266,7 +265,7 @@ where
                 // Clock enable is an atomic flag, not a queued command, so poll while idle to react promptly.
                 while !enable_midi_clock.load(Ordering::Relaxed) {
                     match midi_output_receiver.recv_timeout(MIDI_OUTPUT_IDLE_POLL_INTERVAL) {
-                        Ok(command) => handle_midi_output_command(&midi_output, command),
+                        Ok(command) => handle_midi_output_command(&mut midi_output, command),
                         Err(RecvTimeoutError::Disconnected) => return,
                         Err(RecvTimeoutError::Timeout) => (),
                     }
@@ -279,7 +278,7 @@ where
 }
 
 fn clock_emitter_loop<C>(
-    clock_emitter: &Arc<Mutex<C>>,
+    clock_emitter: &mut C,
     midi_output_receiver: &Receiver<MidiOutputCommand>,
     enable_midi_clock: &ArcAtomicBool,
     clock_interval_microseconds: &Arc<AtomicU64>,
@@ -311,13 +310,13 @@ where
         while Instant::now() < next_tick {}
 
         // It's time to send the MIDI Timing Clock event
-        clock_emitter.lock().tick(); // Replace with actual call to send MIDI event
+        clock_emitter.tick();
     }
     Ok(())
 }
 
 fn drain_midi_output_commands<C>(
-    midi_output: &Arc<Mutex<C>>,
+    midi_output: &mut C,
     midi_output_receiver: &Receiver<MidiOutputCommand>,
 ) -> Result<(), ()>
 where
@@ -340,14 +339,14 @@ where
     }
 }
 
-fn handle_midi_output_command<C>(midi_output: &Arc<Mutex<C>>, command: MidiOutputCommand)
+fn handle_midi_output_command<C>(midi_output: &mut C, command: MidiOutputCommand)
 where
     C: MidiOutput + Send + 'static,
 {
     match command {
-        MidiOutputCommand::Play => midi_output.lock().play(),
-        MidiOutputCommand::Stop => midi_output.lock().stop(),
-        MidiOutputCommand::Tempo(bpm) => midi_output.lock().sysex(&format!("TEMPO|{bpm}")),
+        MidiOutputCommand::Play => midi_output.play(),
+        MidiOutputCommand::Stop => midi_output.stop(),
+        MidiOutputCommand::Tempo(bpm) => midi_output.sysex(&format!("TEMPO|{bpm}")),
     }
 }
 
@@ -431,14 +430,14 @@ mod tests {
 
     #[test]
     fn coalesces_pending_tempo_commands() {
-        let midi_output = Arc::new(Mutex::new(TestMidiOutput::default()));
+        let mut midi_output = TestMidiOutput::default();
         let (sender, receiver) = std::sync::mpsc::channel();
 
         sender.send(MidiOutputCommand::Tempo(100.0)).unwrap();
         sender.send(MidiOutputCommand::Tempo(120.0)).unwrap();
 
-        drain_midi_output_commands(&midi_output, &receiver).unwrap();
+        drain_midi_output_commands(&mut midi_output, &receiver).unwrap();
 
-        assert_eq!(midi_output.lock().sysex_messages.as_slice(), ["TEMPO|120"]);
+        assert_eq!(midi_output.sysex_messages.as_slice(), ["TEMPO|120"]);
     }
 }
