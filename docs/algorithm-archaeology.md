@@ -96,6 +96,45 @@ axis. This is a display artifact caused by translating duration to BPM.
 The exact perceived direction of the artifact should be validated against the current GUI, because the bars are sampled
 in duration space and then plotted at BPM positions.
 
+## Future Direction: Tempo Distribution Space
+
+The current detector already scores interval durations, then exposes a winning BPM and a histogram that the GUI remaps
+to BPM labels. A future model could make that boundary more explicit: store and exchange tempo estimates as a
+distribution over beat duration, and treat BPM as one possible projection for display or host integration.
+
+This would preserve the uncertainty model at the same scale where it is computed. If human tapping imprecision is
+assumed to be roughly constant in time, for example `+/- 20 ms`, then the equivalent uncertainty in BPM is not constant:
+
+```text
+BPM = 60 / duration_seconds
+absolute BPM error ~= (BPM^2 / 60) * duration_error_seconds
+relative BPM error ~= (BPM / 60) * duration_error_seconds
+```
+
+Under that assumption, higher tempos are inherently harder to estimate accurately in BPM terms. The beat duration is
+shorter, so the same absolute tap jitter occupies a larger tempo span after conversion to BPM.
+
+An implementation direction:
+
+- keep the detector's canonical histogram in beat-duration space;
+- introduce a named output type such as `TempoEstimateDistribution` instead of passing raw histogram slices;
+- include the duration axis metadata with the distribution: lowest duration, highest duration, sample rate/resolution,
+  and normalization policy;
+- derive the current single BPM estimate from the maximum-scoring duration bin, preserving today's host-facing behavior;
+- let the GUI choose its projection: duration axis, nonlinear BPM axis, or possibly `log2(BPM)` / `log2(duration)`;
+- keep interpolation/color effects in the GUI layer so they cannot be mistaken for scoring data.
+
+A logarithmic tempo axis may be especially interesting because doubling and halving tempo become equal visual distances.
+That matches the musical ambiguity already present in range folding, where an observed interval may be multiplied or
+divided until it lands in the plausible beat-duration range.
+
+Questions to settle before implementing:
+
+- whether the canonical distribution should remain linearly sampled in duration, or move to a logarithmic duration axis;
+- whether normal distribution parameters should stay expressed in absolute time, or support relative/musical units;
+- how much of the distribution shape should be exposed to plugin hosts versus only to diagnostics/visualization;
+- how to compare old and new estimates when the axis or normalization policy changes.
+
 ## Terminology Still Worth Refining
 
 The current code uses names such as `multiplier` and `subdivision` for interval correction. The intent is that an
