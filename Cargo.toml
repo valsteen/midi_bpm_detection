@@ -15,7 +15,7 @@ members = [
     "crates/midi-bpm-detector-plugin/xtask",
     "crates/midi-reset",
 ]
-default-members = ["crates/tui", "crates/midi-reset"]
+default-members = ["crates/desktop", "crates/midi-reset"]
 
 [workspace.lints.clippy]
 pedantic = "warn"
