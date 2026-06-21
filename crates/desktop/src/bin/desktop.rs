@@ -25,12 +25,15 @@ fn main() -> Result<()> {
 
     let static_controller_commands = controller_commands.clone();
     let dynamic_controller_commands = controller_commands.clone();
+    #[cfg(target_os = "macos")]
     let device_change_controller_commands = controller_commands.downgrade();
-    let mut desktop_controller = DesktopController::new(
+
+    let midi_service = bpm_detection_midi::MidiService::new(
         config.midi.clone(),
         config.static_bpm_detection_config.clone(),
         config.dynamic_bpm_detection_config.clone(),
-        Arc::new({
+        #[cfg(target_os = "macos")]
+        {
             let gui_remote = gui_remote.clone();
             move || {
                 let Some(controller_commands) = device_change_controller_commands.upgrade() else {
@@ -44,10 +47,10 @@ fn main() -> Result<()> {
                     result
                 });
             }
-        }),
-        Arc::new(|_| {}),
-        gui_remote,
+        },
+        gui_remote.clone(),
     )?;
+    let mut desktop_controller = DesktopController::new(midi_service);
 
     desktop_controller.refresh_devices().log_error_msg("Could not refresh MIDI input list on startup").ok();
     let controller: SharedDesktopController<gui::GuiRemote> = Arc::new(Mutex::new(desktop_controller));

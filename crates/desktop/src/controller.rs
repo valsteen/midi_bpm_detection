@@ -4,61 +4,28 @@ use bpm_detection_core::{
     bpm_detection_receiver::BPMDetectionReceiver,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
-use bpm_detection_midi::{
-    MidiIn, MidiInputConnection, MidiInputPort, MidiServiceConfig, TimedMidiMessage, to_owned_event,
-};
+use bpm_detection_midi::{MidiIn, MidiInputConnection, MidiInputPort, MidiService};
 use errors::Result;
 use sync::{ArcRwLock, ArcRwLockExt, RwLock};
 
 use crate::device_selection::DeviceSelection;
-
-pub type MidiMessageCallback = Arc<dyn Fn(TimedMidiMessage) + Send + Sync>;
-pub type DeviceChangeCallback = Arc<dyn Fn() + Send + Sync>;
 
 pub struct DesktopController<B>
 where
     B: BPMDetectionReceiver,
 {
     selection: DeviceSelection,
-    midi_service: ArcRwLock<bpm_detection_midi::MidiService<B>>,
-    on_midi_message: MidiMessageCallback,
+    midi_service: ArcRwLock<MidiService<B>>,
 }
 
 impl<B> DesktopController<B>
 where
     B: BPMDetectionReceiver,
 {
-    /// Start the native MIDI service thread and wrap it behind the desktop controller boundary.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the native MIDI service cannot be created.
-    pub fn new(
-        midi_service_config: MidiServiceConfig,
-        static_config: StaticBPMDetectionConfig,
-        dynamic_config: DynamicBPMDetectionConfig,
-        on_device_change: DeviceChangeCallback,
-        on_midi_message: MidiMessageCallback,
-        bpm_detection_receiver: B,
-    ) -> Result<Self> {
-        let notify_device_change = on_device_change;
-        #[cfg(not(target_os = "macos"))]
-        let _ = &notify_device_change;
-
-        let midi_service = bpm_detection_midi::MidiService::new(
-            midi_service_config,
-            static_config,
-            dynamic_config,
-            #[cfg(target_os = "macos")]
-            move || notify_device_change(),
-            bpm_detection_receiver,
-        )?;
-
-        Ok(Self {
-            selection: DeviceSelection::new(),
-            midi_service: Arc::new(RwLock::new(midi_service)),
-            on_midi_message,
-        })
+    /// Wrap an already-started native MIDI service behind the desktop controller boundary.
+    #[must_use]
+    pub fn new(midi_service: MidiService<B>) -> Self {
+        Self { selection: DeviceSelection::new(), midi_service: Arc::new(RwLock::new(midi_service)) }
     }
 
     #[must_use]
@@ -92,17 +59,13 @@ where
     /// Returns an error if the selected MIDI input cannot be opened or the MIDI service command cannot run.
     pub fn select_device_index(&mut self, index: usize) -> Result<()> {
         let midi_service = self.midi_service.clone();
-        let on_midi_message = self.on_midi_message.clone();
 
         select_after_connecting(&mut self.selection, index, move |port| {
             let port = port.clone();
-            let on_midi_message = on_midi_message.clone();
 
             midi_service.get(|midi_service| {
                 midi_service.execute(move |midi_in, midi_input_connection| {
-                    let input_connection = midi_in.listen(&port, move |event| {
-                        on_midi_message(to_owned_event(event));
-                    })?;
+                    let input_connection = midi_in.listen(&port, |_| {})?;
                     *midi_input_connection = input_connection;
                     Ok(())
                 })
