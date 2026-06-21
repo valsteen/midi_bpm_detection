@@ -181,3 +181,5 @@ These points are worth validating before writing deeper runtime diagrams:
   closure-command boundary used by `MidiService::execute()`.
 - [Plugin flow](plugin-flow.md) documents host buffer processing, realtime handoff, background BPM work, and plugin
   tempo feedback.
+- [Algorithm archaeology](algorithm-archaeology.md) documents the original interval/uncertainty idea, why the histogram
+  exists, and why visualization became part of the development loop.
