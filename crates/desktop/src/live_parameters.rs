@@ -3,26 +3,37 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
-    StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+use bpm_detection_core::{
+    bpm_detection_receiver::BPMDetectionReceiver,
+    parameters::{
+        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
+        StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    },
 };
 use errors::LogErrorWithExt;
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
 use parameter::OnOff;
 
-use crate::config::DesktopConfig;
+use crate::{config::DesktopConfig, controller::DesktopController};
 
 pub type StaticConfigCallback = Arc<dyn Fn(StaticBPMDetectionConfig) + Send + Sync>;
 pub type DynamicConfigCallback = Arc<dyn Fn(DynamicBPMDetectionConfig) + Send + Sync>;
+pub type DesktopControllerSlot<B> = Arc<sync::Mutex<Option<DesktopController<B>>>>;
 
-pub struct DesktopBaseConfig {
+pub struct DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     pub config: DesktopConfig,
+    pub controller: DesktopControllerSlot<B>,
     pub on_static_config_changed: StaticConfigCallback,
     pub on_dynamic_config_changed: DynamicConfigCallback,
 }
 
-impl DesktopBaseConfig {
+impl<B> DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     pub fn propagate_static_changes(&self) {
         (self.on_static_config_changed)(self.config.static_bpm_detection_config.clone());
     }
@@ -32,7 +43,10 @@ impl DesktopBaseConfig {
     }
 }
 
-impl NormalDistributionConfigAccessor for DesktopBaseConfig {
+impl<B> NormalDistributionConfigAccessor for DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     fn std_dev(&self) -> f64 {
         self.config.static_bpm_detection_config.normal_distribution.std_dev
     }
@@ -70,7 +84,10 @@ impl NormalDistributionConfigAccessor for DesktopBaseConfig {
     }
 }
 
-impl DynamicBPMDetectionConfigAccessor for DesktopBaseConfig {
+impl<B> DynamicBPMDetectionConfigAccessor for DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     fn beats_lookback(&self) -> u8 {
         self.config.dynamic_bpm_detection_config.beats_lookback
     }
@@ -171,7 +188,10 @@ impl DynamicBPMDetectionConfigAccessor for DesktopBaseConfig {
     }
 }
 
-impl StaticBPMDetectionConfigAccessor for DesktopBaseConfig {
+impl<B> StaticBPMDetectionConfigAccessor for DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     fn bpm_center(&self) -> f32 {
         self.config.static_bpm_detection_config.bpm_center
     }
@@ -212,7 +232,10 @@ impl StaticBPMDetectionConfigAccessor for DesktopBaseConfig {
     }
 }
 
-impl GUIConfigAccessor for DesktopBaseConfig {
+impl<B> GUIConfigAccessor for DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     fn interpolation_duration(&self) -> Duration {
         self.config.gui_config.interpolation_duration
     }
@@ -232,7 +255,10 @@ impl GUIConfigAccessor for DesktopBaseConfig {
     }
 }
 
-impl BPMDetectionConfig for DesktopBaseConfig {
+impl<B> BPMDetectionConfig for DesktopBaseConfig<B>
+where
+    B: BPMDetectionReceiver,
+{
     fn get_send_tempo(&self) -> bool {
         self.config.midi.send_tempo.load(Ordering::Relaxed)
     }
@@ -244,17 +270,44 @@ impl BPMDetectionConfig for DesktopBaseConfig {
     fn save(&mut self) {
         self.config.save().log_error_msg("Could not save configuration").ok();
     }
+
+    fn desktop_controls(&mut self, ui: &mut gui::eframe::egui::Ui) {
+        let mut controller_slot = self.controller.lock();
+        let Some(controller) = controller_slot.as_mut() else {
+            ui.label("MIDI service is starting");
+            return;
+        };
+
+        let devices = controller.device_selection().devices().to_vec();
+        let selected = controller.device_selection().selected().clone();
+        let mut selected_index = controller.device_selection().selected_index().unwrap_or_default();
+
+        gui::eframe::egui::ComboBox::from_label("MIDI input").selected_text(selected.as_str()).show_ui(ui, |ui| {
+            for (index, device) in devices.iter().enumerate() {
+                ui.selectable_value(&mut selected_index, index, device.as_str());
+            }
+        });
+
+        if Some(selected_index) != controller.device_selection().selected_index() {
+            controller.select_device_index(selected_index).log_error_msg("Could not select MIDI input").ok();
+        }
+
+        if ui.button("Refresh MIDI inputs").clicked() {
+            controller.refresh_devices().log_error_msg("Could not refresh MIDI input list").ok();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::{
-        sync::{Arc, Mutex},
+        sync::{Arc, Mutex as StdMutex},
         time::Duration,
     };
 
-    use bpm_detection_core::parameters::{
-        DynamicBPMDetectionConfig, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    use bpm_detection_core::{
+        bpm_detection_receiver::BPMDetectionReceiver,
+        parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor},
     };
     use bpm_detection_midi::MidiServiceConfig;
     use gui::{GUIConfig, GUIConfigAccessor};
@@ -262,6 +315,15 @@ mod tests {
 
     use super::*;
     use crate::config::{AppConfig, DesktopConfig};
+
+    #[derive(Clone)]
+    struct TestReceiver;
+
+    impl BPMDetectionReceiver for TestReceiver {
+        fn receive_bpm_histogram_data(&mut self, _histogram_data_points: &[f32], _detected_bpm: f32) {}
+
+        fn receive_daw_bpm(&self, _bpm: f32) {}
+    }
 
     fn desktop_config() -> DesktopConfig {
         DesktopConfig {
@@ -277,21 +339,27 @@ mod tests {
         }
     }
 
-    #[test]
-    fn static_parameter_setter_propagates_static_config() {
-        let static_changes = Arc::new(Mutex::new(Vec::new()));
-        let dynamic_changes = Arc::new(Mutex::new(Vec::new()));
-        let static_callback_changes = Arc::clone(&static_changes);
-        let dynamic_callback_changes = Arc::clone(&dynamic_changes);
-        let mut config = DesktopBaseConfig {
+    fn base_config(
+        static_changes: Arc<StdMutex<Vec<StaticBPMDetectionConfig>>>,
+        dynamic_changes: Arc<StdMutex<Vec<DynamicBPMDetectionConfig>>>,
+    ) -> DesktopBaseConfig<TestReceiver> {
+        DesktopBaseConfig {
             config: desktop_config(),
+            controller: Arc::new(sync::Mutex::new(None)),
             on_static_config_changed: Arc::new(move |config| {
-                static_callback_changes.lock().expect("static changes lock should not be poisoned").push(config);
+                static_changes.lock().expect("static changes lock should not be poisoned").push(config);
             }),
             on_dynamic_config_changed: Arc::new(move |config| {
-                dynamic_callback_changes.lock().expect("dynamic changes lock should not be poisoned").push(config);
+                dynamic_changes.lock().expect("dynamic changes lock should not be poisoned").push(config);
             }),
-        };
+        }
+    }
+
+    #[test]
+    fn static_parameter_setter_propagates_static_config() {
+        let static_changes = Arc::new(StdMutex::new(Vec::new()));
+        let dynamic_changes = Arc::new(StdMutex::new(Vec::new()));
+        let mut config = base_config(Arc::clone(&static_changes), Arc::clone(&dynamic_changes));
 
         config.set_bpm_center(120.0);
 
@@ -304,19 +372,9 @@ mod tests {
 
     #[test]
     fn gui_parameter_setter_propagates_dynamic_config() {
-        let static_changes = Arc::new(Mutex::new(Vec::new()));
-        let dynamic_changes = Arc::new(Mutex::new(Vec::new()));
-        let static_callback_changes = Arc::clone(&static_changes);
-        let dynamic_callback_changes = Arc::clone(&dynamic_changes);
-        let mut config = DesktopBaseConfig {
-            config: desktop_config(),
-            on_static_config_changed: Arc::new(move |config| {
-                static_callback_changes.lock().expect("static changes lock should not be poisoned").push(config);
-            }),
-            on_dynamic_config_changed: Arc::new(move |config| {
-                dynamic_callback_changes.lock().expect("dynamic changes lock should not be poisoned").push(config);
-            }),
-        };
+        let static_changes = Arc::new(StdMutex::new(Vec::new()));
+        let dynamic_changes = Arc::new(StdMutex::new(Vec::new()));
+        let mut config = base_config(Arc::clone(&static_changes), Arc::clone(&dynamic_changes));
 
         config.set_interpolation_duration(Duration::from_millis(250));
 
