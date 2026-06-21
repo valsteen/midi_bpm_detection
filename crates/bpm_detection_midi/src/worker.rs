@@ -69,7 +69,7 @@ impl BpmEvaluationSchedule {
         self.scheduled_at.is_some_and(|scheduled_at| scheduled_at.elapsed() >= BPM_EVALUATION_DEBOUNCE)
     }
 
-    fn schedule_dynamic_update(&mut self) {
+    fn schedule_evaluation(&mut self) {
         if self.scheduled_at.is_none() {
             self.scheduled_at = Some(Instant::now());
         }
@@ -77,7 +77,7 @@ impl BpmEvaluationSchedule {
 
     fn schedule_static_update(&mut self, static_config: StaticBPMDetectionConfig) {
         self.pending_static_config = Some(static_config);
-        self.schedule_dynamic_update();
+        self.schedule_evaluation();
     }
 
     fn complete_due_evaluation(&mut self) -> Option<StaticBPMDetectionConfig> {
@@ -112,10 +112,10 @@ where
                 Some(worker_event)
             };
 
-            let mut evaluate_bpm = false;
+            let mut should_evaluate_bpm = false;
 
             if bpm_evaluation_schedule.is_due() {
-                evaluate_bpm = true;
+                should_evaluate_bpm = true;
                 if let Some(scheduled_bpm_detection_config) = bpm_evaluation_schedule.complete_due_evaluation() {
                     // Static config changes rebuild buffers/precomputed data, so apply them at the debounce boundary.
                     bpm_detection.update_static_config(scheduled_bpm_detection_config);
@@ -125,12 +125,12 @@ where
             if let Some(worker_event) = worker_event {
                 // Consume all pending events, then compute BPM once for the whole batch.
                 let mut worker_events_disconnected = false;
-                evaluate_bpm |=
+                should_evaluate_bpm |=
                     self.handle_worker_event(worker_event, &mut bpm_detection, &mut bpm_evaluation_schedule);
                 loop {
                     match self.worker_events_receiver.try_recv() {
                         Ok(worker_event) => {
-                            evaluate_bpm |= self.handle_worker_event(
+                            should_evaluate_bpm |= self.handle_worker_event(
                                 worker_event,
                                 &mut bpm_detection,
                                 &mut bpm_evaluation_schedule,
@@ -143,12 +143,12 @@ where
                         }
                     }
                 }
-                if worker_events_disconnected && !evaluate_bpm {
+                if worker_events_disconnected && !should_evaluate_bpm {
                     break;
                 }
             }
 
-            if evaluate_bpm {
+            if should_evaluate_bpm {
                 let Some((histogram_data_points, bpm)) = bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config)
                 else {
                     continue;
@@ -193,7 +193,7 @@ where
             WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
                 // Dynamic config changes scoring weights only; reuse the existing detection buffers.
                 self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
-                bpm_evaluation_schedule.schedule_dynamic_update();
+                bpm_evaluation_schedule.schedule_evaluation();
                 false
             }
             WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
