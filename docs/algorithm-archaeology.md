@@ -155,14 +155,25 @@ terms may be:
 The first feedback loops were simpler: generate output, inspect a result, tweak parameters, repeat. That was not enough
 to understand whether real tapping was being captured correctly or why the estimate jumped.
 
-The project grew into a realtime plugin/desktop/WASM system because the algorithm needed:
+The desktop mode came first because it was the fastest way to experiment. Compile, run, tap, inspect, tweak. It avoided
+the packaging and host-integration work required by a DAW plugin while the core idea was still unstable.
 
-- live parameter changes;
-- immediate visual feedback;
-- a histogram rather than only one BPM number;
-- host/plugin timing that reflects how MIDI and audio are processed in practice;
-- multiple operating modes to test and demonstrate the same core model without dragging every runtime dependency into
-  every build.
+The plugin mode is the real production target, but reaching a workable plugin state required extra architecture:
+packaging, DAW parameter integration, plugin editor integration, realtime callback constraints, host MIDI timing, and
+reload behavior. Once the plugin is built and loaded, the DAW feedback loop can be acceptable: in Bitwig, for example,
+the plugin can be unloaded and reloaded without restarting the whole DAW. The hard part is getting to that workable
+state. After that point, iteration can focus again on the core functionality while still testing it in the environment
+where it is meant to be used.
+
+The WASM mode was more of a showcase and learning target. It makes the detector demoable by opening a page, without
+asking someone to build a Rust workspace or install a plugin. It also forced the shared code to stay honest across target
+boundaries: browser tasks instead of native threads, no native MIDI service dependencies, and a clean enough surface for
+components to be swapped per runtime.
+
+This is where the project became partly about architecture itself. The useful product can be summarized as "tap and
+estimate BPM", but the project also became a learning ground for realtime processing, multi-target Rust builds, reusable
+UI, dependency isolation by crate, and efficient visualization. Some work, especially the polished histogram rendering,
+is therefore intentionally a bit beyond the minimum product need: it helps explain, debug, and showcase the system.
 
 The architecture is therefore partly the result of the algorithm's uncertainty. The model needed experimentation, and the
 experimentation needed realtime visualization and careful runtime boundaries.
