@@ -10,7 +10,6 @@ errors = { path = "../errors" }
 sync = { path = "../sync" }
 
 chrono = "0.4.41"
-derivative = "2.2.0"
 itertools = "0.14.0"
 log = "0.4.27"
 midir = "0.11.0"

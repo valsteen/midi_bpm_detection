@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]

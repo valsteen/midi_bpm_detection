@@ -26,8 +26,7 @@ pub trait Component: EventHandler + ActionHandler + Send + Sync {
     /// * `Result<()>` - An Ok result or an error.
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()>;
 
-    #[allow(unused_variables)]
-    fn register_config_handler(&mut self, config: TUIConfig) -> Result<()> {
+    fn register_config_handler(&mut self, _config: TUIConfig) -> Result<()> {
         Ok(())
     }
 }

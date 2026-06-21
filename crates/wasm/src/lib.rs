@@ -284,7 +284,6 @@ impl Default for WASMConfig {
 
 #[cfg(test)]
 mod tests {
-    #![allow(forbidden_lint_groups)]
     #![allow(clippy::missing_panics_doc)]
     use errors::error_backtrace;
     use parameter::OnOff;

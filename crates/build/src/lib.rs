@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 
 use std::{

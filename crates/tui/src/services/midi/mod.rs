@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::struct_field_names)]
 
 use std::sync::{Arc, atomic::Ordering};

@@ -119,13 +119,11 @@ impl ArcAtomicBool {
         self.0.swap(false, order)
     }
 
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::must_use_candidate)]
     pub fn fetch_xor(&self, val: bool, order: Ordering) -> bool {
         self.0.fetch_xor(val, order)
     }
 
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::must_use_candidate)]
     pub fn compare_exchange(
         &self,

@@ -35,7 +35,6 @@ where
     B: BPMDetectionReceiver,
 {
     bpm_detection_receiver: B,
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::struct_field_names)]
     worker_commands_receiver: Receiver<BpmWorkerCommand>,
     midi_output_sender: Sender<MidiOutputCommand>,
@@ -91,7 +90,6 @@ impl<B> Worker<B>
 where
     B: BPMDetectionReceiver,
 {
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::needless_pass_by_value)]
     #[allow(clippy::too_many_lines)]
     fn worker_loop(&mut self, static_bpm_detection_config: StaticBPMDetectionConfig) {

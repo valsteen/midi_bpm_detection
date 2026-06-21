@@ -34,7 +34,6 @@ pub struct AppConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TUIConfig {
     #[serde(default, flatten)]
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::struct_field_names)]
     #[serde(skip_serializing)]
     pub app_config: AppConfig,

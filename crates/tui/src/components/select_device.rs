@@ -50,7 +50,7 @@ impl SelectDevice {
             .iter()
             .enumerate()
             .merge_join_by(self.devices.iter().enumerate(), |(_, new_device), (_, old_device)| {
-                new_device.cmp(old_device)
+                new_device.sort_key().cmp(&old_device.sort_key())
             })
         {
             match diff {

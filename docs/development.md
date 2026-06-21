@@ -160,9 +160,12 @@ cargo clippy -p wasm --target wasm32-unknown-unknown
 `clippy-all` runs both `clippy-native` and `clippy-wasm`. Use it when you want to lint every supported build mode from
 one command.
 
-The workspace enables `clippy::pedantic` as warnings. Treat Clippy warnings as issues to fix by default. If a lint pushes
-the code toward an unnatural shape or is wrong for the local context, prefer a narrow `#[allow(...)]` with a short reason
-near the affected code instead of disabling the lint broadly.
+The workspace enables `clippy::pedantic` as warnings. Treat Clippy warnings as issues to fix by default. Do not add a
+new `#[allow(...)]` without human confirmation. If a lint is confirmed to be inappropriate, keep the allow narrow and add
+a short reason near the affected code instead of disabling the lint broadly.
+
+Existing lint exceptions are tracked in [lint exceptions](lint-exceptions.md). Treat that file as an audit baseline, not
+as permission to add more exceptions silently.
 
 Add `-- -D warnings` manually when you want CI-style strictness.
 

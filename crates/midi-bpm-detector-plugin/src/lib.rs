@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::struct_field_names)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
@@ -263,11 +262,6 @@ impl MidiBpmDetector {
 
         self.events_sender.sync();
         has_new_events
-    }
-
-    #[allow(unused)]
-    fn current_time(&self) -> Duration {
-        sample_to_duration(self.sample_rate, self.current_sample.load(Ordering::Relaxed))
     }
 
     fn execute_at_delay(

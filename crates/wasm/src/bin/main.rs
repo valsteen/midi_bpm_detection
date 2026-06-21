@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 #[cfg(target_arch = "wasm32")]
 use {

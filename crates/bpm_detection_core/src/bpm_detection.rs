@@ -89,7 +89,6 @@ impl BPMDetection {
         Some((&self.histogram_data_points, bpm))
     }
 
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::too_many_lines)]
     fn process_combinations(
         &mut self,

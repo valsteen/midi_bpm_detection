@@ -32,7 +32,6 @@ pub struct GuiRemote {
     pub(crate) should_save: Arc<AtomicBool>,
 }
 
-#[allow(forbidden_lint_groups)]
 #[allow(clippy::struct_field_names)]
 #[derive(Derivative)]
 #[derivative(Debug)]

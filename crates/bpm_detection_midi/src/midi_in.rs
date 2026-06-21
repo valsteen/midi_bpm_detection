@@ -93,7 +93,7 @@ where
         }))
         .collect_vec();
 
-        devices.sort_unstable();
+        devices.sort_unstable_by(|left, right| left.sort_key().cmp(&right.sort_key()));
         Ok(devices)
     }
 
@@ -207,8 +207,6 @@ where
         let (result_sender, result_receiver) = std::sync::mpsc::sync_channel(0);
 
         thread::Builder::new().name("MIDI Service".to_string()).spawn(move || {
-            #[allow(forbidden_lint_groups)]
-            #[allow(clippy::no_effect_underscore_binding)]
             let mut midi_input_connection = None; // just a value holder. Dropping it means we stop listening
             let midi_in = match MidiIn::new(
                 midi_service_config,

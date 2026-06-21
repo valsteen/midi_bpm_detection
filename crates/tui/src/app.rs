@@ -22,7 +22,6 @@ use crate::{
     utils::dispatch::{ActionHandler, EventHandler, try_dispatch_concurrently},
 };
 
-#[allow(forbidden_lint_groups)]
 #[allow(clippy::too_many_lines)]
 pub async fn run_tui(
     start_gui: SyncSender<()>,

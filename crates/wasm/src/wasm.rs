@@ -1,5 +1,4 @@
 #![cfg(target_arch = "wasm32")]
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
@@ -42,8 +41,7 @@ async fn sleep(duration: StdDuration) {
 
 #[wasm_bindgen]
 pub struct GuiRemoteWrapper {
-    #[allow(dead_code)]
-    gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
+    _gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
     redraw_sender: Sender<QueueItem>,
 }
 
@@ -160,5 +158,5 @@ pub fn run() -> Result<GuiRemoteWrapper> {
 
     start_gui(gui_builder)?;
 
-    Ok(GuiRemoteWrapper { gui_remote, redraw_sender })
+    Ok(GuiRemoteWrapper { _gui_remote: gui_remote, redraw_sender })
 }

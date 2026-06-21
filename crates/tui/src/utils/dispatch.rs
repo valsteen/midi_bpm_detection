@@ -52,8 +52,7 @@ pub trait EventHandler {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    #[allow(unused_variables)]
-    fn handle_key_events(&mut self, key: &KeyEvent) -> Result<Option<Action>> {
+    fn handle_key_events(&mut self, _key: &KeyEvent) -> Result<Option<Action>> {
         Ok(None)
     }
     /// Handle mouse events and produce actions if necessary.
@@ -65,8 +64,7 @@ pub trait EventHandler {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    #[allow(unused_variables)]
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<Option<Action>> {
+    fn handle_mouse_events(&mut self, _mouse: MouseEvent) -> Result<Option<Action>> {
         Ok(None)
     }
 }
