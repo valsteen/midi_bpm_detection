@@ -13,18 +13,17 @@ use derivative::Derivative;
 use eframe::egui::{Context, ViewportCommand, WindowLevel};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use instant::Instant;
-use sync::Mutex;
 
-type ArcCallback<T> = Arc<Mutex<Option<Box<T>>>>;
+use crate::callback_slot::ArcCallbackSlot;
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct GuiRemote {
     pub(crate) context: Arc<AtomicRefCell<Option<Context>>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) keys_sender: ArcCallback<dyn FnMut(&'static str) + Send>,
+    pub(crate) keys_sender: ArcCallbackSlot<dyn FnMut(&'static str) + Send>,
     #[derivative(Debug = "ignore")]
-    pub(crate) on_gui_exit_callback: ArcCallback<dyn Fn() + Send>,
+    pub(crate) on_gui_exit_callback: ArcCallbackSlot<dyn Fn() + Send>,
     pub(crate) swap_histogram_data_points: Arc<AtomicRefCell<Vec<f32>>>,
     pub(crate) histogram_data_points: Arc<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) estimated_bpm: Arc<AtomicF32>,

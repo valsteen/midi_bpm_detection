@@ -14,18 +14,18 @@ use egui_plot::{Bar, BarChart, Legend, PlotResponse, PlotUi};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use log::error;
 use num_traits::identities::Zero;
-use sync::Mutex;
 
-use crate::{BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
-
-type WeakCallback<T> = Weak<Mutex<Option<Box<T>>>>;
+use crate::{
+    BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, callback_slot::WeakCallbackSlot, egui::Color32,
+    gui_remote::HistogramDataPoints,
+};
 
 pub struct BPMDetectionGUI {
     // keys_sender, gui_exit_callback and buffer_redraw belong to the GUI Remote,
     // that ultimately is held by the main app, which can drop it to let know the GUI app that we are exiting
-    pub(crate) keys_sender: WeakCallback<dyn FnMut(&'static str) + Send>,
+    pub(crate) keys_sender: WeakCallbackSlot<dyn FnMut(&'static str) + Send>,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) on_gui_exit_callback: WeakCallback<dyn Fn() + Send>,
+    pub(crate) on_gui_exit_callback: WeakCallbackSlot<dyn Fn() + Send>,
     pub(crate) histogram_data_points: Weak<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) interpolated_data_points: Vec<f32>,
     pub(crate) estimated_bpm: Weak<AtomicF32>,

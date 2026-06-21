@@ -22,13 +22,14 @@ pub use gui_remote::GuiRemote;
 use log::info;
 use sync::Mutex;
 
-use crate::gui_remote::HistogramDataPoints;
 pub use crate::{application_parameters::BPMDetectionConfig, config::GUIConfigAccessor};
+use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramDataPoints};
 
 pub mod add_slider;
 mod app;
 mod app_builder;
 mod application_parameters;
+mod callback_slot;
 mod config;
 mod config_ui;
 mod gui_remote;
@@ -43,9 +44,9 @@ pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder
     let should_save = Arc::new(AtomicBool::default());
 
     let context_receiver = Arc::new(AtomicRefCell::new(None));
-    let keys_sender = Arc::new(Mutex::new(None));
+    let keys_sender: ArcCallbackSlot<dyn FnMut(&'static str) + Send> = Arc::new(Mutex::new(None));
     let weak_keys_sender = Arc::downgrade(&keys_sender);
-    let gui_exit_callback = Arc::new(Mutex::new(None));
+    let gui_exit_callback: ArcCallbackSlot<dyn Fn() + Send> = Arc::new(Mutex::new(None));
 
     #[cfg(not(target_arch = "wasm32"))]
     let weak_on_gui_exit_callback = Arc::downgrade(&gui_exit_callback);

@@ -179,6 +179,10 @@ Prefer integrating an existing crate when it gives a clear, debuggable surface. 
 the mismatch and consider opening an upstream issue before choosing a local implementation. Do not add new macros without
 explicit design approval.
 
+When touching type definitions or helper wrappers, check whether their dependency surface belongs in a more focused crate
+or module. Avoid accumulating generic utilities inside feature-driven crates; keep a helper local only when it is
+specialized to that feature's lifecycle or domain.
+
 ## Native Verification
 
 For the usual native pre-commit pass:
