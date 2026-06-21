@@ -1,7 +1,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::AtomicU64,
+        atomic::{AtomicU64, Ordering},
         mpsc::{Receiver, Sender, SyncSender},
     },
     thread,
@@ -29,6 +29,8 @@ use crate::midi_output::VirtualMidiOutput;
 use crate::{
     MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_command::BpmWorkerCommand,
 };
+
+const UNSET_START_TIMESTAMP_MICROS: u64 = u64::MAX;
 
 pub struct MidiIn<B> {
     midi_input: MidiInput,
@@ -68,7 +70,7 @@ where
             #[cfg(target_os = "macos")]
             midi_config: midi_service_config,
             midi_input: MidiInput::new(PROJECT_NAME)?,
-            start_timestamp: Arc::new(AtomicU64::from(0)),
+            start_timestamp: Arc::new(AtomicU64::new(UNSET_START_TIMESTAMP_MICROS)),
             worker_sender: worker_commands_sender,
             bpm_detection_receiver,
         })
@@ -103,20 +105,25 @@ where
         callback: T,
     ) -> Result<Option<MidiInputConnection<()>>> {
         let bpm_detection_receiver = self.bpm_detection_receiver.clone();
+        self.start_timestamp.store(UNSET_START_TIMESTAMP_MICROS, Ordering::Relaxed);
 
         let listener = move || {
             let start_timestamp = self.start_timestamp.clone();
             let worker_sender = self.worker_sender.clone();
             move |timestamp: u64, data: &[u8], (): &mut ()| {
-                let start_timestamp = match start_timestamp.load(std::sync::atomic::Ordering::Relaxed) {
-                    0 => {
-                        start_timestamp.store(timestamp, std::sync::atomic::Ordering::Relaxed);
+                let start_timestamp = match start_timestamp.load(Ordering::Relaxed) {
+                    UNSET_START_TIMESTAMP_MICROS => {
+                        start_timestamp.store(timestamp, Ordering::Relaxed);
                         timestamp
                     }
                     timestamp => timestamp,
                 };
-                let start_timestamp = midi_timestamp_to_duration(start_timestamp);
-                let timestamp = midi_timestamp_to_duration(timestamp);
+                let Some(timestamp) = midi_timestamp_to_elapsed_duration(timestamp, start_timestamp) else {
+                    error!(
+                        "Dropping MIDI message with invalid timestamp {timestamp} relative to start {start_timestamp}"
+                    );
+                    return;
+                };
 
                 let Ok(event) = wmidi::MidiMessage::try_from(data) else {
                     return;
@@ -126,7 +133,7 @@ where
                     bpm_detection_receiver.receive_daw_bpm(bpm);
                 }
 
-                let event = TimedEvent { timestamp: timestamp - start_timestamp, event };
+                let event = TimedEvent { timestamp, event };
 
                 if let Ok(worker_command) = BpmWorkerCommand::try_from(event.clone())
                     && let Err(e) = worker_sender.send(worker_command)
@@ -185,8 +192,9 @@ type MidiServiceCommand<B> = Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputCon
 
 type CommandsSender<B> = SyncSender<MidiServiceCommand<B>>;
 
-fn midi_timestamp_to_duration(timestamp: u64) -> Duration {
-    Duration::microseconds(i64::try_from(timestamp).unwrap_or(i64::MAX))
+fn midi_timestamp_to_elapsed_duration(timestamp: u64, start_timestamp: u64) -> Option<Duration> {
+    let elapsed = timestamp.checked_sub(start_timestamp)?;
+    Some(Duration::microseconds(i64::try_from(elapsed).ok()?))
 }
 
 pub struct MidiService<B> {
@@ -266,5 +274,30 @@ where
             }
         }))?;
         result_receiver.recv()?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn midi_timestamp_to_elapsed_duration_allows_zero_start() {
+        assert_eq!(midi_timestamp_to_elapsed_duration(0, 0), Some(Duration::zero()));
+    }
+
+    #[test]
+    fn midi_timestamp_to_elapsed_duration_returns_elapsed_microseconds() {
+        assert_eq!(midi_timestamp_to_elapsed_duration(150, 100), Some(Duration::microseconds(50)));
+    }
+
+    #[test]
+    fn midi_timestamp_to_elapsed_duration_rejects_timestamp_before_start() {
+        assert_eq!(midi_timestamp_to_elapsed_duration(99, 100), None);
+    }
+
+    #[test]
+    fn midi_timestamp_to_elapsed_duration_rejects_unrepresentable_duration() {
+        assert_eq!(midi_timestamp_to_elapsed_duration(u64::MAX - 1, 0), None);
     }
 }
