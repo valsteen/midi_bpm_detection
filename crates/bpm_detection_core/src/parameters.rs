@@ -438,7 +438,7 @@ pub fn bpm_to_beat_duration<U>(bpm: U) -> Duration
 where
     U: DurationOps,
 {
-    Duration::from_std(U::div(StdDuration::from_secs(60), bpm)).unwrap()
+    Duration::from_std(U::div(StdDuration::from_mins(1), bpm)).unwrap()
 }
 
 #[must_use]

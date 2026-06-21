@@ -36,9 +36,9 @@ use crate::{
     task_executor::{Event, Task, UpdateOrigin},
 };
 
-fn midi_note_on_from_message(event: wmidi::MidiMessage<'_>) -> Option<NoteOn> {
+fn midi_note_on_from_message(event: &wmidi::MidiMessage<'_>) -> Option<NoteOn> {
     if let wmidi::MidiMessage::NoteOn(channel, note, velocity) = event {
-        return Some(NoteOn { channel: channel.index(), pitch: note as u8, velocity: u8::from(velocity) });
+        return Some(NoteOn { channel: channel.index(), pitch: *note as u8, velocity: u8::from(*velocity) });
     }
     None
 }
@@ -241,7 +241,7 @@ impl MidiBpmDetector {
             let Ok(midi_message) = wmidi::MidiMessage::from_bytes(&bytes) else {
                 continue;
             };
-            let Some(midi_note_on) = midi_note_on_from_message(midi_message) else {
+            let Some(midi_note_on) = midi_note_on_from_message(&midi_message) else {
                 continue;
             };
 

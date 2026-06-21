@@ -90,10 +90,9 @@ impl TaskExecutor {
 
                     if let (Some((_, bpm)), true, Some(daw_connection)) =
                         (bpm_detection_result, self.send_tempo.load(Ordering::Relaxed), &mut self.daw_connection)
+                        && write_bpm_to_tempo_controller(daw_connection, bpm).is_err()
                     {
-                        if write_bpm_to_tempo_controller(daw_connection, bpm).is_err() {
-                            self.daw_connection = None;
-                        }
+                        self.daw_connection = None;
                     }
 
                     if let (true, Some(gui_remote)) = (self.params.editor_state.is_open(), &mut self.gui_remote) {
@@ -270,6 +269,6 @@ mod tests {
     fn tempo_controller_frame_writes_big_endian_bpm() {
         let frame = tempo_controller_frame(123.5);
 
-        assert_eq!(f32::from_be_bytes(frame[4..].try_into().unwrap()), 123.5);
+        assert_eq!(frame[4..], 123.5f32.to_be_bytes());
     }
 }
