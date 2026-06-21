@@ -23,7 +23,7 @@ mod midi_output;
 mod midi_output_trait;
 mod sysex;
 mod worker;
-mod worker_event;
+mod worker_command;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MidiServiceConfig {
@@ -32,9 +32,10 @@ pub struct MidiServiceConfig {
     pub enable_midi_clock: ArcAtomicBool,
 }
 
-pub fn midi_note_on_from_message(event: MidiMessage<'_>) -> Option<NoteOn> {
+#[must_use]
+pub fn midi_note_on_from_message(event: &MidiMessage<'_>) -> Option<NoteOn> {
     if let MidiMessage::NoteOn(channel, note, velocity) = event {
-        return Some(NoteOn { channel: channel.index(), pitch: note as u8, velocity: u8::from(velocity) });
+        return Some(NoteOn { channel: channel.index(), pitch: *note as u8, velocity: u8::from(*velocity) });
     }
     None
 }

@@ -100,16 +100,16 @@ where
             Action::DynamicBPMDetectionConfig(bpm_detection_config_live) => {
                 let bpm_detection_config_live = bpm_detection_config_live.clone();
                 self.dynamic_bpm_detection_config = bpm_detection_config_live.clone();
-                self.midi_service.read().execute(move |midi_in, _| {
-                    Ok(midi_in.change_bpm_detection_config_live(bpm_detection_config_live)?)
-                })?;
+                self.midi_service
+                    .read()
+                    .execute(move |midi_in, _| midi_in.change_bpm_detection_config_live(bpm_detection_config_live))?;
             }
             Action::StaticBPMDetectionConfig(bpm_detection_config) => {
                 let bpm_detection_config = bpm_detection_config.clone();
                 self.bpm_detection_config = bpm_detection_config.clone();
                 self.midi_service
                     .read()
-                    .execute(move |midi_in, _| Ok(midi_in.change_bpm_detection_config(bpm_detection_config)?))?;
+                    .execute(move |midi_in, _| midi_in.change_bpm_detection_config(bpm_detection_config))?;
             }
             Action::MIDIRestart => {
                 if let Err(e) = restart() {
@@ -141,9 +141,7 @@ where
                 self.playing = !self.playing;
                 let playing = self.playing;
 
-                self.execute(move |midi_in, _| {
-                    (if playing { midi_in.play() } else { midi_in.stop() }).map_err(Report::new)
-                })?;
+                self.execute(move |midi_in, _| if playing { midi_in.play() } else { midi_in.stop() })?;
             }
             Action::ToggleMidiClock => {
                 self.midi_service_config.enable_midi_clock.fetch_xor(true, Ordering::Relaxed);

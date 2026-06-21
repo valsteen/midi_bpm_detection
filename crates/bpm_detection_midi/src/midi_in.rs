@@ -2,7 +2,7 @@ use std::{
     sync::{
         Arc,
         atomic::AtomicU64,
-        mpsc::{Receiver, SendError, Sender, SyncSender},
+        mpsc::{Receiver, Sender, SyncSender},
     },
     thread,
 };
@@ -27,13 +27,13 @@ use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_event::WorkerEvent,
+    MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_command::BpmWorkerCommand,
 };
 
 pub struct MidiIn<B> {
     midi_input: MidiInput,
     start_timestamp: Arc<AtomicU64>,
-    worker_sender: Sender<WorkerEvent>,
+    worker_sender: Sender<BpmWorkerCommand>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     midi_config: MidiServiceConfig,
     bpm_detection_receiver: B,
@@ -53,13 +53,13 @@ where
     ) -> Result<Self> {
         #[cfg(target_os = "macos")]
         coremidi_hotplug_notification::receive_device_updates(send_device_changes_notification).map_err(Report::msg)?;
-        let (worker_sender, worker_receiver) = std::sync::mpsc::channel();
+        let (worker_commands_sender, worker_commands_receiver) = std::sync::mpsc::channel();
 
         worker::spawn(
             &midi_service_config,
             bpm_detection_config,
             dynamic_bpm_detection_config,
-            worker_receiver,
+            worker_commands_receiver,
             VirtualMidiOutput::new(midi_service_config.device_name.as_str())?,
             bpm_detection_receiver.clone(),
         )?;
@@ -69,7 +69,7 @@ where
             midi_config: midi_service_config,
             midi_input: MidiInput::new(PROJECT_NAME)?,
             start_timestamp: Arc::new(AtomicU64::from(0)),
-            worker_sender,
+            worker_sender: worker_commands_sender,
             bpm_detection_receiver,
         })
     }
@@ -115,8 +115,8 @@ where
                     }
                     timestamp => timestamp,
                 };
-                let start_timestamp = Duration::microseconds(start_timestamp as i64);
-                let timestamp = Duration::microseconds(timestamp as i64);
+                let start_timestamp = midi_timestamp_to_duration(start_timestamp);
+                let timestamp = midi_timestamp_to_duration(timestamp);
 
                 let Ok(event) = wmidi::MidiMessage::try_from(data) else {
                     return;
@@ -128,8 +128,8 @@ where
 
                 let event = TimedEvent { timestamp: timestamp - start_timestamp, event };
 
-                if let Ok(midi_note_on) = WorkerEvent::try_from(event.clone())
-                    && let Err(e) = worker_sender.send(midi_note_on)
+                if let Ok(worker_command) = BpmWorkerCommand::try_from(event.clone())
+                    && let Err(e) = worker_sender.send(worker_command)
                 {
                     error!("Could not send midi message to worker: {e:?}");
                 }
@@ -156,26 +156,25 @@ where
         }
     }
 
-    pub fn play(&self) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::Play)
+    pub fn play(&self) -> Result<()> {
+        self.worker_sender.send(BpmWorkerCommand::Play).map_err(Report::new)
     }
 
-    pub fn stop(&self) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::Stop)
+    pub fn stop(&self) -> Result<()> {
+        self.worker_sender.send(BpmWorkerCommand::Stop).map_err(Report::new)
     }
 
     pub fn change_bpm_detection_config_live(
         &self,
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    ) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config))
+    ) -> Result<()> {
+        self.worker_sender
+            .send(BpmWorkerCommand::DynamicBPMDetectionConfig(dynamic_bpm_detection_config))
+            .map_err(Report::new)
     }
 
-    pub fn change_bpm_detection_config(
-        &self,
-        bpm_detection_config: StaticBPMDetectionConfig,
-    ) -> Result<(), SendError<WorkerEvent>> {
-        self.worker_sender.send(WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config))
+    pub fn change_bpm_detection_config(&self, bpm_detection_config: StaticBPMDetectionConfig) -> Result<()> {
+        self.worker_sender.send(BpmWorkerCommand::StaticBPMDetectionConfig(bpm_detection_config)).map_err(Report::new)
     }
 }
 /// Closure command executed on the MIDI service thread.
@@ -185,6 +184,10 @@ where
 type MidiServiceCommand<B> = Box<dyn FnOnce(&MidiIn<B>, &mut Option<MidiInputConnection<()>>) + Send + Sync + 'static>;
 
 type CommandsSender<B> = SyncSender<MidiServiceCommand<B>>;
+
+fn midi_timestamp_to_duration(timestamp: u64) -> Duration {
+    Duration::microseconds(i64::try_from(timestamp).unwrap_or(i64::MAX))
+}
 
 pub struct MidiService<B> {
     commands_sender: CommandsSender<B>,

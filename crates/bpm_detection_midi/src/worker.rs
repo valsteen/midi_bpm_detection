@@ -17,7 +17,7 @@ use errors::Result;
 use log::error;
 use sync::ArcAtomicBool;
 
-use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_event::WorkerEvent};
+use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_command::BpmWorkerCommand};
 
 const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
@@ -27,9 +27,9 @@ const MIDI_OUTPUT_IDLE_POLL_INTERVAL: StdDuration = StdDuration::from_millis(50)
 
 /// Native desktop BPM worker.
 ///
-/// This receives parsed worker events from `MidiIn`, updates `BPMDetection`, and publishes detected BPM/histogram
+/// This receives worker commands from `MidiIn`, updates `BPMDetection`, and publishes detected BPM/histogram
 /// data back to the desktop UI. It does not own the virtual MIDI output directly; output is serialized through the
-/// MIDI output thread so clock ticks, play/stop, and tempo SysEx share one owner.
+/// MIDI output thread so clock ticks, play/stop, and tempo `SysEx` share one owner.
 pub struct Worker<B>
 where
     B: BPMDetectionReceiver,
@@ -37,7 +37,7 @@ where
     bpm_detection_receiver: B,
     #[allow(forbidden_lint_groups)]
     #[allow(clippy::struct_field_names)]
-    worker_events_receiver: Receiver<WorkerEvent>,
+    worker_commands_receiver: Receiver<BpmWorkerCommand>,
     midi_output_sender: Sender<MidiOutputCommand>,
     dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     clock_interval_microseconds: Arc<AtomicU64>,
@@ -47,7 +47,8 @@ where
 /// Commands owned by the native MIDI output thread.
 ///
 /// These are not MIDI input events. They are side effects emitted by the desktop mode: transport messages, clock ticks
-/// from the clock loop, or tempo feedback SysEx.
+/// from the clock loop, or tempo feedback `SysEx`.
+#[derive(Clone, Copy)]
 enum MidiOutputCommand {
     Play,
     Stop,
@@ -99,17 +100,17 @@ where
 
         loop {
             // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
-            let worker_event = if let Some(wait_for) = bpm_evaluation_schedule.wait_for() {
-                match self.worker_events_receiver.recv_timeout(wait_for) {
-                    Ok(worker_event) => Some(worker_event),
+            let worker_command = if let Some(wait_for) = bpm_evaluation_schedule.wait_for() {
+                match self.worker_commands_receiver.recv_timeout(wait_for) {
+                    Ok(worker_command) => Some(worker_command),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => break,
                 }
             } else {
-                let Ok(worker_event) = self.worker_events_receiver.recv() else {
+                let Ok(worker_command) = self.worker_commands_receiver.recv() else {
                     break;
                 };
-                Some(worker_event)
+                Some(worker_command)
             };
 
             let mut should_evaluate_bpm = false;
@@ -122,28 +123,28 @@ where
                 }
             }
 
-            if let Some(worker_event) = worker_event {
-                // Consume all pending events, then compute BPM once for the whole batch.
-                let mut worker_events_disconnected = false;
+            if let Some(worker_command) = worker_command {
+                // Consume all pending commands, then compute BPM once for the whole batch.
+                let mut worker_commands_disconnected = false;
                 should_evaluate_bpm |=
-                    self.handle_worker_event(worker_event, &mut bpm_detection, &mut bpm_evaluation_schedule);
+                    self.handle_worker_command(worker_command, &mut bpm_detection, &mut bpm_evaluation_schedule);
                 loop {
-                    match self.worker_events_receiver.try_recv() {
-                        Ok(worker_event) => {
-                            should_evaluate_bpm |= self.handle_worker_event(
-                                worker_event,
+                    match self.worker_commands_receiver.try_recv() {
+                        Ok(worker_command) => {
+                            should_evaluate_bpm |= self.handle_worker_command(
+                                worker_command,
                                 &mut bpm_detection,
                                 &mut bpm_evaluation_schedule,
                             );
                         }
                         Err(TryRecvError::Empty) => break,
                         Err(TryRecvError::Disconnected) => {
-                            worker_events_disconnected = true;
+                            worker_commands_disconnected = true;
                             break;
                         }
                     }
                 }
-                if worker_events_disconnected && !should_evaluate_bpm {
+                if worker_commands_disconnected && !should_evaluate_bpm {
                     break;
                 }
             }
@@ -167,36 +168,36 @@ where
         }
     }
 
-    fn handle_worker_event(
+    fn handle_worker_command(
         &mut self,
-        worker_event: WorkerEvent,
+        worker_command: BpmWorkerCommand,
         bpm_detection: &mut BPMDetection,
         bpm_evaluation_schedule: &mut BpmEvaluationSchedule,
     ) -> bool {
-        match worker_event {
-            WorkerEvent::TimedNoteOn(event) => {
+        match worker_command {
+            BpmWorkerCommand::TimedNoteOn(event) => {
                 bpm_detection.receive_note_on(event);
                 true
             }
-            WorkerEvent::Play => {
+            BpmWorkerCommand::Play => {
                 if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
                     error!("could not send play to MIDI output thread : {err:?}");
                 }
                 false
             }
-            WorkerEvent::Stop => {
+            BpmWorkerCommand::Stop => {
                 if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Stop) {
                     error!("could not send stop to MIDI output thread : {err:?}");
                 }
                 false
             }
-            WorkerEvent::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
+            BpmWorkerCommand::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
                 // Dynamic config changes scoring weights only; reuse the existing detection buffers.
                 self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
                 bpm_evaluation_schedule.schedule_evaluation();
                 false
             }
-            WorkerEvent::StaticBPMDetectionConfig(bpm_detection_config) => {
+            BpmWorkerCommand::StaticBPMDetectionConfig(bpm_detection_config) => {
                 // Static config changes detection model shape and is applied after the debounce delay.
                 bpm_evaluation_schedule.schedule_static_update(bpm_detection_config);
                 false
@@ -209,7 +210,7 @@ pub fn spawn(
     midi_service_config: &MidiServiceConfig,
     static_bpm_detection_config: StaticBPMDetectionConfig,
     dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    worker_receiver: Receiver<WorkerEvent>,
+    worker_commands_receiver: Receiver<BpmWorkerCommand>,
     midi_output: impl MidiOutput + Send + 'static,
     bpm_detection_receiver: impl BPMDetectionReceiver,
 ) -> Result<()> {
@@ -223,7 +224,7 @@ pub fn spawn(
 
     let mut worker = Worker {
         bpm_detection_receiver,
-        worker_events_receiver: worker_receiver,
+        worker_commands_receiver,
         midi_output_sender,
         dynamic_bpm_detection_config,
         clock_interval_microseconds,
@@ -362,7 +363,10 @@ fn midi_clock_interval_microseconds(bpm: f32) -> u64 {
     let Some(interval) = bpm_to_midi_clock_interval(bpm).num_microseconds() else {
         return fallback_clock_interval_microseconds();
     };
-    sanitize_clock_interval_microseconds(interval as u64)
+    let Ok(interval) = u64::try_from(interval) else {
+        return fallback_clock_interval_microseconds();
+    };
+    sanitize_clock_interval_microseconds(interval)
 }
 
 fn sanitize_clock_interval_microseconds(interval_microseconds: u64) -> u64 {
@@ -373,7 +377,8 @@ fn sanitize_clock_interval_microseconds(interval_microseconds: u64) -> u64 {
 }
 
 fn fallback_clock_interval_microseconds() -> u64 {
-    bpm_to_midi_clock_interval(FALLBACK_CLOCK_BPM).num_microseconds().unwrap() as u64
+    u64::try_from(bpm_to_midi_clock_interval(FALLBACK_CLOCK_BPM).num_microseconds().unwrap())
+        .expect("fallback MIDI clock interval should be positive")
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@ TUI service
       -> midir input callback
           -> timed MIDI message
           -> TUI display callback
-          -> WorkerEvent, when the BPM worker can use it
+          -> BpmWorkerCommand, when the BPM worker can use it
               -> BPM worker thread
                   -> BPMDetection
                   -> BPMDetectionReceiver
@@ -25,7 +25,7 @@ TUI service
 
 - Timed MIDI message: a parsed runtime MIDI message plus timestamp. Native mode keeps these for the TUI MIDI display and
   SysEx parsing.
-- Worker event: a filtered command sent to the BPM worker. The worker only receives messages it can act on, such as
+- BPM worker command: a filtered command sent to the BPM worker. The worker only receives messages it can act on, such as
   note-on events, config changes, or play/stop transport commands.
 - Note-on event: the core BPM input observation. It is extracted from a timed MIDI message before entering
   `BPMDetection`.
@@ -76,7 +76,7 @@ service thread is gone.
 
 ## Explicit Worker Messages
 
-The BPM worker uses explicit `WorkerEvent` values instead of arbitrary closures. This boundary is narrower:
+The BPM worker uses explicit `BpmWorkerCommand` values instead of arbitrary closures. This boundary is narrower:
 
 - note-on observations should enter the core model;
 - static config changes should rebuild detection buffers after the debounce delay;

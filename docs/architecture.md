@@ -24,7 +24,7 @@ cross-platform abstractions.
   velocity. It is more precise than "note", which can also mean only pitch.
 - Timed MIDI message: a runtime MIDI message with a timestamp, kept in native/host-facing crates for display, parsing,
   and protocol handling.
-- Worker event: a message sent to a background BPM worker. It is already filtered to something the worker can act on,
+- BPM worker command: a message sent to a background BPM worker. It is already filtered to something the worker can act on,
   such as a note-on event, config change, or transport command.
 - MIDI output command: a side effect owned by the native MIDI output thread, such as play, stop, or tempo feedback.
 - Static BPM config: settings that reshape the detection model and require buffer/precomputed-data updates.
@@ -149,8 +149,8 @@ read like clean configuration of the runtime graph, not like a second hidden orc
 need pluggable components, they should follow the same shape: discover compatible producers and consumers, connect them,
 then let that pair communicate through its own protocol.
 
-Small explicit enums are still valid when the protocol is narrow and stable. `WorkerEvent` is a good example: it belongs
-to one worker boundary and does not try to describe the whole application.
+Small explicit enums are still valid when the protocol is narrow and stable. `BpmWorkerCommand` is a good example: it
+belongs to one worker boundary and does not try to describe the whole application.
 
 ### Design Goals For Communication Boundaries
 
