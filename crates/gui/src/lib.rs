@@ -9,6 +9,7 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 pub use app::{BPMDetectionApp, BPMDetectionGUI};
+pub use app_builder::AppBuilder;
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::parameters::max_histogram_data_buffer_size;
@@ -35,8 +36,6 @@ mod config_ui;
 mod gui_remote;
 
 pub use config::{DefaultGUIParameters, GUIConfig, GUIParameters};
-
-use crate::app_builder::AppBuilder;
 
 pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder<BaseConfig>) {
     let estimated_bpm = Arc::new(AtomicF32::new(f32::NAN));

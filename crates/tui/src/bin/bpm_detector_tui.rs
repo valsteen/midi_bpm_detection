@@ -1,12 +1,15 @@
-use std::sync::mpsc::{SyncSender, sync_channel};
+use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 
 use errors::{Result, initialize_logging, initialize_panic_handler};
-use gui::{GuiRemote, create_gui, start_gui};
+use gui::{AppBuilder, GuiRemote, create_gui, start_gui};
 use log::info;
 use mimalloc::MiMalloc;
-use tokio::sync::{
-    mpsc,
-    mpsc::{UnboundedReceiver, UnboundedSender},
+use tokio::{
+    runtime::Runtime,
+    sync::{
+        mpsc,
+        mpsc::{UnboundedReceiver, UnboundedSender},
+    },
 };
 use tui::{
     action::Action, app::run_tui, cli::update_config, config::TUIConfig, live_parameters::BaseConfig,
@@ -15,6 +18,57 @@ use tui::{
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
+struct PreparedTui {
+    action_tx: UnboundedSender<Action>,
+    action_rx: UnboundedReceiver<Action>,
+    config: TUIConfig,
+    gui_remote: GuiRemote,
+    app_builder: AppBuilder<BaseConfig>,
+}
+
+impl PreparedTui {
+    fn new(config: TUIConfig) -> Self {
+        let (action_tx, action_rx) = mpsc::unbounded_channel();
+        let (gui_remote, app_builder) = create_gui(BaseConfig { action_tx: action_tx.clone(), config: config.clone() });
+
+        Self { action_tx, action_rx, config, gui_remote, app_builder }
+    }
+
+    fn spawn_tui(self) -> Result<RunningTui> {
+        let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+        let (should_start_gui_sender, should_start_gui_receiver) = sync_channel(0);
+
+        runtime.spawn(tokio_main(
+            should_start_gui_sender,
+            self.action_tx.clone(),
+            self.action_rx,
+            self.config,
+            self.gui_remote,
+        ));
+
+        Ok(RunningTui { _runtime: runtime, should_start_gui_receiver, app_builder: self.app_builder })
+    }
+}
+
+struct RunningTui {
+    // Keep the runtime alive while the GUI owns the main thread.
+    _runtime: Runtime,
+    should_start_gui_receiver: Receiver<()>,
+    app_builder: AppBuilder<BaseConfig>,
+}
+
+impl RunningTui {
+    fn start_gui_when_requested(self) -> Result<()> {
+        if self.should_start_gui_receiver.recv().is_ok() {
+            start_gui(self.app_builder)?;
+        }
+        Ok(())
+
+        // Don't add anything here. Due to macOS application lifecycle, when the main window exits, the process exits,
+        // the rest of `main` is not executed.
+    }
+}
 
 async fn tokio_main(
     start_gui: SyncSender<()>,
@@ -50,21 +104,5 @@ fn main() -> Result<()> {
         }
     };
 
-    let (action_tx, action_rx) = mpsc::unbounded_channel();
-
-    let (gui_remote, app_builder) = create_gui(BaseConfig { action_tx: action_tx.clone(), config: config.clone() });
-
-    // "runtime" must not be dropped, so it cannot be inlined with `spawn` here. Otherwise, the executor will
-    // immediately exit
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    let (should_start_gui_sender, should_start_gui_receiver) = sync_channel(0);
-    runtime.spawn(tokio_main(should_start_gui_sender, action_tx.clone(), action_rx, config.clone(), gui_remote));
-
-    if should_start_gui_receiver.recv().is_ok() {
-        start_gui(app_builder)?;
-    }
-    Ok(())
-
-    // Don't add anything here. Due to macOS application lifecycle, when the main window exits, the process exits,
-    // the rest of `main` is not executed.
+    PreparedTui::new(config).spawn_tui()?.start_gui_when_requested()
 }
