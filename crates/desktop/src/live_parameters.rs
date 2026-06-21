@@ -11,6 +11,7 @@ use bpm_detection_core::{
         StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
     },
 };
+use bpm_detection_midi::MidiInputPort;
 use errors::{LogErrorWithExt, Result};
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
 use parameter::OnOff;
@@ -314,16 +315,18 @@ where
         };
 
         let devices = controller.device_selection().devices().to_vec();
-        let selected = controller.device_selection().selected().clone();
+        let selected = controller.device_selection().displayed_selection().cloned();
         let mut selected_index = controller.device_selection().selected_index().unwrap_or_default();
         let current_selected_index = controller.device_selection().selected_index();
         drop(controller_slot);
 
-        gui::eframe::egui::ComboBox::from_label("MIDI input").selected_text(selected.as_str()).show_ui(ui, |ui| {
-            for (index, device) in devices.iter().enumerate() {
-                ui.selectable_value(&mut selected_index, index, device.as_str());
-            }
-        });
+        gui::eframe::egui::ComboBox::from_label("MIDI input")
+            .selected_text(selected.as_ref().map_or("<none selected>", MidiInputPort::as_str))
+            .show_ui(ui, |ui| {
+                for (index, device) in devices.iter().enumerate() {
+                    ui.selectable_value(&mut selected_index, index, device.as_str());
+                }
+            });
 
         if !devices.is_empty() && Some(selected_index) != current_selected_index {
             spawn_controller_command(&self.controller, "Could not select MIDI input", move |controller| {
@@ -332,8 +335,11 @@ where
         }
 
         if ui.button("Refresh MIDI inputs").clicked() {
-            spawn_controller_command(&self.controller, "Could not refresh MIDI input list", |controller| {
-                controller.refresh_devices()
+            let ctx = ui.ctx().clone();
+            spawn_controller_command(&self.controller, "Could not refresh MIDI input list", move |controller| {
+                let result = controller.refresh_devices();
+                ctx.request_repaint();
+                result
             });
         }
     }

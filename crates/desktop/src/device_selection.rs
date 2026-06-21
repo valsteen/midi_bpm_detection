@@ -23,12 +23,8 @@ impl DeviceSelection {
         devices.sort_unstable_by(|left, right| left.sort_key().cmp(&right.sort_key()));
 
         let selected_index = devices.iter().position(|device| device == &self.selected);
-        if let Some(index) = selected_index {
-            self.selected_index = Some(index);
-        } else {
-            self.selected = MidiInputPort::None;
-            self.selected_index = devices.iter().position(|device| device == &MidiInputPort::None);
-        }
+        self.selected_index =
+            selected_index.or_else(|| devices.iter().position(|device| device == &MidiInputPort::None));
 
         self.devices = devices;
     }
@@ -51,6 +47,11 @@ impl DeviceSelection {
     }
 
     #[must_use]
+    pub fn displayed_selection(&self) -> Option<&MidiInputPort> {
+        self.selected_index.and_then(|index| self.devices.get(index))
+    }
+
+    #[must_use]
     pub fn selected_index(&self) -> Option<usize> {
         self.selected_index
     }
@@ -65,15 +66,22 @@ mod tests {
     }
 
     #[test]
-    fn refresh_selects_none_when_current_device_disappears() {
+    fn refresh_displays_none_while_remembering_disappeared_selection() {
         let mut selection = DeviceSelection::new();
         selection.refresh_devices(vec![MidiInputPort::None, virtual_port("a")]);
         selection.select_index(1);
 
         selection.refresh_devices(vec![MidiInputPort::None, virtual_port("b")]);
 
-        assert_eq!(selection.selected(), &MidiInputPort::None);
+        assert_eq!(selection.selected(), &virtual_port("a"));
+        assert_eq!(selection.displayed_selection(), Some(&MidiInputPort::None));
         assert_eq!(selection.selected_index(), Some(0));
+
+        selection.refresh_devices(vec![MidiInputPort::None, virtual_port("a"), virtual_port("b")]);
+
+        assert_eq!(selection.selected(), &virtual_port("a"));
+        assert_eq!(selection.displayed_selection(), Some(&virtual_port("a")));
+        assert_eq!(selection.selected_index(), Some(1));
     }
 
     #[test]
