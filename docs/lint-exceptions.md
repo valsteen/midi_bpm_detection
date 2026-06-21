@@ -8,6 +8,8 @@ Policy:
 - Do not add a new `allow` without human confirmation.
 - If an exception is confirmed, keep it narrow and explain why it exists near the code.
 - Prefer removing broad legacy exceptions as touched code becomes clearer.
+- When a small helper exists only to wrap synchronization or another focused concern, prefer moving it to the focused
+  crate that owns that concern instead of leaving it in a domain crate or creating a generic `utils` crate.
 
 ## Audit Notes
 
@@ -74,3 +76,8 @@ These exceptions are signs of code that may deserve splitting or clearer names:
 The broad cast lint suppressions are now the highest-risk remaining category. They are probably legitimate in many GUI,
 parameter, and timestamp conversion paths, but each one should be narrowed or replaced with checked conversion when that
 code is touched.
+
+Example from this audit: optional atomic wrappers belong to `sync`, not `bpm_detection_midi` or the plugin crate, because
+they are synchronization primitives with no MIDI dependency. They should still preserve domain invariants at their public
+surface: sample/timestamp wrappers must preserve `Some(0)`, while disabled TCP ports are represented as
+`Option<NonZeroU16>` instead of accepting `Some(0)` and interpreting it as missing.

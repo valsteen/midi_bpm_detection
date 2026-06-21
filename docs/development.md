@@ -169,6 +169,16 @@ as permission to add more exceptions silently.
 
 Add `-- -D warnings` manually when you want CI-style strictness.
 
+## Design Change Flow
+
+Before introducing a new crate, macro, generic abstraction, or synchronization primitive, first compare the local design
+against existing crates. The review should cover API fit, dependency surface, maturity, target/build impact, and whether
+the external crate preserves the domain invariants this project needs.
+
+Prefer integrating an existing crate when it gives a clear, debuggable surface. If a crate is close but awkward, document
+the mismatch and consider opening an upstream issue before choosing a local implementation. Do not add new macros without
+explicit design approval.
+
 ## Native Verification
 
 For the usual native pre-commit pass:

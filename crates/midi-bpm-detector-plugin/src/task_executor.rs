@@ -1,6 +1,7 @@
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    num::NonZeroU16,
     sync::{Arc, atomic::Ordering},
     time::Duration,
 };
@@ -14,7 +15,7 @@ use gui::GuiRemote;
 use nih_plug::params::Param;
 use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
 use crate::{MidiBpmDetectorParams, bpm_detector_configuration::PluginConfig};
 
@@ -50,7 +51,7 @@ pub struct TaskExecutor {
     pub config: Arc<RwLock<PluginConfig>>,
     // when gui_must_update_config is set, GUI loads up this config
     pub gui_must_update_config: ArcAtomicBool,
-    pub daw_port: ArcAtomicOptional<u16>,
+    pub daw_port: ArcAtomicOptionNonZeroU16,
     pub daw_connection: Option<TcpStream>,
     pub send_tempo: ArcAtomicBool,
 }
@@ -214,13 +215,9 @@ impl TaskExecutor {
     }
 }
 
-fn connect_to_tempo_controller(port: u16) -> Option<TcpStream> {
-    if port == 0 {
-        return None;
-    }
-
+fn connect_to_tempo_controller(port: NonZeroU16) -> Option<TcpStream> {
     let stream = TcpStream::connect_timeout(
-        &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+        &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port.get()),
         TEMPO_CONTROLLER_CONNECT_TIMEOUT,
     )
     .log_error_msg("could not connect to tempo controller, ignoring")

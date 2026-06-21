@@ -12,7 +12,7 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use parking_lot::*;
-pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptional};
+pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionU64, ArcAtomicOptionUsize};
 #[cfg(target_arch = "wasm32")]
 pub use wasm_mutex::{Mutex, RwLock};
 
