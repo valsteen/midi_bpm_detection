@@ -11,7 +11,7 @@ notes, scores likely beat durations, and exposes the most likely BPM plus histog
 The same BPM detection model is used in three operating modes:
 
 - `plugin`: a CLAP/VST3 plugin intended to run inside a DAW. This is the production target.
-- `desktop`: a native TUI/GUI development app.
+- `desktop`: a native GUI development app.
 - `wasm`: a browser demo using the shared egui UI.
 
 The main architectural goal is to keep these modes from importing unnecessary dependencies from each other. Each mode
@@ -39,7 +39,8 @@ architecture remains readable. Arrows point from the crate that imports a depend
 flowchart TD
     subgraph modes["Runtime modes"]
         plugin["midi-bpm-detector-plugin<br/>plugin / production target"]
-        desktop["tui<br/>desktop shell, to retire"]
+        desktop["desktop<br/>native GUI app"]
+        legacy_tui["tui<br/>legacy comparison path"]
         wasm["wasm<br/>browser demo"]
         midi_reset["midi-reset<br/>CoreMIDI utility"]
         xtask["plugin xtask<br/>packaging helper"]
@@ -78,6 +79,14 @@ flowchart TD
     desktop --> sync
     desktop --> build
 
+    legacy_tui --> gui
+    legacy_tui --> midi
+    legacy_tui --> core
+    legacy_tui --> parameter
+    legacy_tui --> errors
+    legacy_tui --> sync
+    legacy_tui --> build
+
     wasm --> gui
     wasm --> core
     wasm --> parameter
@@ -100,9 +109,9 @@ flowchart TD
 ```
 
 This graph captures the dependency rule the project is trying to preserve: `gui` does not depend on native MIDI, and
-`bpm_detection_midi` does not depend on egui. The current `tui` crate sits above both because it is the desktop shell
-that wires them together. A future native desktop controller should occupy that same integration position without
-carrying Ratatui or the current broad TUI event bus forward.
+`bpm_detection_midi` does not depend on egui. The `desktop` crate sits above both because it is the native desktop
+runtime that wires them together. The `tui` crate remains in the workspace only as a legacy comparison path while the
+direct desktop path finishes replacing device selection and startup behavior.
 
 ### Core Domain
 
@@ -145,10 +154,17 @@ carrying Ratatui or the current broad TUI event bus forward.
   - Uses a fixed ring buffer and host background tasks so the realtime callback avoids expensive work.
   - Owns DAW/plugin parameter integration and optional tempo feedback to the Bitwig controller socket.
 
+- `crates/desktop`
+  - Native desktop GUI app.
+  - Owns native MIDI device selection and startup orchestration for desktop mode.
+  - Uses `bpm_detection_midi::MidiService` through a desktop controller boundary.
+  - Reuses the shared `gui` crate for visualization and configuration.
+
 - `crates/tui`
-  - Native development app with TUI screens and optional GUI.
+  - Legacy native development app with TUI screens and optional GUI.
   - Uses Tokio and native worker threads around `bpm_detection_midi::MidiService`.
   - Can perform blocking MIDI setup/work outside the UI event loop.
+  - Kept out of the root workspace default members and usual native verification group.
 
 - `crates/wasm`
   - Browser demo wrapper.
@@ -182,21 +198,20 @@ The important difference is where that pipeline is allowed to do work:
 
 - In plugin mode, the audio/plugin callback is the constrained boundary. It should not block, allocate, or perform heavy
   BPM computation. It forwards compact events and schedules background work.
-- In desktop mode, MIDI and BPM work can live in native worker threads. The TUI service layer bridges
-  `bpm_detection_midi` back into the application event loop.
+- In desktop mode, MIDI and BPM work can live in native worker threads. The desktop controller bridges
+  `bpm_detection_midi` into the native GUI app without moving MIDI dependencies into `gui`.
 - In WASM mode, there are no native worker threads in the current design. Browser events and delayed recomputation are
   coordinated through async tasks and channels.
 
 ## Desktop Mode Transition
 
-The desktop mode currently starts as a TUI, then launches the shared egui window after native MIDI input has been
-selected. This should be treated as prototype archeology. The long-term direction is to retire the TUI as a user
-interface and make desktop mode a full native GUI around the same shared egui visualization/config surface.
+The current desktop command starts the `desktop` crate directly as a native GUI. The older `tui` crate remains only as
+legacy comparison code while the direct desktop path finishes replacing device selection and startup behavior.
 
-The main feature that still justifies the TUI is native MIDI input selection. That does not belong in plugin mode,
-because the DAW owns the plugin's MIDI input routing. It may or may not belong in WASM mode depending on how browser MIDI
-input support evolves. For native desktop mode, selecting and hot-swapping the MIDI input should move into the GUI or a
-small native desktop controller attached to the GUI.
+Native MIDI input selection belongs to desktop mode, not plugin mode, because the DAW owns the plugin's MIDI input
+routing. It may or may not belong in WASM mode depending on how browser MIDI input support evolves. For native desktop
+mode, selecting and hot-swapping the MIDI input should stay in the GUI or a small native desktop controller attached to
+the GUI.
 
 The current TUI event/action bus should not be ported as-is. It was useful while the first proof of concept grew, but it
 also centralizes unrelated concerns: terminal rendering, keybindings, screen switching, MIDI hotplug events, MIDI service
@@ -216,8 +231,8 @@ Pieces worth preserving or re-evaluating before deleting the TUI are:
 - Small worker-owned message enums such as `BpmWorkerCommand`. These are narrow protocols for one worker boundary, not a
   general application bus.
 
-This direction is under review. The migration should first identify what the GUI must own, what belongs in
-`bpm_detection_midi`, and what should simply disappear with Ratatui.
+This direction is under review. The migration should continue identifying what the GUI must own, what belongs in
+`bpm_detection_midi`, and what should simply disappear with Ratatui before `crates/tui` is deleted.
 
 ## Tempo Feedback
 
@@ -340,7 +355,8 @@ The BPM model has two broad config groups:
 Each runtime mode adapts this shared config into its own host surface:
 
 - plugin parameters in `midi-bpm-detector-plugin`
-- TUI/GUI config in `tui`
+- native GUI config in `desktop`
+- legacy TUI/GUI config in `tui`
 - browser demo config in `wasm`
 
 The current plugin code also distinguishes whether updates originate from the DAW parameter system or the GUI. That

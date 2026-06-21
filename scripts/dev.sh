@@ -21,22 +21,25 @@ Formatting:
   fmt-check       Check formatting with nightly rustfmt
 
 Native macOS/dev checks:
-  check-desktop   Check the desktop TUI/GUI app
+  check-desktop   Check the native desktop GUI app
+  check-tui       Check the legacy TUI comparison app
   check-plugin    Check the CLAP/VST3 plugin crate
   check-reset     Check the macOS MIDI reset utility
   check-native    Check desktop, plugin, and reset crates
   test-core        Test the core BPM detection crate
-  test-desktop     Test the desktop TUI/GUI app
+  test-desktop     Test the native desktop GUI app
+  test-tui         Test the legacy TUI comparison app
   test-native      Test core and desktop crates
-  clippy-desktop  Run clippy for the desktop TUI/GUI app
+  clippy-desktop  Run clippy for the native desktop GUI app
+  clippy-tui      Run clippy for the legacy TUI comparison app
   clippy-plugin   Run clippy for the CLAP/VST3 plugin crate
   clippy-reset    Run clippy for the MIDI reset utility
   clippy-native   Run clippy for desktop, plugin, and reset crates
-  clippy-all      Run clippy for all native and WASM build modes
+  clippy-all      Run clippy for current native and WASM build modes
   verify-native   Run the usual native pre-commit checks
 
 Run/build commands:
-  run-desktop     Run the desktop TUI/GUI app with local dev config paths
+  run-desktop     Run the native desktop GUI app with local dev config paths
   bundle-plugin   Bundle the CLAP/VST3 plugin under target/bundled
   verify-plugin   Run the usual plugin pre-DAW checks
 
@@ -91,9 +94,6 @@ doctor_wasm() {
 run_desktop_env() {
     BPM_DETECTION_CONFIG="$ROOT/.data" \
     BPM_DETECTION_DATA="$ROOT/.data" \
-    MIDI_TUI_CONFIG="$ROOT/.config" \
-    MIDI_TUI_DATA="$ROOT/.data" \
-    MIDI_TUI_LOG_LEVEL="${MIDI_TUI_LOG_LEVEL:-info}" \
     "$@"
 }
 
@@ -117,6 +117,9 @@ case "$command" in
         cargo +nightly fmt --all -- --check
         ;;
     check-desktop)
+        cargo check -p desktop
+        ;;
+    check-tui)
         cargo check -p tui
         ;;
     check-plugin)
@@ -126,18 +129,24 @@ case "$command" in
         cargo check -p midi-reset
         ;;
     check-native)
-        cargo check -p tui -p midi-bpm-detector-plugin -p midi-reset
+        cargo check -p desktop -p midi-bpm-detector-plugin -p midi-reset
         ;;
     test-core)
         cargo test -p bpm_detection_core
         ;;
     test-desktop)
+        cargo test -p desktop
+        ;;
+    test-tui)
         cargo test -p tui
         ;;
     test-native)
-        cargo test -p bpm_detection_core -p tui
+        cargo test -p bpm_detection_core -p desktop
         ;;
     clippy-desktop)
+        cargo clippy -p desktop --all-targets
+        ;;
+    clippy-tui)
         cargo clippy -p tui --all-targets
         ;;
     clippy-plugin)
@@ -147,7 +156,7 @@ case "$command" in
         cargo clippy -p midi-reset --all-targets
         ;;
     clippy-native)
-        cargo clippy -p tui -p midi-bpm-detector-plugin -p midi-reset --all-targets
+        cargo clippy -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
         ;;
     clippy-all)
         "$0" clippy-native
@@ -160,7 +169,7 @@ case "$command" in
         "$0" clippy-native
         ;;
     run-desktop)
-        run_desktop_env cargo run -p tui --bin bpm_detector_tui
+        run_desktop_env cargo run -p desktop --bin desktop
         ;;
     bundle-plugin)
         cargo xtask bundle midi-bpm-detector-plugin --release

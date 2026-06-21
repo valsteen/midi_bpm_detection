@@ -35,6 +35,11 @@ pub struct DesktopConfig {
 
 impl DesktopConfig {
     /// Load the desktop configuration from the built-in defaults and the optional user config file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if default values cannot be registered, a config source cannot be read, or the combined config
+    /// cannot be deserialized into the desktop config shape.
     pub fn new() -> TypedResult<Self, ConfigError> {
         let data_dir = get_data_dir();
         let config_dir = get_config_dir();
@@ -52,6 +57,10 @@ impl DesktopConfig {
     }
 
     /// Persist the user-editable desktop configuration to the configured config directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config cannot be serialized or written to the configured config directory.
     pub fn save(&self) -> Result<()> {
         let serialized = match toml::to_string_pretty(self) {
             Ok(serialized) => serialized,
@@ -87,7 +96,7 @@ mod tests {
         assert_eq!(config.midi.device_name, "Desktop");
         assert!(!config.midi.enable_midi_clock.load(Ordering::Relaxed));
         assert!(!config.midi.send_tempo.load(Ordering::Relaxed));
-        assert_eq!(config.static_bpm_detection_config.bpm_center, 90.0);
+        assert!((config.static_bpm_detection_config.bpm_center - 90.0).abs() < f32::EPSILON);
         assert_eq!(config.static_bpm_detection_config.bpm_range, 40);
         assert_eq!(config.static_bpm_detection_config.sample_rate, 500);
         assert_eq!(config.dynamic_bpm_detection_config.velocity_current_note_weight, OnOff::Off(0.7));

@@ -366,7 +366,7 @@ mod tests {
         let static_changes = static_changes.lock().expect("static changes lock should not be poisoned");
         let dynamic_changes = dynamic_changes.lock().expect("dynamic changes lock should not be poisoned");
         assert_eq!(static_changes.len(), 1);
-        assert_eq!(static_changes[0].bpm_center, 120.0);
+        assert!((static_changes[0].bpm_center - 120.0).abs() < f32::EPSILON);
         assert!(dynamic_changes.is_empty());
     }
 

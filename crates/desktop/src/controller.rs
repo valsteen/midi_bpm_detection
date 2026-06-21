@@ -29,6 +29,10 @@ where
     B: BPMDetectionReceiver,
 {
     /// Start the native MIDI service thread and wrap it behind the desktop controller boundary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the native MIDI service cannot be created.
     pub fn new(
         midi_service_config: MidiServiceConfig,
         static_config: StaticBPMDetectionConfig,
@@ -71,6 +75,10 @@ where
     }
 
     /// Refresh the known MIDI input list while preserving the selected device when it is still present.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the MIDI service cannot list input ports.
     pub fn refresh_devices(&mut self) -> Result<()> {
         let devices = self.execute(|midi_in, _| midi_in.get_ports())?;
         self.selection.refresh_devices(devices);
@@ -78,6 +86,10 @@ where
     }
 
     /// Select a MIDI input by the current displayed device index and reconnect the MIDI listener.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the selected MIDI input cannot be opened or the MIDI service command cannot run.
     pub fn select_device_index(&mut self, index: usize) -> Result<()> {
         let midi_service = self.midi_service.clone();
         let on_midi_message = self.on_midi_message.clone();
@@ -99,11 +111,19 @@ where
     }
 
     /// Apply static BPM detection settings that require rebuilding the detection buffers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the MIDI service command cannot update the running BPM detector.
     pub fn apply_static_config(&self, config: StaticBPMDetectionConfig) -> Result<()> {
         self.execute(move |midi_in, _| midi_in.change_bpm_detection_config(config))
     }
 
     /// Apply dynamic BPM detection settings that can be changed on the running service.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the MIDI service command cannot update the running BPM detector.
     pub fn apply_dynamic_config(&self, config: DynamicBPMDetectionConfig) -> Result<()> {
         self.execute(move |midi_in, _| midi_in.change_bpm_detection_config_live(config))
     }

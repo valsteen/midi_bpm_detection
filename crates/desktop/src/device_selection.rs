@@ -23,14 +23,11 @@ impl DeviceSelection {
         devices.sort_unstable_by(|left, right| left.sort_key().cmp(&right.sort_key()));
 
         let selected_index = devices.iter().position(|device| device == &self.selected);
-        match selected_index {
-            Some(index) => {
-                self.selected_index = Some(index);
-            }
-            None => {
-                self.selected = MidiInputPort::None;
-                self.selected_index = devices.iter().position(|device| device == &MidiInputPort::None);
-            }
+        if let Some(index) = selected_index {
+            self.selected_index = Some(index);
+        } else {
+            self.selected = MidiInputPort::None;
+            self.selected_index = devices.iter().position(|device| device == &MidiInputPort::None);
         }
 
         self.devices = devices;

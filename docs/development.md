@@ -2,11 +2,12 @@
 
 This project has three main build modes:
 
-- `desktop`: the native TUI/GUI application in `crates/tui`, sharing the `gui` crate.
+- `desktop`: the native desktop GUI application in `crates/desktop`, sharing the `gui` crate.
 - `plugin`: the CLAP/VST3 plugin in `crates/midi-bpm-detector-plugin`.
 - `wasm`: the browser demo in `crates/wasm`.
 
-The root workspace default members are `tui` and `midi-reset`. The plugin and wasm crates should be checked explicitly.
+The root workspace default members are `desktop` and `midi-reset`. The plugin, wasm, and legacy TUI crates should be
+checked explicitly.
 
 ## One Command Surface
 
@@ -71,7 +72,7 @@ cargo +nightly fmt --all -- --check
 The project toolchain in `rust-toolchain.toml` is stable, but `rustfmt.toml` uses nightly-only rustfmt options such as
 `format_strings`, grouped imports, and import granularity. Stable rustfmt will warn about those options and ignore them.
 
-## Native Desktop/TUI
+## Native Desktop
 
 Check:
 
@@ -94,9 +95,31 @@ scripts/dev.sh run-desktop
 Equivalent commands:
 
 ```shell
+cargo check -p desktop
+cargo test -p desktop
+BPM_DETECTION_CONFIG=.data BPM_DETECTION_DATA=.data cargo run -p desktop --bin desktop
+```
+
+## Legacy TUI
+
+`crates/tui` remains in the workspace as legacy comparison code while the direct desktop path finishes replacing native
+device selection and startup behavior. It is intentionally outside the default workspace members and outside the usual
+native verification group.
+
+Check or test it explicitly when comparing behavior:
+
+```shell
+scripts/dev.sh check-tui
+scripts/dev.sh test-tui
+scripts/dev.sh clippy-tui
+```
+
+Equivalent commands:
+
+```shell
 cargo check -p tui
 cargo test -p tui
-BPM_DETECTION_CONFIG=.data BPM_DETECTION_DATA=.data MIDI_TUI_CONFIG=.config MIDI_TUI_DATA=.data MIDI_TUI_LOG_LEVEL=info cargo run -p tui --bin bpm_detector_tui
+cargo clippy -p tui --all-targets
 ```
 
 ## Plugin
@@ -153,12 +176,12 @@ scripts/dev.sh clippy-all
 Equivalent combined command:
 
 ```shell
-cargo clippy -p tui -p midi-bpm-detector-plugin -p midi-reset --all-targets
+cargo clippy -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
 cargo clippy -p wasm --target wasm32-unknown-unknown
 ```
 
-`clippy-all` runs both `clippy-native` and `clippy-wasm`. Use it when you want to lint every supported build mode from
-one command.
+`clippy-all` runs both `clippy-native` and `clippy-wasm`. Use it when you want to lint the current native desktop,
+plugin, reset, and WASM build modes from one command.
 
 The workspace enables `clippy::pedantic` as warnings. Treat Clippy warnings as issues to fix by default. Do not add a
 new `#[allow(...)]` without human confirmation. If a lint is confirmed to be inappropriate, keep the allow narrow and add
