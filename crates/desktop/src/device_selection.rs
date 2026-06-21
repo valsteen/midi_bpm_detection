@@ -52,6 +52,11 @@ impl DeviceSelection {
     }
 
     #[must_use]
+    pub fn displayed_selection_is_fallback(&self) -> bool {
+        self.displayed_selection().is_some_and(|device| device != &self.selected)
+    }
+
+    #[must_use]
     pub fn selected_index(&self) -> Option<usize> {
         self.selected_index
     }
@@ -82,6 +87,23 @@ mod tests {
         assert_eq!(selection.selected(), &virtual_port("a"));
         assert_eq!(selection.displayed_selection(), Some(&virtual_port("a")));
         assert_eq!(selection.selected_index(), Some(1));
+    }
+
+    #[test]
+    fn selecting_fallback_none_clears_disappeared_selection() {
+        let mut selection = DeviceSelection::new();
+        selection.refresh_devices(vec![MidiInputPort::None, virtual_port("a")]);
+        selection.select_index(1);
+
+        selection.refresh_devices(vec![MidiInputPort::None, virtual_port("b")]);
+        assert!(selection.displayed_selection_is_fallback());
+
+        selection.select_index(0);
+        selection.refresh_devices(vec![MidiInputPort::None, virtual_port("a"), virtual_port("b")]);
+
+        assert_eq!(selection.selected(), &MidiInputPort::None);
+        assert_eq!(selection.displayed_selection(), Some(&MidiInputPort::None));
+        assert_eq!(selection.selected_index(), Some(0));
     }
 
     #[test]

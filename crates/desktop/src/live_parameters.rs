@@ -318,17 +318,23 @@ where
         let selected = controller.device_selection().displayed_selection().cloned();
         let mut selected_index = controller.device_selection().selected_index().unwrap_or_default();
         let current_selected_index = controller.device_selection().selected_index();
+        let displayed_selection_is_fallback = controller.device_selection().displayed_selection_is_fallback();
         drop(controller_slot);
 
+        let mut selected_index_clicked = false;
         gui::eframe::egui::ComboBox::from_label("MIDI input")
             .selected_text(selected.as_ref().map_or("<none selected>", MidiInputPort::as_str))
             .show_ui(ui, |ui| {
                 for (index, device) in devices.iter().enumerate() {
-                    ui.selectable_value(&mut selected_index, index, device.as_str());
+                    selected_index_clicked |=
+                        ui.selectable_value(&mut selected_index, index, device.as_str()).clicked();
                 }
             });
 
-        if !devices.is_empty() && Some(selected_index) != current_selected_index {
+        let selected_index_changed = Some(selected_index) != current_selected_index;
+        let confirmed_displayed_fallback =
+            selected_index_clicked && displayed_selection_is_fallback && Some(selected_index) == current_selected_index;
+        if !devices.is_empty() && (selected_index_changed || confirmed_displayed_fallback) {
             spawn_controller_command(&self.controller, "Could not select MIDI input", move |controller| {
                 controller.select_device_index(selected_index)
             });
