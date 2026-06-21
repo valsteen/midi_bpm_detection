@@ -31,6 +31,29 @@ TUI service
   `BPMDetection`.
 - MIDI output command: a side effect for the native MIDI output thread, such as play, stop, or tempo feedback SysEx.
 
+## Desktop Shell Archeology
+
+The native desktop entry point started as a TUI because that looked like the quickest way to build the first experiment:
+select a MIDI controller, show log-like feedback, and drive the BPM detector. In practice the TUI became its own source
+of complexity. The current desktop app mostly keeps the TUI around for controller selection and the event loop, then
+launches the egui GUI for the actual visualization and parameter workflow.
+
+This means the TUI/event-bus shape should not be treated as final architecture. It is an artifact of the first working
+proof of concept. The broad `tui::Event` and `Action` types encode terminal input, MIDI device discovery, MIDI messages,
+screen commands, config updates, GUI launch commands, and service actions. That made early wiring possible, but it also
+means unrelated components can become coupled through one large message surface.
+
+The long-term direction is probably a native full-GUI desktop mode:
+
+- controller selection moves into egui;
+- the desktop event loop is rebuilt around the GUI/runtime actually being used;
+- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all TUI bus;
+- async is used only where cooperative scheduling is needed, not as the default shape for a fixed set of background
+  workers.
+
+Until that refactor happens, code in `crates/tui` should be read as desktop shell scaffolding. It can still be useful and
+working, but it is not the architectural model the rest of the project should copy.
+
 ## MIDI Service Closure Boundary
 
 `bpm_detection_midi::MidiService` owns a dedicated service thread. Callers do not send a large public enum of every
@@ -86,5 +109,7 @@ These names and boundaries are current working vocabulary, not final doctrine:
 - `MidiIn` is more than raw input: it also starts the BPM worker and forwards play/stop/config commands.
 - `MidiService::execute()` is flexible, but the caller still needs to reason carefully about what it moves into the
   closure and how results should get back to the caller.
+- The TUI event bus is early desktop-shell scaffolding. If behavior feels coupled through a large `Event` or `Action`
+  enum, treat that as a refactor candidate rather than a design rule.
 - The native MIDI clock path is desktop/experimental support. The plugin production path uses a controller bridge
   instead of acting as a MIDI clock provider.
