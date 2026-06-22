@@ -20,10 +20,18 @@ fn main() -> Result<()> {
 
     let config = DesktopConfig::new()?;
     let pending_controller_runtime = PendingDesktopControllerRuntime::new();
-    let controller_commands = pending_controller_runtime.command_queue();
     let (gui_remote, app_builder_shell) = create_gui_shell();
 
-    let controller = start_desktop_controller(&config, gui_remote.clone(), &controller_commands)?;
+    #[cfg(target_os = "macos")]
+    let controller_commands = pending_controller_runtime.command_queue();
+    let controller = start_desktop_controller(
+        &config,
+        gui_remote.clone(),
+        #[cfg(target_os = "macos")]
+        &controller_commands,
+    )?;
+    #[cfg(not(target_os = "macos"))]
+    let controller_commands = pending_controller_runtime.command_queue();
     pending_controller_runtime.start(controller.clone())?;
 
     let app_builder = app_builder_shell.with_config(build_gui_config(config, controller, controller_commands));
@@ -33,11 +41,8 @@ fn main() -> Result<()> {
 fn start_desktop_controller(
     config: &DesktopConfig,
     gui_remote: gui::GuiRemote,
-    controller_commands: &DesktopControllerCommandQueue<gui::GuiRemote>,
+    #[cfg(target_os = "macos")] controller_commands: &DesktopControllerCommandQueue<gui::GuiRemote>,
 ) -> Result<SharedDesktopController<gui::GuiRemote>> {
-    #[cfg(not(target_os = "macos"))]
-    let _ = controller_commands;
-
     let midi_service = bpm_detection_midi::MidiService::new(
         config.midi.clone(),
         config.static_bpm_detection_config.clone(),
