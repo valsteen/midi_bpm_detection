@@ -6,25 +6,29 @@ comes from, which thread owns which state, and why some boundaries use explicit 
 ## Thread Boundaries
 
 ```text
-TUI service
-  -> MidiService::execute(closure)
-  -> MIDI Service thread
-      -> MidiIn
-      -> midir input callback
-          -> timed MIDI message
-          -> TUI display callback
-          -> BpmWorkerCommand, when the BPM worker can use it
-              -> BPM worker thread
-                  -> BPMDetection
-                  -> BPMDetectionReceiver
-                  -> MidiOutputCommand, for optional tempo feedback
-                      -> MIDI output thread
+desktop bootstrap
+  -> create GuiRemote
+  -> create pending DesktopController runtime
+  -> create MidiService
+      -> MIDI Service thread
+          -> MidiIn
+          -> midir input callback
+              -> timed MIDI message
+              -> BpmWorkerCommand, when the BPM worker can use it
+                  -> BPM worker thread
+                      -> BPMDetection
+                      -> BPMDetectionReceiver
+                      -> MidiOutputCommand, for optional tempo feedback
+                          -> MIDI output thread
+  -> create DesktopController
+  -> start DesktopController command worker
+  -> start egui
 ```
 
 ## Main Terms
 
-- Timed MIDI message: a parsed runtime MIDI message plus timestamp. Native mode keeps these for the TUI MIDI display and
-  SysEx parsing.
+- Timed MIDI message: a parsed runtime MIDI message plus timestamp. Native mode uses these for SysEx parsing and for
+  forwarding useful observations into the BPM worker.
 - BPM worker command: a filtered command sent to the BPM worker. The worker only receives messages it can act on, such as
   note-on events, config changes, or play/stop transport commands.
 - Note-on event: the core BPM input observation. It is extracted from a timed MIDI message before entering
@@ -35,94 +39,32 @@ TUI service
 
 The native desktop entry point started as a TUI because that looked like the quickest way to build the first experiment:
 select a MIDI controller, show log-like feedback, and drive the BPM detector. In practice the TUI became its own source
-of complexity. The current desktop app mostly keeps the TUI around for controller selection and the event loop, then
-launches the egui GUI for the actual visualization and parameter workflow.
+of complexity, and the project now uses `crates/desktop` as the native app path.
 
 This means the TUI/event-bus shape should not be treated as final architecture. It is an artifact of the first working
 proof of concept. The broad `tui::Event` and `Action` types encode terminal input, MIDI device discovery, MIDI messages,
 screen commands, config updates, GUI launch commands, and service actions. That made early wiring possible, but it also
 means unrelated components can become coupled through one large message surface.
 
-The long-term direction is probably a native full-GUI desktop mode:
+The native GUI path keeps the useful pieces and drops the terminal shell:
 
-- controller selection moves into egui;
-- the desktop event loop is rebuilt around the GUI/runtime actually being used;
-- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all TUI bus;
+- controller selection moved into egui;
+- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all event bus;
 - producers and consumers are connected during bootstrap through narrow typed protocols, then communicate directly
   through those protocols;
-- async is used only where cooperative scheduling is needed, not as the default shape for a fixed set of background
-  workers.
-
-Until that refactor happens, code in `crates/tui` should be read as desktop shell scaffolding. It can still be useful and
-working, but it is not the architectural model the rest of the project should copy.
+- async is avoided for the fixed set of native background workers unless cooperative scheduling is actually needed.
 
 ## Current Desktop Startup
 
-The native desktop binary currently splits startup into two typed phases:
+The native desktop binary starts egui directly and keeps MIDI work behind explicit service/controller boundaries:
 
-1. `PreparedTui` owns the configuration, action channel, `GuiRemote`, and `AppBuilder`.
-2. `RunningTui` owns the Tokio runtime, the one-shot "start the GUI now" receiver, and the `AppBuilder`.
-
-This shape is clever in a useful way: after preparation, the only operation left is to spawn the TUI runtime; after the
-runtime is spawned, the only operation left on the main thread is waiting for the GUI start signal and running egui.
-Those types encode lifecycle order instead of relying only on comments.
-
-The runtime split exists because the current desktop app starts in the terminal:
-
-```text
-main thread
-  -> read/update TUIConfig
-  -> create GuiRemote + AppBuilder
-  -> spawn Tokio runtime for the TUI shell
-  -> block until Action::ShowGUI asks for egui
-  -> run egui on the main thread
-
-Tokio runtime
-  -> run_tui()
-      -> create TUI Event channel
-      -> install signal handling
-      -> install GUI exit callback
-      -> start MIDI service wrapper
-      -> start Ratatui event/render loops
-      -> dispatch Event values into Action values
-      -> dispatch Actions to TUI components and services
-```
-
-The GUI exit callback is part of that lifecycle handoff. When egui exits, it sends `Action::Quit` into the TUI loop and
-then waits until the Tokio side reports that it has exited. This keeps terminal cleanup and MIDI service teardown under
-the TUI runtime, but it also couples GUI shutdown to the terminal shell.
-
-When the TUI is retired, the useful invariant is not "start Ratatui before egui". The useful invariant is that desktop
-bootstrap should make ownership obvious:
-
-- one owner starts the native MIDI service;
-- one owner starts the GUI on the platform-required thread;
-- closing the GUI has one clear path for stopping MIDI input, background workers, and config persistence;
-- lifecycle order remains encoded in types or a small bootstrap object instead of being reconstructed from comments.
-
-## TUI Port/Delete Checklist
-
-The pieces to port into a GUI-native desktop mode are small:
-
-- native MIDI input discovery and selection;
-- hotplug refresh notifications;
-- stable selection behavior when the device list changes;
-- selected-device listening, where replacing the held `MidiInputConnection` stops the old listener;
-- parameter/config propagation from the GUI into `MidiService`;
-- optional desktop-only controls for native MIDI playback, MIDI clock, and tempo feedback if those experiments remain
-  useful.
-
-The pieces that should disappear with Ratatui unless they prove otherwise are broader:
-
-- terminal drawing and alternate-screen lifecycle;
-- TUI screen switching;
-- TUI keybinding dispatch as the way the GUI talks back to the shell;
-- `tui::Event` and `Action` as a runtime-wide bus;
-- generic component/service dispatch over trait objects for the desktop GUI path.
-
-If a replacement still needs events, they should be local to the thing that owns them. For example, a GUI device selector
-may have a small model/update API, and the native MIDI service may keep closure commands or a narrow command enum. The
-goal is not to avoid events; it is to avoid rebuilding the same global bus under an egui name.
+- `main` loads config and creates `GuiRemote`.
+- `PendingDesktopControllerRuntime` creates a command sender before `DesktopController` exists.
+- `MidiService` is created during bootstrap so native MIDI setup and macOS hotplug registration happen before the
+  desktop controller wraps the service.
+- `DesktopController` owns device selection, selected input lifetime, and config propagation into `MidiService`.
+- The command worker starts only after the controller exists, so queued callbacks never operate on an unset controller.
+- `AppBuilderShell` receives `DesktopBaseConfig` only after the controller/runtime are ready.
 
 ## Proposed Desktop Controller Boundary
 
@@ -150,8 +92,8 @@ DesktopController
   -> stop native services on shutdown
 ```
 
-This is intentionally not a direct translation of `Action`. For example, `Action::Down` and `Action::Switch` are TUI
-interaction details and should disappear. `select_midi_input(port)` is a desktop capability and should remain.
+This is intentionally not a direct translation of the old TUI `Action` enum. For example, keyboard navigation actions
+were terminal interaction details and disappeared. `select_midi_input(port)` is a desktop capability and remains.
 
 The current desktop runtime uses a pending command runtime during bootstrap. The command sender exists before
 `DesktopController` exists, but the command worker is only started once the controller has been fully constructed. This
@@ -163,31 +105,6 @@ The desktop MIDI input list refresh is platform-dependent. macOS registers CoreM
 the list automatically, so the GUI should not show a manual refresh button there. Other native platforms currently rely
 on manual refresh because no equivalent hotplug callback is wired yet; the refresh still works by asking `midir` for the
 current input ports again.
-
-### Placement Options
-
-There are three plausible places for this boundary:
-
-1. Keep it temporarily inside `crates/tui` while deleting Ratatui-specific code around it.
-2. Rename or replace `crates/tui` with a desktop/native app crate once the terminal UI is gone.
-3. Add a new desktop integration crate and leave `crates/tui` as a shrinking compatibility shell until it can be removed.
-
-The likely direction is option 2 or 3. Option 1 is useful only as a short migration step. The final shape should make the
-dependency purpose obvious from the crate name: this code is the native desktop runtime, not a terminal UI.
-
-### First Extraction Candidate
-
-The first useful extraction is not a widget. It is the non-visual model behind MIDI input selection:
-
-- current device list;
-- current selected port;
-- stable selection update when the device list changes;
-- command to select a port and replace the active `MidiInputConnection`;
-- callback/signal for a GUI widget to refresh when the device list changes.
-
-Once that exists, egui can render it as a combo box or selector without owning MIDI service synchronization itself. The
-existing `SelectDevice` component is the reference behavior to preserve, but its Ratatui drawing and `Action::Up` /
-`Action::Down` handling are not part of the model.
 
 ## MIDI Service Closure Boundary
 
@@ -250,7 +167,7 @@ These names and boundaries are current working vocabulary, not final doctrine:
 - `MidiIn` is more than raw input: it also starts the BPM worker and forwards play/stop/config commands.
 - `MidiService::execute()` is flexible, but the caller still needs to reason carefully about what it moves into the
   closure and how results should get back to the caller.
-- The TUI event bus is early desktop-shell scaffolding. If behavior feels coupled through a large `Event` or `Action`
-  enum, treat that as a refactor candidate rather than a design rule.
+- The old TUI event bus was early desktop-shell scaffolding. If behavior starts coupling through a large runtime-wide
+  event enum again, treat that as a refactor candidate rather than a design rule.
 - The native MIDI clock path is desktop/experimental support. The plugin production path uses a controller bridge
   instead of acting as a MIDI clock provider.

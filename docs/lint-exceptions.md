@@ -30,7 +30,7 @@ These are the main cleanup risk. They are not immediate behavior bugs, but they 
 crates:
 
 - `missing_panics_doc`, `missing_errors_doc`, `module_name_repetitions`
-  - Present in core, GUI, TUI, WASM, sync, parameter, errors, build, and native MIDI crates.
+  - Present in core, GUI, desktop, WASM, sync, parameter, errors, build, and native MIDI crates.
   - Mostly documentation/API-style noise from `clippy::pedantic`.
   - Acceptable temporarily, but should not be copied to new crates without confirmation.
 - Cast lint groups such as `cast_possible_truncation`, `cast_sign_loss`, `cast_possible_wrap`, and
@@ -58,7 +58,8 @@ crates:
 These exceptions are signs of code that may deserve splitting or clearer names:
 
 - `too_many_lines`
-  - Present in BPM scoring, native worker loop, plugin task executor, plugin parameter construction, and TUI app loop.
+  - Present in BPM scoring, native worker loop, plugin task executor, plugin parameter construction, and desktop
+    bootstrap/UI integration code.
   - These are complexity markers. Refactor when working in those areas, but avoid mechanical extraction that hides the
     flow.
 - `too_many_arguments`

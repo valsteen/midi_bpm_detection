@@ -85,7 +85,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn base_config_contains_non_tui_defaults() {
+    fn base_config_contains_desktop_defaults() {
         let config = config::Config::builder()
             .add_source(config::File::from_str(CONFIG, config::FileFormat::Toml))
             .build()

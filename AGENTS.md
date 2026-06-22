@@ -55,6 +55,5 @@ Repository instructions for AI coding agents working on this project.
 
 ## Current Direction
 
-- A new `desktop` crate should replace the TUI-first native shell.
-- Keep `crates/tui` as legacy comparison code until the native desktop path owns device selection and startup cleanly.
+- The `desktop` crate is the native app path; the old TUI-first native shell has been retired.
 - The desktop crate should own native MIDI device selection and startup orchestration while reusing the shared `gui` crate.

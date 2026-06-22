@@ -22,16 +22,13 @@ Formatting:
 
 Native macOS/dev checks:
   check-desktop   Check the native desktop GUI app
-  check-tui       Check the legacy TUI comparison app
   check-plugin    Check the CLAP/VST3 plugin crate
   check-reset     Check the macOS MIDI reset utility
   check-native    Check desktop, plugin, and reset crates
   test-core        Test the core BPM detection crate
   test-desktop     Test the native desktop GUI app
-  test-tui         Test the legacy TUI comparison app
   test-native      Test core and desktop crates
   clippy-desktop  Run clippy for the native desktop GUI app
-  clippy-tui      Run clippy for the legacy TUI comparison app
   clippy-plugin   Run clippy for the CLAP/VST3 plugin crate
   clippy-reset    Run clippy for the MIDI reset utility
   clippy-native   Run clippy for desktop, plugin, and reset crates
@@ -119,9 +116,6 @@ case "$command" in
     check-desktop)
         cargo check -p desktop
         ;;
-    check-tui)
-        cargo check -p tui
-        ;;
     check-plugin)
         cargo check -p midi-bpm-detector-plugin
         ;;
@@ -137,17 +131,11 @@ case "$command" in
     test-desktop)
         cargo test -p desktop
         ;;
-    test-tui)
-        cargo test -p tui
-        ;;
     test-native)
         cargo test -p bpm_detection_core -p desktop
         ;;
     clippy-desktop)
         cargo clippy -p desktop --all-targets
-        ;;
-    clippy-tui)
-        cargo clippy -p tui --all-targets
         ;;
     clippy-plugin)
         cargo clippy -p midi-bpm-detector-plugin --all-targets

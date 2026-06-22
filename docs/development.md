@@ -6,8 +6,8 @@ This project has three main build modes:
 - `plugin`: the CLAP/VST3 plugin in `crates/midi-bpm-detector-plugin`.
 - `wasm`: the browser demo in `crates/wasm`.
 
-The root workspace default members are `desktop` and `midi-reset`. The plugin, wasm, and legacy TUI crates should be
-checked explicitly.
+The root workspace default members are `desktop` and `midi-reset`. The plugin and wasm crates should be checked
+explicitly.
 
 ## One Command Surface
 
@@ -98,28 +98,6 @@ Equivalent commands:
 cargo check -p desktop
 cargo test -p desktop
 BPM_DETECTION_CONFIG=.data BPM_DETECTION_DATA=.data cargo run -p desktop --bin desktop
-```
-
-## Legacy TUI
-
-`crates/tui` remains in the workspace as legacy comparison code while the direct desktop path finishes replacing native
-device selection and startup behavior. It is intentionally outside the default workspace members and outside the usual
-native verification group.
-
-Check or test it explicitly when comparing behavior:
-
-```shell
-scripts/dev.sh check-tui
-scripts/dev.sh test-tui
-scripts/dev.sh clippy-tui
-```
-
-Equivalent commands:
-
-```shell
-cargo check -p tui
-cargo test -p tui
-cargo clippy -p tui --all-targets
 ```
 
 ## Plugin
