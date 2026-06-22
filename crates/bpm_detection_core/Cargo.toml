@@ -7,17 +7,17 @@ edition = "2024"
 parameter = { path = "../parameter"}
 
 
-itertools = "0.14.0"
+itertools = "0.15.0"
 derivative = "2.2.0"
 statrs = "0.18.0"
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 arraydeque = "0.5.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-chrono = { version="0.4.41" }
+chrono = { version="0.4.45" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-chrono = { version="0.4.41", features = ["wasmbind"]}
+chrono = { version="0.4.45", features = ["wasmbind"]}
 
 [lints]
 workspace = true

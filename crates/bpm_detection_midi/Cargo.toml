@@ -9,12 +9,12 @@ build = { path = "../build" }
 errors = { path = "../errors" }
 sync = { path = "../sync" }
 
-chrono = "0.4.41"
-itertools = "0.14.0"
-log = "0.4.27"
+chrono = "0.4.45"
+itertools = "0.15.0"
+log = "0.4.33"
 midir = "0.11.0"
-serde = { version = "1.0.219", features = ["derive"] }
-wmidi = "4.0.10"
+serde = { version = "1.0.228", features = ["derive"] }
+wmidi = "4.0.11"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 coremidi-hotplug-notification = "0.1.4"

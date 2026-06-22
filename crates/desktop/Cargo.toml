@@ -14,11 +14,11 @@ gui = { path = "../gui" }
 parameter = { path = "../parameter" }
 sync = { path = "../sync" }
 
-config = "0.15.13"
-log = "0.4.27"
-mimalloc = "0.1.47"
-serde = { version = "1.0.219", features = ["derive"] }
-toml = "0.9.5"
+config = "0.15.24"
+log = "0.4.33"
+mimalloc = "0.1.52"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.2"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

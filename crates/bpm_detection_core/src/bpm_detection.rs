@@ -101,7 +101,7 @@ impl BPMDetection {
         let duration_per_sample = sample_to_duration(self.static_bpm_detection_config.sample_rate, 1);
         let normal_weight = dynamic_bpm_detection_config.normal_distribution_weight.weight();
 
-        for (note_from, note_to) in self.note_events.iter().tuple_combinations() {
+        for [note_from, note_to] in self.note_events.iter().array_combinations() {
             let note_age = *newest - note_to.timestamp;
             let mut interval = note_to.timestamp - note_from.timestamp;
 

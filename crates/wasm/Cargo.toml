@@ -10,22 +10,22 @@ bpm_detection_core = { path = "../bpm_detection_core" }
 errors = { path = "../errors" }
 parameter = { path = "../parameter" }
 
-serde = { version = "1.0.219", features = ["derive"] }
-toml = "0.9.5"
-atomic_refcell = "0.1.13"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.2"
+atomic_refcell = "0.1.14"
 wasm-bindgen = "0.2"
-# getrandom is transitively used by minitrace. This declaration is only necessary to enable the "js" feature.
-getrandom = { package = "getrandom", version = "0.2.16", features = ["js"] }
+# getrandom 0.2 is transitively used by minitrace/statrs. This declaration is only necessary to enable its wasm JS backend.
+getrandom = { package = "getrandom", version = "0.2.17", features = ["js"] }
 derivative = "2.2.0"
-chrono = { version = "0.4.41", features = ["wasmbind"] }
+chrono = { version = "0.4.45", features = ["wasmbind"] }
 wasm-bindgen-futures = "0.4"
 instant = "0.1.13"
-futures = "0.3.31"
-js-sys = "0.3.77"
-web-sys = "0.3.77"
+futures = "0.3.32"
+js-sys = "0.3.102"
+web-sys = "0.3.102"
 
 [target.wasm32-unknown-unknown.dev-dependencies]
-wasm-bindgen-test = "0.3.50"
+wasm-bindgen-test = "0.3.75"
 
 [lints]
 workspace = true
@@ -37,4 +37,3 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "beat-detector"
 path = "src/bin/main.rs"
-

@@ -141,7 +141,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                     if now.elapsed() > StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS) {
                         break;
                     }
-                    let Ok(Some(next_redraw_reason)) = redraw_receiver.try_next() else {
+                    let Ok(next_redraw_reason) = redraw_receiver.try_recv() else {
                         break;
                     };
                     redraw_reason = next_redraw_reason;

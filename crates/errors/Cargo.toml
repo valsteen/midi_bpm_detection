@@ -8,22 +8,22 @@ sync = { path = "../sync" }
 build = { path = "../build" }
 
 color-eyre = "0.6.5"
-backtrace = "0.3.75"
+backtrace = "0.3.76"
 strip-ansi-escapes = "0.2.1"
 better-panic = "0.3.0"
-env_logger = "0.11.8"
-log = "0.4.27"
+env_logger = "0.11.10"
+log = "0.4.33"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 minitrace = { version = "0.6.7" }
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.2.17", features = ["js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 minitrace = { version = "0.6.7", features = ["enable"] }
-human-panic = "2.0.3"
+human-panic = "2.0.8"
 
 [build-dependencies]
-serde_json = { version = "1.0.142", features = [] }
+serde_json = { version = "1.0.150", features = [] }
 
 [lints]
 workspace = true
