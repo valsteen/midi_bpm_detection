@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
@@ -13,7 +12,7 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use parking_lot::*;
-pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptional};
+pub use serializable_atomic::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionU64, ArcAtomicOptionUsize};
 #[cfg(target_arch = "wasm32")]
 pub use wasm_mutex::{Mutex, RwLock};
 

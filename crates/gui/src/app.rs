@@ -7,25 +7,25 @@ use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use eframe::{
     egui,
-    egui::{Context, Event, RichText, Ui},
+    egui::{Context, Event, Id, RichText, Ui, UiBuilder},
     epaint::Hsva,
 };
 use egui_plot::{Bar, BarChart, Legend, PlotResponse, PlotUi};
 use errors::{LogErrorWithExt, LogOptionWithExt, minitrace};
 use log::error;
 use num_traits::identities::Zero;
-use sync::Mutex;
 
-use crate::{BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, egui::Color32, gui_remote::HistogramDataPoints};
-
-type WeakCallback<T> = Weak<Mutex<Option<Box<T>>>>;
+use crate::{
+    BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, callback_slot::WeakCallbackSlot, egui::Color32,
+    gui_remote::HistogramDataPoints,
+};
 
 pub struct BPMDetectionGUI {
     // keys_sender, gui_exit_callback and buffer_redraw belong to the GUI Remote,
     // that ultimately is held by the main app, which can drop it to let know the GUI app that we are exiting
-    pub(crate) keys_sender: WeakCallback<dyn FnMut(&'static str) + Send>,
+    pub(crate) keys_sender: WeakCallbackSlot<dyn FnMut(&'static str) + Send>,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) on_gui_exit_callback: WeakCallback<dyn Fn() + Send>,
+    pub(crate) on_gui_exit_callback: WeakCallbackSlot<dyn Fn() + Send>,
     pub(crate) histogram_data_points: Weak<AtomicRefCell<HistogramDataPoints>>,
     pub(crate) interpolated_data_points: Vec<f32>,
     pub(crate) estimated_bpm: Weak<AtomicF32>,
@@ -33,7 +33,6 @@ pub struct BPMDetectionGUI {
     pub(crate) should_save: Weak<AtomicBool>,
 }
 
-#[allow(forbidden_lint_groups)]
 #[allow(clippy::too_many_arguments)]
 impl BPMDetectionGUI {
     #[minitrace::trace]
@@ -127,11 +126,22 @@ impl BPMDetectionGUI {
 pub struct UpdateError;
 
 impl BPMDetectionGUI {
-    pub fn update<Config: BPMDetectionConfig>(
+    pub fn update_context<Config: BPMDetectionConfig>(
         &mut self,
         ctx: &Context,
         config: &mut Config,
     ) -> Result<(), UpdateError> {
+        let mut root_ui = Ui::new(
+            ctx.clone(),
+            Id::new((ctx.viewport_id(), "bpm_detection_gui_root")),
+            UiBuilder::new().max_rect(ctx.content_rect()),
+        );
+
+        self.update(&mut root_ui, config)
+    }
+
+    pub fn update<Config: BPMDetectionConfig>(&mut self, ui: &mut Ui, config: &mut Config) -> Result<(), UpdateError> {
+        let ctx = ui.ctx().clone();
         let (Some(estimated_bpm), Some(daw_bpm), Some(should_save)) =
             (self.estimated_bpm.upgrade(), self.daw_bpm.upgrade(), self.should_save.upgrade())
         else {
@@ -158,7 +168,7 @@ impl BPMDetectionGUI {
         }
 
         let refresh = egui::CentralPanel::default()
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 ui.horizontal_top(|ui| {
                     ui.vertical(|ui| {
                         ui.add_space(10.0);
@@ -192,8 +202,8 @@ pub struct BPMDetectionApp<Config> {
 }
 
 impl<Config: BPMDetectionConfig> eframe::App for BPMDetectionApp<Config> {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        self.bpm_detection_gui.update(ctx, &mut self.base_config).ok();
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        self.bpm_detection_gui.update(ui, &mut self.base_config).ok();
     }
 
     #[cfg(not(target_arch = "wasm32"))]

@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_precision_loss)]
@@ -10,6 +9,7 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 pub use app::{BPMDetectionApp, BPMDetectionGUI};
+pub use app_builder::{AppBuilder, AppBuilderShell};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::parameters::max_histogram_data_buffer_size;
@@ -23,30 +23,30 @@ pub use gui_remote::GuiRemote;
 use log::info;
 use sync::Mutex;
 
-use crate::gui_remote::HistogramDataPoints;
 pub use crate::{application_parameters::BPMDetectionConfig, config::GUIConfigAccessor};
+use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramDataPoints};
 
 pub mod add_slider;
 mod app;
 mod app_builder;
 mod application_parameters;
+mod callback_slot;
 mod config;
 mod config_ui;
 mod gui_remote;
 
 pub use config::{DefaultGUIParameters, GUIConfig, GUIParameters};
 
-use crate::app_builder::AppBuilder;
-
-pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder<BaseConfig>) {
+#[must_use]
+pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
     let estimated_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let daw_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let should_save = Arc::new(AtomicBool::default());
 
     let context_receiver = Arc::new(AtomicRefCell::new(None));
-    let keys_sender = Arc::new(Mutex::new(None));
+    let keys_sender: ArcCallbackSlot<dyn FnMut(&'static str) + Send> = Arc::new(Mutex::new(None));
     let weak_keys_sender = Arc::downgrade(&keys_sender);
-    let gui_exit_callback = Arc::new(Mutex::new(None));
+    let gui_exit_callback: ArcCallbackSlot<dyn Fn() + Send> = Arc::new(Mutex::new(None));
 
     #[cfg(not(target_arch = "wasm32"))]
     let weak_on_gui_exit_callback = Arc::downgrade(&gui_exit_callback);
@@ -74,13 +74,21 @@ pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder
         daw_bpm,
         should_save,
     };
-    (gui_remote, AppBuilder::new(context_receiver, bpm_detection_gui, base_config))
+    (gui_remote, AppBuilderShell::new(context_receiver, bpm_detection_gui))
+}
+
+pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder<BaseConfig>) {
+    let (gui_remote, app_builder) = create_gui_shell();
+    (gui_remote, app_builder.with_config(base_config))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn start_gui<Config: BPMDetectionConfig>(app_builder: AppBuilder<Config>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
+        // Native callers own shutdown. Closing the eframe window should return to the desktop runtime
+        // instead of taking the process down from inside winit/eframe.
+        run_and_return: true,
         persist_window: true,
 
         ..Default::default()

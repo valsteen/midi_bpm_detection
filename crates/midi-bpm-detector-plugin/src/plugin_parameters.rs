@@ -1,4 +1,5 @@
 use std::{
+    num::NonZeroU16,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -17,7 +18,7 @@ use nih_plug::{
 use nih_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
-use sync::ArcAtomicOptional;
+use sync::{ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize};
 
 use crate::bpm_detector_configuration::PluginConfig;
 
@@ -119,11 +120,11 @@ pub struct MidiBpmDetectorParams {
 
 struct UpdaterFactory {
     current_sample: Arc<AtomicUsize>,
-    changed_at: ArcAtomicOptional<usize>,
+    changed_at: ArcAtomicOptionUsize,
 }
 
 impl UpdaterFactory {
-    fn new(current_sample: Arc<AtomicUsize>, changed_at: ArcAtomicOptional<usize>) -> Self {
+    fn new(current_sample: Arc<AtomicUsize>, changed_at: ArcAtomicOptionUsize) -> Self {
         Self { current_sample, changed_at }
     }
 
@@ -143,10 +144,10 @@ impl UpdaterFactory {
 impl MidiBpmDetectorParams {
     pub fn new(
         config: &mut PluginConfig,
-        static_bpm_detection_config_changed_at: &ArcAtomicOptional<usize>,
-        dynamic_bpm_detection_config_changed_at: &ArcAtomicOptional<usize>,
+        static_bpm_detection_config_changed_at: &ArcAtomicOptionUsize,
+        dynamic_bpm_detection_config_changed_at: &ArcAtomicOptionUsize,
         current_sample: &Arc<AtomicUsize>,
-        daw_port: &ArcAtomicOptional<u16>,
+        daw_port: &ArcAtomicOptionNonZeroU16,
     ) -> Self {
         let static_updater_factory =
             UpdaterFactory::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
@@ -261,7 +262,7 @@ impl MidiBpmDetectorParams {
             daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).with_callback(Arc::new({
                 let daw_port = daw_port.clone();
                 move |value| {
-                    daw_port.store(Some(value.to_u16().unwrap()), Ordering::Relaxed);
+                    daw_port.store(NonZeroU16::new(value.to_u16().unwrap()), Ordering::Relaxed);
                 }
             })),
         }

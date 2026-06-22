@@ -24,6 +24,11 @@ This is in a very early works-on-my-machine state and will require further clean
 In the meantime curious developers may simply have a look at the model, the core of the BPM evaluation can be found in
 [midi/bpm_detection.rs](crates/bpm_detection_core/src/bpm_detection.rs).
 
+Development build, formatter, linter, plugin, and WASM commands are documented in
+[docs/development.md](docs/development.md).
+
+A first-pass architecture map is available in [docs/architecture.md](docs/architecture.md).
+
 ## Building and using the Clap/VST3 Plugin
 
 This has not been thoroughly tested and only on Mac.

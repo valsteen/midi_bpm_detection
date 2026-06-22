@@ -1,0 +1,30 @@
+[package]
+name = "desktop"
+version = "0.1.0"
+edition = "2024"
+description = "Native desktop runtime for MIDI BPM detection"
+default-run = "desktop"
+
+[dependencies]
+bpm_detection_core = { path = "../bpm_detection_core" }
+bpm_detection_midi = { path = "../bpm_detection_midi" }
+build = { path = "../build" }
+errors = { path = "../errors" }
+gui = { path = "../gui" }
+parameter = { path = "../parameter" }
+sync = { path = "../sync" }
+
+config = "0.15.13"
+log = "0.4.27"
+mimalloc = "0.1.47"
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.9.5"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+[build-dependencies]
+build = { path = "../build" }
+
+[lints]
+workspace = true

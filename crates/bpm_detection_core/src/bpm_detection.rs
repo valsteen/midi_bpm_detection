@@ -3,7 +3,7 @@ use chrono::Duration;
 use itertools::Itertools;
 
 use crate::{
-    TimedMidiNoteOn,
+    TimedNoteOn,
     normal_distribution::NormalDistribution,
     parameters::{
         DynamicBPMDetectionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm, bpm_to_beat_duration,
@@ -17,7 +17,7 @@ pub struct BPMDetection {
     interval_high: Duration,
     interval_low: Duration,
     normal_distribution: NormalDistribution,
-    notes: ArrayDeque<TimedMidiNoteOn, NOTE_CAPACITY, Wrapping>,
+    note_events: ArrayDeque<TimedNoteOn, NOTE_CAPACITY, Wrapping>,
     static_bpm_detection_config: StaticBPMDetectionConfig,
     histogram_data_points: Vec<f32>,
 }
@@ -33,7 +33,7 @@ impl BPMDetection {
             normal_distribution: NormalDistribution::new(static_bpm_detection_config.normal_distribution.clone()),
             histogram_data_points,
             static_bpm_detection_config,
-            notes: ArrayDeque::new(),
+            note_events: ArrayDeque::new(),
         }
     }
 
@@ -43,23 +43,28 @@ impl BPMDetection {
         self.interval_high = bpm_to_beat_duration(self.static_bpm_detection_config.lowest_bpm());
         self.normal_distribution =
             NormalDistribution::new(self.static_bpm_detection_config.normal_distribution.clone());
-        self.histogram_data_points.resize(0, 0.0);
+        self.histogram_data_points.clear();
         self.histogram_data_points.resize(self.static_bpm_detection_config.buffer_size(), 0.0);
     }
 
-    pub fn receive_midi_message(&mut self, midi_message: TimedMidiNoteOn) {
-        self.notes.push_back(midi_message);
+    pub fn receive_note_on(&mut self, event: TimedNoteOn) {
+        self.note_events.push_back(event);
     }
 
     pub fn compute_bpm(&mut self, dynamic_bpm_detection_config: &DynamicBPMDetectionConfig) -> Option<(&[f32], f32)> {
         self.histogram_data_points.fill(0.0);
 
-        let now = self.notes.back()?.timestamp;
-        let oldest = self.notes.front()?.timestamp;
-
+        if self.note_events.len() < 2 {
+            return None;
+        }
+        let now = self.note_events.back()?.timestamp;
+        let oldest = self.note_events.front()?.timestamp;
         let maximum_interval = now - oldest;
+        if maximum_interval <= Duration::zero() {
+            return None;
+        }
 
-        // consider all combinations of 2 notes, in increasing time order
+        // Consider all note-on pairs, in increasing time order.
         self.process_combinations(&now, &maximum_interval, dynamic_bpm_detection_config);
 
         let most_probable_interval = self
@@ -67,18 +72,15 @@ impl BPMDetection {
             .iter()
             .enumerate()
             .max_by(|a, b| a.1.total_cmp(b.1))
+            .filter(|(_, weight)| **weight > 0.0)
             .map(|(index, _)| self.static_bpm_detection_config.index_to_duration(index))?;
         let bpm = beat_duration_to_bpm(most_probable_interval);
 
         let max_note_age = bpm_to_beat_duration(bpm) * i32::from(dynamic_bpm_detection_config.beats_lookback);
 
-        loop {
-            let Some(note) = self.notes.front() else {
-                break;
-            };
-
+        while let Some(note) = self.note_events.front() {
             if now - note.timestamp > max_note_age {
-                self.notes.pop_front();
+                self.note_events.pop_front();
                 continue;
             }
             break;
@@ -87,7 +89,6 @@ impl BPMDetection {
         Some((&self.histogram_data_points, bpm))
     }
 
-    #[allow(forbidden_lint_groups)]
     #[allow(clippy::too_many_lines)]
     fn process_combinations(
         &mut self,
@@ -95,7 +96,12 @@ impl BPMDetection {
         maximum_interval: &Duration,
         dynamic_bpm_detection_config: &DynamicBPMDetectionConfig,
     ) {
-        for (note_from, note_to) in self.notes.iter().tuple_combinations() {
+        let cutoff =
+            Duration::nanoseconds((self.normal_distribution.normal_distribution_config.cutoff * 1_000_000.0) as i64);
+        let duration_per_sample = sample_to_duration(self.static_bpm_detection_config.sample_rate, 1);
+        let normal_weight = dynamic_bpm_detection_config.normal_distribution_weight.weight();
+
+        for (note_from, note_to) in self.note_events.iter().tuple_combinations() {
             let note_age = *newest - note_to.timestamp;
             let mut interval = note_to.timestamp - note_from.timestamp;
 
@@ -138,16 +144,16 @@ impl BPMDetection {
 
             let pitch_distance = 1.
                 - f32::from({
-                    let interval = (note_to.midi_message.note % 12).abs_diff(note_from.midi_message.note % 12);
+                    let interval = (note_to.event.pitch % 12).abs_diff(note_from.event.pitch % 12);
                     interval.min(12 - interval)
                 }) / 12.0;
-            let octave_distance =
-                1. - f32::from((note_to.midi_message.note / 12).abs_diff(note_from.midi_message.note / 12)) / 11.; // 11 is approximately the amount of octave that can be represented by midi
+            // 11 is approximately the number of octaves representable by the incoming pitch value.
+            let octave_distance = 1. - f32::from((note_to.event.pitch / 12).abs_diff(note_from.event.pitch / 12)) / 11.;
 
             let age = (*maximum_interval - note_age).num_microseconds().unwrap() as f32
                 / maximum_interval.num_microseconds().unwrap() as f32;
-            let velocity_note_from = f32::from(note_from.midi_message.velocity) / 127.;
-            let velocity_current_note = f32::from(note_to.midi_message.velocity) / 127.;
+            let velocity_note_from = f32::from(note_from.event.velocity) / 127.;
+            let velocity_current_note = f32::from(note_to.event.velocity) / 127.;
 
             let high_tempo_bias = {
                 let interval_low_num = self.interval_low.num_microseconds().unwrap() as f32;
@@ -173,12 +179,7 @@ impl BPMDetection {
             .filter(|criteria| criteria.is_finite() && *criteria > 0.0)
             .sum();
 
-            let cutoff = Duration::nanoseconds(
-                (self.normal_distribution.normal_distribution_config.cutoff * 1_000_000.0) as i64,
-            );
-            let duration_per_sample = sample_to_duration(self.static_bpm_detection_config.sample_rate, 1);
             let mut timestamp = -cutoff;
-            let normal_weight = dynamic_bpm_detection_config.normal_distribution_weight.weight();
             while timestamp <= cutoff {
                 if let Some(index) = self
                     .static_bpm_detection_config
@@ -191,7 +192,7 @@ impl BPMDetection {
                             * 2.0
                             + 1.0)
                             .log10()
-                            * dynamic_bpm_detection_config.normal_distribution_weight.weight()
+                            * normal_weight
                     } else {
                         0.0
                     };
@@ -202,5 +203,34 @@ impl BPMDetection {
                 timestamp += duration_per_sample;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{note_events::NoteOn, parameters::DynamicBPMDetectionConfig};
+
+    fn timed_note_on_at(timestamp: Duration) -> TimedNoteOn {
+        TimedNoteOn { timestamp, event: NoteOn { channel: 0, pitch: 60, velocity: 100 } }
+    }
+
+    #[test]
+    fn compute_bpm_requires_at_least_two_note_on_events() {
+        let mut bpm_detection = BPMDetection::new(StaticBPMDetectionConfig::default());
+
+        bpm_detection.receive_note_on(timed_note_on_at(Duration::zero()));
+
+        assert!(bpm_detection.compute_bpm(&DynamicBPMDetectionConfig::default()).is_none());
+    }
+
+    #[test]
+    fn compute_bpm_requires_elapsed_time_between_note_on_events() {
+        let mut bpm_detection = BPMDetection::new(StaticBPMDetectionConfig::default());
+
+        bpm_detection.receive_note_on(timed_note_on_at(Duration::zero()));
+        bpm_detection.receive_note_on(timed_note_on_at(Duration::zero()));
+
+        assert!(bpm_detection.compute_bpm(&DynamicBPMDetectionConfig::default()).is_none());
     }
 }

@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use bpm_detection_core::{
-    TimedTypedMidiMessage,
-    midi_messages::MidiNoteOn,
+    TimedEvent,
+    note_events::NoteOn,
     parameters::{
         DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
         StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
@@ -32,7 +32,7 @@ pub struct WASMConfig {
 enum QueueItem {
     StaticParameters(StaticBPMDetectionConfig),
     DynamicParameters(DynamicBPMDetectionConfig),
-    Note(TimedTypedMidiMessage<MidiNoteOn>),
+    Note(TimedEvent<NoteOn>),
     DelayedDynamicUpdate,
     DelayedStaticUpdate,
 }
@@ -284,7 +284,6 @@ impl Default for WASMConfig {
 
 #[cfg(test)]
 mod tests {
-    #![allow(forbidden_lint_groups)]
     #![allow(clippy::missing_panics_doc)]
     use errors::error_backtrace;
     use parameter::OnOff;

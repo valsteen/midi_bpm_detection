@@ -1,5 +1,4 @@
 #![cfg(target_arch = "wasm32")]
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
@@ -15,9 +14,9 @@ use std::{
 
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_core::{
-    BPMDetection, TimedTypedMidiMessage,
+    BPMDetection, TimedEvent,
     bpm_detection_receiver::BPMDetectionReceiver,
-    midi_messages::MidiNoteOn,
+    note_events::NoteOn,
     parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use chrono::Duration;
@@ -42,17 +41,16 @@ async fn sleep(duration: StdDuration) {
 
 #[wasm_bindgen]
 pub struct GuiRemoteWrapper {
-    #[allow(dead_code)]
-    gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
+    _gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
     redraw_sender: Sender<QueueItem>,
 }
 
 #[wasm_bindgen]
 impl GuiRemoteWrapper {
     pub fn event_in(&mut self, channel: u8, note: u8, velocity: u8, timestamp: f64) {
-        let note = TimedTypedMidiMessage {
+        let note = TimedEvent {
             timestamp: Duration::milliseconds(timestamp as i64),
-            midi_message: MidiNoteOn { channel, note, velocity },
+            event: NoteOn { channel, pitch: note, velocity },
         };
 
         self.redraw_sender.try_send(QueueItem::Note(note)).log_error_msg("channel full").ok();
@@ -113,7 +111,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                             continue 'main;
                         }
                         QueueItem::Note(note) => {
-                            bpm_detection.receive_midi_message(note);
+                            bpm_detection.receive_note_on(note);
 
                             if !update_notes.fetch_or(true, Ordering::Relaxed) {
                                 wasm_bindgen_futures::spawn_local({
@@ -143,7 +141,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                     if now.elapsed() > StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS) {
                         break;
                     }
-                    let Ok(Some(next_redraw_reason)) = redraw_receiver.try_next() else {
+                    let Ok(next_redraw_reason) = redraw_receiver.try_recv() else {
                         break;
                     };
                     redraw_reason = next_redraw_reason;
@@ -160,5 +158,5 @@ pub fn run() -> Result<GuiRemoteWrapper> {
 
     start_gui(gui_builder)?;
 
-    Ok(GuiRemoteWrapper { gui_remote, redraw_sender })
+    Ok(GuiRemoteWrapper { _gui_remote: gui_remote, redraw_sender })
 }

@@ -1,6 +1,7 @@
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
 };
+use eframe::egui::Ui;
 
 use crate::config::GUIConfigAccessor;
 
@@ -13,4 +14,5 @@ pub trait BPMDetectionConfig:
     fn get_send_tempo(&self) -> bool;
     fn set_send_tempo(&mut self, enabled: bool);
     fn save(&mut self) {}
+    fn desktop_controls(&mut self, _ui: &mut Ui) {}
 }

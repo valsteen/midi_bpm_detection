@@ -1,10 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/tui",
+    "crates/desktop",
     "crates/errors",
     "crates/build",
     "crates/bpm_detection_core",
+    "crates/bpm_detection_midi",
     "crates/gui",
     "crates/sync",
     "crates/parameter",
@@ -13,7 +14,7 @@ members = [
     "crates/midi-bpm-detector-plugin/xtask",
     "crates/midi-reset",
 ]
-default-members = ["crates/tui", "crates/midi-reset"]
+default-members = ["crates/desktop", "crates/midi-reset"]
 
 [workspace.lints.clippy]
 pedantic = "warn"
@@ -25,5 +26,5 @@ strip = true
 codegen-units = 4
 
 [workspace.dependencies]
-coremidi = "0.8.0"
+coremidi = "0.9.1"
 core-foundation-sys = "0.8.7"

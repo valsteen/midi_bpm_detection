@@ -1,4 +1,3 @@
-#![allow(forbidden_lint_groups)]
 #![allow(clippy::struct_field_names)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
@@ -16,8 +15,8 @@ use std::sync::{
 };
 
 use bpm_detection_core::{
-    BPMDetection, TimedMidiNoteOn,
-    midi_messages::{MidiNoteOn, wmidi},
+    BPMDetection, TimedNoteOn,
+    note_events::NoteOn,
     parameters::{duration_to_sample, sample_to_duration},
 };
 use chrono::Duration;
@@ -27,7 +26,7 @@ use mimalloc::MiMalloc;
 use nih_plug::{log::error, midi::MidiResult, prelude::*};
 use nih_plug_egui::create_egui_editor;
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
 
 use crate::{
     bpm_detector_configuration::PluginConfig,
@@ -35,6 +34,13 @@ use crate::{
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task, UpdateOrigin},
 };
+
+fn midi_note_on_from_message(event: &wmidi::MidiMessage<'_>) -> Option<NoteOn> {
+    if let wmidi::MidiMessage::NoteOn(channel, note, velocity) = event {
+        return Some(NoteOn { channel: channel.index(), pitch: *note as u8, velocity: u8::from(*velocity) });
+    }
+    None
+}
 
 #[cfg(not(debug_assertions))]
 #[global_allocator]
@@ -50,8 +56,8 @@ pub struct MidiBpmDetector {
     events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
     task_executor: Option<task_executor::TaskExecutor>,
     gui_editor: Option<GuiEditor>,
-    static_bpm_detection_config_changed_at: ArcAtomicOptional<usize>,
-    dynamic_bpm_detection_config_changed_at: ArcAtomicOptional<usize>,
+    static_bpm_detection_config_changed_at: ArcAtomicOptionUsize,
+    dynamic_bpm_detection_config_changed_at: ArcAtomicOptionUsize,
 }
 
 impl Default for MidiBpmDetector {
@@ -62,14 +68,14 @@ impl Default for MidiBpmDetector {
         let events_receiver: Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true> = events_receiver.freeze();
         let gui_remote_receiver = Arc::new(AtomicCell::new(None));
         let gui_remote = None;
-        let daw_port = ArcAtomicOptional::<u16>::new(None);
+        let daw_port = ArcAtomicOptionNonZeroU16::none();
 
         let mut config = PluginConfig::default();
         let bpm_detection = BPMDetection::new(config.static_bpm_detection_config.clone());
 
         // set a dummy value so GUI params are updated from saved daw parameters at startup
-        let static_bpm_detection_config_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
-        let dynamic_bpm_detection_config_changed_at = ArcAtomicOptional::<usize>::new(Some(1));
+        let static_bpm_detection_config_changed_at = ArcAtomicOptionUsize::new(Some(1));
+        let dynamic_bpm_detection_config_changed_at = ArcAtomicOptionUsize::new(Some(1));
 
         let params = Arc::new(MidiBpmDetectorParams::new(
             &mut config,
@@ -234,17 +240,14 @@ impl MidiBpmDetector {
             let Ok(midi_message) = wmidi::MidiMessage::from_bytes(&bytes) else {
                 continue;
             };
-            let Ok(midi_note_on) = MidiNoteOn::try_from(midi_message) else {
+            let Some(midi_note_on) = midi_note_on_from_message(&midi_message) else {
                 continue;
             };
 
             let note_sample = current_sample + event.timing() as usize;
             let timestamp = sample_to_duration(self.sample_rate, note_sample);
 
-            if self
-                .events_sender
-                .try_push(Event::TimedMidiNoteOn(TimedMidiNoteOn { timestamp, midi_message: midi_note_on }))
-                .is_err()
+            if self.events_sender.try_push(Event::TimedNoteOn(TimedNoteOn { timestamp, event: midi_note_on })).is_err()
             {
                 error!("event ringbuffer is full");
             }
@@ -261,24 +264,39 @@ impl MidiBpmDetector {
         has_new_events
     }
 
-    #[allow(unused)]
-    fn current_time(&self) -> Duration {
-        sample_to_duration(self.sample_rate, self.current_sample.load(Ordering::Relaxed))
-    }
-
-    fn execute_at_delay(
-        sample: usize,
-        delay_by: usize,
-        opt_changed_at_sample: &ArcAtomicOptional<usize>,
-        cb: impl Fn(),
-    ) {
+    fn execute_at_delay(sample: usize, delay_by: usize, opt_changed_at_sample: &ArcAtomicOptionUsize, cb: impl Fn()) {
         let Some(changed_at_sample) = opt_changed_at_sample.load(Ordering::Relaxed) else {
             return;
         };
-        if changed_at_sample + delay_by >= sample {
+        if Self::has_delay_elapsed(sample, changed_at_sample, delay_by) {
             cb();
             opt_changed_at_sample.store(None, Ordering::Relaxed);
         }
+    }
+
+    fn has_delay_elapsed(sample: usize, changed_at_sample: usize, delay_by: usize) -> bool {
+        sample >= changed_at_sample.saturating_add(delay_by)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MidiBpmDetector;
+
+    #[test]
+    fn delay_has_not_elapsed_before_target_sample() {
+        assert!(!MidiBpmDetector::has_delay_elapsed(14, 10, 5));
+    }
+
+    #[test]
+    fn delay_has_elapsed_at_target_sample() {
+        assert!(MidiBpmDetector::has_delay_elapsed(15, 10, 5));
+    }
+
+    #[test]
+    fn delay_uses_saturating_addition() {
+        assert!(!MidiBpmDetector::has_delay_elapsed(usize::MAX - 1, usize::MAX - 1, 10));
+        assert!(MidiBpmDetector::has_delay_elapsed(usize::MAX, usize::MAX - 1, 10));
     }
 }
 

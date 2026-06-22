@@ -1,12 +1,13 @@
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    num::NonZeroU16,
     sync::{Arc, atomic::Ordering},
     time::Duration,
 };
 
 use bpm_detection_core::{
-    BPMDetection, TimedMidiNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
+    BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
 };
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
@@ -14,9 +15,14 @@ use gui::GuiRemote;
 use nih_plug::params::Param;
 use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptional, RwLock};
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
 use crate::{MidiBpmDetectorParams, bpm_detector_configuration::PluginConfig};
+
+const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
+const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);
+const TEMPO_CONTROLLER_PAYLOAD_BYTES: u32 = 4;
+const TEMPO_CONTROLLER_FRAME_BYTES: usize = 8;
 
 #[derive(Eq, PartialEq)]
 pub enum UpdateOrigin {
@@ -31,7 +37,7 @@ pub enum Task {
 }
 
 pub enum Event {
-    TimedMidiNoteOn(TimedMidiNoteOn),
+    TimedNoteOn(TimedNoteOn),
     DawBPM(f32),
 }
 
@@ -45,7 +51,7 @@ pub struct TaskExecutor {
     pub config: Arc<RwLock<PluginConfig>>,
     // when gui_must_update_config is set, GUI loads up this config
     pub gui_must_update_config: ArcAtomicBool,
-    pub daw_port: ArcAtomicOptional<u16>,
+    pub daw_port: ArcAtomicOptionNonZeroU16,
     pub daw_connection: Option<TcpStream>,
     pub send_tempo: ArcAtomicBool,
 }
@@ -54,12 +60,7 @@ impl TaskExecutor {
     #[allow(clippy::too_many_lines)]
     pub fn execute(&mut self, task: Task) {
         if let Some(daw_port) = self.daw_port.take(Ordering::Relaxed) {
-            self.daw_connection = TcpStream::connect_timeout(
-                &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), daw_port),
-                Duration::from_millis(10),
-            )
-            .log_error_msg("could not connect to daw, ignoring")
-            .ok();
+            self.daw_connection = connect_to_tempo_controller(daw_port);
         }
 
         match task {
@@ -73,9 +74,9 @@ impl TaskExecutor {
                 }
                 for event in self.events_receiver.pop_iter() {
                     match event {
-                        Event::TimedMidiNoteOn(timed_midi_note_on) => {
+                        Event::TimedNoteOn(timed_note_on) => {
                             evaluate_bpm_detection = true;
-                            self.bpm_detection.receive_midi_message(timed_midi_note_on);
+                            self.bpm_detection.receive_note_on(timed_note_on);
                         }
                         Event::DawBPM(bpm) => {
                             if let Some(gui_remote) = &self.gui_remote {
@@ -90,29 +91,9 @@ impl TaskExecutor {
 
                     if let (Some((_, bpm)), true, Some(daw_connection)) =
                         (bpm_detection_result, self.send_tempo.load(Ordering::Relaxed), &mut self.daw_connection)
+                        && write_bpm_to_tempo_controller(daw_connection, bpm).is_err()
                     {
-                        let mut buffer = [0u8; 8];
-                        buffer[..4].copy_from_slice(&4u32.to_be_bytes());
-                        buffer[4..].copy_from_slice(&bpm.to_be_bytes());
-
-                        let must_close = match daw_connection.write(&buffer) {
-                            Ok(sent) => {
-                                if sent == 8 {
-                                    info!("sent RPM");
-                                    false
-                                } else {
-                                    error!("only {sent} bytes could be sent, closing daw connection");
-                                    true
-                                }
-                            }
-                            Err(err) => {
-                                error!("error while sending to daw {err:?}, closing");
-                                true
-                            }
-                        };
-                        if must_close {
-                            self.daw_connection = None;
-                        }
+                        self.daw_connection = None;
                     }
 
                     if let (true, Some(gui_remote)) = (self.params.editor_state.is_open(), &mut self.gui_remote) {
@@ -231,5 +212,60 @@ impl TaskExecutor {
                 }
             },
         }
+    }
+}
+
+fn connect_to_tempo_controller(port: NonZeroU16) -> Option<TcpStream> {
+    let stream = TcpStream::connect_timeout(
+        &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port.get()),
+        TEMPO_CONTROLLER_CONNECT_TIMEOUT,
+    )
+    .log_error_msg("could not connect to tempo controller, ignoring")
+    .ok()?;
+
+    if let Err(err) = stream.set_write_timeout(Some(TEMPO_CONTROLLER_WRITE_TIMEOUT)) {
+        error!("could not configure tempo controller write timeout: {err:?}");
+    }
+
+    Some(stream)
+}
+
+fn write_bpm_to_tempo_controller(connection: &mut TcpStream, bpm: f32) -> Result<(), ()> {
+    let buffer = tempo_controller_frame(bpm);
+    match connection.write_all(&buffer) {
+        Ok(()) => {
+            info!("sent BPM to tempo controller");
+            Ok(())
+        }
+        Err(err) => {
+            error!("error while sending BPM to tempo controller {err:?}, closing");
+            Err(())
+        }
+    }
+}
+
+fn tempo_controller_frame(bpm: f32) -> [u8; TEMPO_CONTROLLER_FRAME_BYTES] {
+    let mut buffer = [0u8; TEMPO_CONTROLLER_FRAME_BYTES];
+    buffer[..4].copy_from_slice(&TEMPO_CONTROLLER_PAYLOAD_BYTES.to_be_bytes());
+    buffer[4..].copy_from_slice(&bpm.to_be_bytes());
+    buffer
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tempo_controller_frame_prefixes_big_endian_payload_length() {
+        let frame = tempo_controller_frame(123.5);
+
+        assert_eq!(u32::from_be_bytes(frame[..4].try_into().unwrap()), TEMPO_CONTROLLER_PAYLOAD_BYTES);
+    }
+
+    #[test]
+    fn tempo_controller_frame_writes_big_endian_bpm() {
+        let frame = tempo_controller_frame(123.5);
+
+        assert_eq!(frame[4..], 123.5f32.to_be_bytes());
     }
 }
