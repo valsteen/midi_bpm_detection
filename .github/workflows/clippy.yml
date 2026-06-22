@@ -19,6 +19,8 @@ jobs:
 
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
 
       - name: Check formatting
         run: cargo +nightly fmt --all -- --check
@@ -43,6 +45,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          components: clippy
           target: ${{ matrix.target }}
 
       - name: Cache cargo registry
@@ -95,6 +98,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          components: clippy
           target: wasm32-unknown-unknown
 
       - name: Cache cargo registry
