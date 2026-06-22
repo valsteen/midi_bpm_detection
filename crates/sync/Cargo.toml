@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 atomic-traits = "0.4.0"
-serde = { version = "1.0.219" }
+serde = { version = "1.0.228" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-parking_lot = { version = "0.12.4" }
+parking_lot = { version = "0.12.5" }
 
 [lints]
 workspace = true

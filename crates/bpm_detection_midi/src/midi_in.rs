@@ -16,7 +16,7 @@ use chrono::Duration;
 use errors::{MakeReportExt, Report, Result, error_backtrace};
 use itertools::Itertools;
 use log::error;
-#[cfg(unix)]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use midir::os::unix::VirtualInput;
 use midir::{MidiInput, MidiInputConnection};
 use sync::ArcAtomicOptionU64;

@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_BINDGEN_CLI_VERSION: 0.2.125
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo +nightly fmt --all -- --check
+
+  native:
+    name: native (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+          - os: macos-26
+            target: aarch64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          target: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-build-
+            ${{ runner.os }}-cargo-build-
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Check native crates
+        run: cargo check --locked --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
+
+      - name: Test native crates
+        run: cargo test --locked --target ${{ matrix.target }} -p bpm_detection_core -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
+
+      - name: Clippy native crates
+        run: cargo clippy --locked --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets -- -D warnings
+
+      - name: Build native crates
+        run: cargo build --locked --release --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset
+
+      - name: Bundle plugin
+        run: cargo run --locked --package xtask --release -- bundle midi-bpm-detector-plugin --release --target ${{ matrix.target }} --locked
+
+  wasm:
+    name: wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          target: wasm32-unknown-unknown
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-wasm-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-wasm-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-wasm-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-wasm-cargo-build-
+            ${{ runner.os }}-cargo-build-
+
+      - name: Install wasm tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          cargo install --locked trunk
+          cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_CLI_VERSION" --force
+
+      - name: Check wasm crate
+        run: cargo check --locked -p wasm --target wasm32-unknown-unknown
+
+      - name: Test wasm crate
+        run: cargo test --locked -p wasm --target wasm32-unknown-unknown
+
+      - name: Clippy wasm crate
+        run: cargo clippy --locked -p wasm --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Build wasm app
+        working-directory: crates/wasm
+        run: NO_COLOR=false trunk build --locked

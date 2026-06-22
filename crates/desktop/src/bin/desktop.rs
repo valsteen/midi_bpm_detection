@@ -35,6 +35,9 @@ fn start_desktop_controller(
     gui_remote: gui::GuiRemote,
     controller_commands: &DesktopControllerCommandQueue<gui::GuiRemote>,
 ) -> Result<SharedDesktopController<gui::GuiRemote>> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = controller_commands;
+
     let midi_service = bpm_detection_midi::MidiService::new(
         config.midi.clone(),
         config.static_bpm_detection_config.clone(),
