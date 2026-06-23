@@ -74,13 +74,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libjack-jackd2-dev
 
       - name: Check native crates
-        run: cargo check --locked --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
+        run: cargo check --locked --target ${{ matrix.target }} --workspace --exclude wasm --all-targets
 
       - name: Test native crates
-        run: cargo test --locked --target ${{ matrix.target }} -p bpm_detection_core -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets
+        run: cargo test --locked --target ${{ matrix.target }} --workspace --exclude wasm --all-targets
 
       - name: Clippy native crates
-        run: cargo clippy --locked --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset --all-targets -- -D warnings
+        run: cargo clippy --locked --target ${{ matrix.target }} --workspace --exclude wasm --all-targets -- -D warnings
 
       - name: Build native crates
         run: cargo build --locked --release --target ${{ matrix.target }} -p desktop -p midi-bpm-detector-plugin -p midi-reset
