@@ -9,9 +9,12 @@ mod gui;
 mod plugin_parameters;
 mod task_executor;
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    num::NonZeroU16,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use bpm_detection_core::{
@@ -49,15 +52,73 @@ static GLOBAL: MiMalloc = MiMalloc;
 pub struct MidiBpmDetector {
     params: Arc<MidiBpmDetectorParams>,
     current_sample: Arc<AtomicUsize>,
-    sample_rate: u16,
+    timing: PluginTiming,
     // should recompute bpm evaluation, even if there is no new notes. Happens after config change
     // or GUI just reopened
     force_evaluate_bpm_detection: ArcAtomicBool,
     events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
     task_executor: Option<task_executor::TaskExecutor>,
     gui_editor: Option<GuiEditor>,
-    static_bpm_detection_config_changed_at: ArcAtomicOptionUsize,
-    dynamic_bpm_detection_config_changed_at: ArcAtomicOptionUsize,
+    static_bpm_detection_config_changed_at: DeferredConfigUpdate,
+    dynamic_bpm_detection_config_changed_at: DeferredConfigUpdate,
+}
+
+const INITIAL_CONFIG_SYNC_SAMPLE: usize = 1;
+
+#[derive(Clone)]
+pub(crate) struct DeferredConfigUpdate {
+    changed_at_sample: ArcAtomicOptionUsize,
+}
+
+impl DeferredConfigUpdate {
+    fn pending_initial_sync() -> Self {
+        Self { changed_at_sample: ArcAtomicOptionUsize::new(Some(INITIAL_CONFIG_SYNC_SAMPLE)) }
+    }
+
+    #[cfg(test)]
+    fn idle() -> Self {
+        Self { changed_at_sample: ArcAtomicOptionUsize::none() }
+    }
+
+    pub(crate) fn mark_changed_at_if_idle(&self, current_sample: usize) {
+        self.changed_at_sample.store_if_none(Some(current_sample), Ordering::Relaxed);
+    }
+
+    fn changed_at_sample(&self) -> Option<usize> {
+        self.changed_at_sample.load(Ordering::Relaxed)
+    }
+
+    fn take(&self) -> Option<usize> {
+        self.changed_at_sample.take(Ordering::Relaxed)
+    }
+}
+
+#[derive(Default)]
+enum PluginTiming {
+    #[default]
+    AwaitingHostInitialization,
+    Ready {
+        sample_rate: NonZeroU16,
+    },
+}
+
+impl PluginTiming {
+    fn initialize(&mut self, sample_rate: f32) -> bool {
+        let Some(sample_rate) = NonZeroU16::new(sample_rate as u16) else {
+            *self = Self::AwaitingHostInitialization;
+            return false;
+        };
+
+        *self = Self::Ready { sample_rate };
+        true
+    }
+
+    fn sample_rate(&self) -> Option<u16> {
+        match self {
+            Self::AwaitingHostInitialization => None,
+            Self::Ready { sample_rate } => Some(sample_rate.get()),
+        }
+    }
 }
 
 impl Default for MidiBpmDetector {
@@ -73,9 +134,8 @@ impl Default for MidiBpmDetector {
         let mut config = PluginConfig::default();
         let bpm_detection = BPMDetection::new(config.static_bpm_detection_config.clone());
 
-        // set a dummy value so GUI params are updated from saved daw parameters at startup
-        let static_bpm_detection_config_changed_at = ArcAtomicOptionUsize::new(Some(1));
-        let dynamic_bpm_detection_config_changed_at = ArcAtomicOptionUsize::new(Some(1));
+        let static_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
+        let dynamic_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
 
         let params = Arc::new(MidiBpmDetectorParams::new(
             &mut config,
@@ -117,7 +177,7 @@ impl Default for MidiBpmDetector {
         Self {
             params,
             current_sample,
-            sample_rate: 0,
+            timing: PluginTiming::default(),
             force_evaluate_bpm_detection,
             events_sender,
             task_executor: Some(task_executor),
@@ -187,8 +247,7 @@ impl Plugin for MidiBpmDetector {
         buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        self.sample_rate = buffer_config.sample_rate as u16;
-        true
+        self.timing.initialize(buffer_config.sample_rate)
     }
 
     fn reset(&mut self) {
@@ -202,22 +261,25 @@ impl Plugin for MidiBpmDetector {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        let Some(sample_rate) = self.timing.sample_rate() else {
+            return if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal };
+        };
         let current_sample = self.current_sample.load(Ordering::Relaxed);
-        let delay_by = duration_to_sample(self.sample_rate, Duration::milliseconds(50));
+        let delay_by = duration_to_sample(sample_rate, Duration::milliseconds(50));
         Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
             context.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Daw));
         });
         Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
             context.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw));
         });
-        self.receive_notes(context);
+        self.receive_notes_at_sample_rate(context, sample_rate);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);
         if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal }
     }
 }
 
 impl MidiBpmDetector {
-    fn receive_notes<P>(&mut self, context: &mut P) -> bool
+    fn receive_notes_at_sample_rate<P>(&mut self, context: &mut P, sample_rate: u16) -> bool
     where
         P: ProcessContext<Self>,
     {
@@ -245,7 +307,7 @@ impl MidiBpmDetector {
             };
 
             let note_sample = current_sample + event.timing() as usize;
-            let timestamp = sample_to_duration(self.sample_rate, note_sample);
+            let timestamp = sample_to_duration(sample_rate, note_sample);
 
             if self.events_sender.try_push(Event::TimedNoteOn(TimedNoteOn { timestamp, event: midi_note_on })).is_err()
             {
@@ -264,13 +326,13 @@ impl MidiBpmDetector {
         has_new_events
     }
 
-    fn execute_at_delay(sample: usize, delay_by: usize, opt_changed_at_sample: &ArcAtomicOptionUsize, cb: impl Fn()) {
-        let Some(changed_at_sample) = opt_changed_at_sample.load(Ordering::Relaxed) else {
+    fn execute_at_delay(sample: usize, delay_by: usize, deferred_update: &DeferredConfigUpdate, cb: impl Fn()) {
+        let Some(changed_at_sample) = deferred_update.changed_at_sample() else {
             return;
         };
         if Self::has_delay_elapsed(sample, changed_at_sample, delay_by) {
             cb();
-            opt_changed_at_sample.store(None, Ordering::Relaxed);
+            deferred_update.take();
         }
     }
 
@@ -281,7 +343,7 @@ impl MidiBpmDetector {
 
 #[cfg(test)]
 mod tests {
-    use super::MidiBpmDetector;
+    use super::{DeferredConfigUpdate, MidiBpmDetector, PluginTiming};
 
     #[test]
     fn delay_has_not_elapsed_before_target_sample() {
@@ -297,6 +359,50 @@ mod tests {
     fn delay_uses_saturating_addition() {
         assert!(!MidiBpmDetector::has_delay_elapsed(usize::MAX - 1, usize::MAX - 1, 10));
         assert!(MidiBpmDetector::has_delay_elapsed(usize::MAX, usize::MAX - 1, 10));
+    }
+
+    #[test]
+    fn plugin_timing_has_no_sample_rate_before_host_initialization() {
+        let timing = PluginTiming::default();
+
+        assert_eq!(timing.sample_rate(), None);
+    }
+
+    #[test]
+    fn plugin_timing_exposes_sample_rate_after_host_initialization() {
+        let mut timing = PluginTiming::default();
+
+        assert!(timing.initialize(48_000.0));
+
+        assert_eq!(timing.sample_rate(), Some(48_000));
+    }
+
+    #[test]
+    fn plugin_timing_rejects_zero_sample_rate() {
+        let mut timing = PluginTiming::default();
+
+        assert!(!timing.initialize(0.0));
+
+        assert_eq!(timing.sample_rate(), None);
+    }
+
+    #[test]
+    fn deferred_config_update_names_initial_sync_sample() {
+        let update = DeferredConfigUpdate::pending_initial_sync();
+
+        assert_eq!(update.changed_at_sample(), Some(1));
+    }
+
+    #[test]
+    fn deferred_config_update_preserves_first_change_sample_until_taken() {
+        let update = DeferredConfigUpdate::idle();
+
+        update.mark_changed_at_if_idle(8);
+        update.mark_changed_at_if_idle(13);
+
+        assert_eq!(update.changed_at_sample(), Some(8));
+        assert_eq!(update.take(), Some(8));
+        assert_eq!(update.changed_at_sample(), None);
     }
 }
 
