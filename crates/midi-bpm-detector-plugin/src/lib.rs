@@ -57,8 +57,8 @@ pub struct MidiBpmDetector {
     // or GUI just reopened
     force_evaluate_bpm_detection: ArcAtomicBool,
     events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
-    task_executor: Option<task_executor::TaskExecutor>,
-    gui_editor: Option<GuiEditor>,
+    task_executor_handoff: Option<task_executor::TaskExecutor>,
+    gui_editor_handoff: Option<GuiEditor>,
     static_bpm_detection_config_changed_at: DeferredConfigUpdate,
     dynamic_bpm_detection_config_changed_at: DeferredConfigUpdate,
 }
@@ -180,8 +180,8 @@ impl Default for MidiBpmDetector {
             timing: PluginTiming::default(),
             force_evaluate_bpm_detection,
             events_sender,
-            task_executor: Some(task_executor),
-            gui_editor: Some(gui_editor),
+            task_executor_handoff: Some(task_executor),
+            gui_editor_handoff: Some(gui_editor),
             static_bpm_detection_config_changed_at,
             dynamic_bpm_detection_config_changed_at,
         }
@@ -223,7 +223,8 @@ impl Plugin for MidiBpmDetector {
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
     fn task_executor(&mut self) -> TaskExecutor<Self> {
-        let mut task_executor = self.task_executor.take().unwrap();
+        // guaranteed to be called once by nih-plug
+        let mut task_executor = self.task_executor_handoff.take().unwrap();
         Box::new(move |task| task_executor.execute(task))
     }
 
@@ -232,7 +233,8 @@ impl Plugin for MidiBpmDetector {
     }
 
     fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        let gui_editor = self.gui_editor.take().unwrap();
+        // guaranteed to be called once by nih-plug
+        let gui_editor = self.gui_editor_handoff.take().unwrap();
         create_egui_editor(
             self.params.editor_state.clone(),
             (async_executor, gui_editor),
