@@ -18,9 +18,9 @@ use nih_plug::{
 use nih_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
-use sync::{ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize};
+use sync::ArcAtomicOptionNonZeroU16;
 
-use crate::bpm_detector_configuration::PluginConfig;
+use crate::{DeferredConfigUpdate, bpm_detector_configuration::PluginConfig};
 
 #[derive(Params)]
 pub struct PluginGUIParams {
@@ -120,11 +120,11 @@ pub struct MidiBpmDetectorParams {
 
 struct UpdaterFactory {
     current_sample: Arc<AtomicUsize>,
-    changed_at: ArcAtomicOptionUsize,
+    changed_at: DeferredConfigUpdate,
 }
 
 impl UpdaterFactory {
-    fn new(current_sample: Arc<AtomicUsize>, changed_at: ArcAtomicOptionUsize) -> Self {
+    fn new(current_sample: Arc<AtomicUsize>, changed_at: DeferredConfigUpdate) -> Self {
         Self { current_sample, changed_at }
     }
 
@@ -135,7 +135,7 @@ impl UpdaterFactory {
         let current_sample = self.current_sample.clone();
         let changed_at = self.changed_at.clone();
         Arc::new(move |_: T| {
-            changed_at.store_if_none(Some(current_sample.load(Ordering::Relaxed)), Ordering::Relaxed);
+            changed_at.mark_changed_at_if_idle(current_sample.load(Ordering::Relaxed));
         })
     }
 }
@@ -144,8 +144,8 @@ impl UpdaterFactory {
 impl MidiBpmDetectorParams {
     pub fn new(
         config: &mut PluginConfig,
-        static_bpm_detection_config_changed_at: &ArcAtomicOptionUsize,
-        dynamic_bpm_detection_config_changed_at: &ArcAtomicOptionUsize,
+        static_bpm_detection_config_changed_at: &DeferredConfigUpdate,
+        dynamic_bpm_detection_config_changed_at: &DeferredConfigUpdate,
         current_sample: &Arc<AtomicUsize>,
         daw_port: &ArcAtomicOptionNonZeroU16,
     ) -> Self {
