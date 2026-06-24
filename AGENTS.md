@@ -17,6 +17,8 @@ Repository instructions for AI coding agents working on this project.
 - `rustfmt` is intentionally run with nightly.
 - Keep `clippy::pedantic` enabled at workspace level.
 - Prefer type-safe representations over sentinel values. If a value has an unset/error/special state, encode that state in the type.
+- Avoid false reuse. If a new helper/protocol makes callers prove a variant is impossible with `unreachable!`, `debug_assert`, or "cannot happen here" comments, split the type or move the shared representation later in the flow. If a caller already knows the only valid case, keep the direct code there instead of routing through a generic policy method.
+- Before keeping a new abstraction, check that it models production code that exists now. Do not add variants, traits, or policy layers for possible future cases; add them when the future case exists.
 - Before adding custom generic utility code, evaluate existing crates for the job. If a crate is close but awkward, document the mismatch.
 - Avoid generic `utils` crates. Put reusable primitives in focused crates that match their dependency surface, such as synchronization primitives in `sync`.
 - Keep dependency versions moving forward. Prefer updating/forking the dependency that pins an old version over patching an obsolete transitive crate.
@@ -48,6 +50,8 @@ Repository instructions for AI coding agents working on this project.
 
 - When touching confusing code, clarify terminology near the code or in the relevant docs.
 - Keep comments concise: where data comes from, where it goes, what moment in the flow it belongs to, and why the boundary exists.
+- When documenting refactors, do not describe unchanged behavior as "restored" or "now" happening. Say that the behavior is preserved and name only the structural change.
+- When documenting refactor targets, include the non-goal or stop condition so future agents do not expand the note into speculative architecture work.
 - Use `docs/architecture.md` for stable architecture narrative.
 - Use `docs/runtime-lifecycle.md` for bootstrap wiring, ownership boundaries, and runtime data-flow diagrams.
 - Use `docs/plugin-flow.md` for plugin realtime/audio callback details.

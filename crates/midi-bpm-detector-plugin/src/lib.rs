@@ -6,6 +6,7 @@
 
 mod bpm_detector_configuration;
 mod gui;
+mod parameter_sync;
 mod plugin_parameters;
 mod task_executor;
 
@@ -22,7 +23,6 @@ use bpm_detection_core::{
     note_events::NoteOn,
     parameters::{duration_to_sample, sample_to_duration},
 };
-use chrono::Duration;
 use crossbeam::atomic::AtomicCell;
 #[cfg(not(debug_assertions))]
 use mimalloc::MiMalloc;
@@ -34,8 +34,9 @@ use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLoc
 use crate::{
     bpm_detector_configuration::PluginConfig,
     gui::GuiEditor,
+    parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncRequest},
     plugin_parameters::MidiBpmDetectorParams,
-    task_executor::{Event, Task, UpdateOrigin},
+    task_executor::{Event, Task},
 };
 
 fn midi_note_on_from_message(event: &wmidi::MidiMessage<'_>) -> Option<NoteOn> {
@@ -267,12 +268,12 @@ impl Plugin for MidiBpmDetector {
             return if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal };
         };
         let current_sample = self.current_sample.load(Ordering::Relaxed);
-        let delay_by = duration_to_sample(sample_rate, Duration::milliseconds(50));
+        let delay_by = duration_to_sample(sample_rate, HOST_PARAMETER_SYNC_COALESCING_WINDOW);
         Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Daw));
+            context.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncRequest::Host));
         });
         Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw));
+            context.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Host));
         });
         self.receive_notes_at_sample_rate(context, sample_rate);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);

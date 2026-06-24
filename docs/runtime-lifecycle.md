@@ -208,8 +208,8 @@ sequenceDiagram
     Host->>Params: set static/dynamic/gui parameter
     Params->>Marker: mark_changed_at_if_idle(current_sample)
     Process->>Marker: after 50 ms worth of samples
-    Process->>Exec: Task::StaticBPMDetectionConfig(UpdateOrigin::Daw)
-    Process->>Exec: Task::DynamicBPMDetectionConfig(UpdateOrigin::Daw)
+    Process->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncRequest::Host)
+    Process->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Host)
     Exec->>Config: copy authoritative values from host params
     Exec->>Gui: gui_must_update_config = true
     Exec->>Model: update_static_config or dynamic config snapshot
@@ -217,8 +217,8 @@ sequenceDiagram
     Gui->>Config: reload config on next editor update
 ```
 
-The host parameter surface is authoritative for `UpdateOrigin::Daw`. The GUI refreshes from shared config instead of
-echoing the same edit back to the host as a new user action.
+The host parameter surface is authoritative for host-origin parameter sync. The GUI refreshes from shared config instead
+of echoing the same edit back to the host as a new user action.
 
 ## Plugin Parameter Changes From The GUI
 
@@ -235,16 +235,29 @@ sequenceDiagram
     Live->>Setter: begin/set/end matching host parameter
     Live->>Live: delay static or dynamic change for 200 ms
     Live->>Config: write edited PluginConfig after delay
-    Live->>Exec: Task::StaticBPMDetectionConfig(UpdateOrigin::Gui)
-    Live->>Exec: Task::DynamicBPMDetectionConfig(UpdateOrigin::Gui)
+    Live->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncRequest::Gui)
+    Live->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Gui)
     Exec->>Config: read GUI-authored config
     Exec->>Model: apply static config or dynamic snapshot
     Exec->>Model: recompute on forced ProcessNotes
 ```
 
 The GUI-origin path intentionally writes host parameters through `ParamSetter`, because the DAW surface must reflect the
-editor change. The `UpdateOrigin::Gui` tasks then let the background BPM model consume the already-shared config without
-treating the host callback as the source of truth.
+editor change. The GUI-origin parameter sync tasks then let the background BPM model consume the already-shared config
+without treating the host callback as the source of truth.
+
+The plugin code names the origin with `ParameterSyncRequest::Host` or `ParameterSyncRequest::Gui`; the consequences are
+fixed:
+
+| Origin | Authoritative surface | Coalescing window | GUI refresh | Host refresh | BPM recompute |
+| --- | --- | --- | --- | --- | --- |
+| Host/DAW | host parameters | 50 ms on the host sample clock | reload from shared config | already current | immediate worker task |
+| GUI | shared GUI-authored config | 200 ms on the editor wall clock | already current | `ParamSetter` write-through before the worker task | next realtime `process()` block |
+
+This table documents behavior, not optional capabilities. It is useful because the worker receives both host-origin and
+GUI-origin config tasks. At origin-specific call sites, keep known facts direct: the host path uses the host coalescing
+window, the GUI path uses the GUI coalescing window and always marks BPM detection for re-evaluation before queueing a
+GUI-origin task.
 
 ## Plugin GUI Open And Close
 
@@ -389,7 +402,13 @@ channels. It is useful for demos and model/UI iteration, not the production cons
 
 - **Plugin parameter synchronization is functional but distributed.** The lifecycle crosses host callbacks,
   `DeferredConfigUpdate`, `process()`, `TaskExecutor`, `GuiEditor`, `BaseConfig`, `LiveConfig`, `ParamSetter`, and shared
-  config flags. A future refactor should introduce a small named parameter-sync protocol before changing behavior.
+  config flags. The current cleanup target is narrow: name the worker task origin and timing constants, then stop. Future
+  steps should keep behavior changes separate from protocol naming, and should not add policy enums, mapping methods,
+  optional-looking branches, or future origins before production code needs them.
+- **Parameter definitions and GUI parameter construction are duplicated across runtime modes.** The shared GUI, plugin
+  host parameters, desktop config, and WASM/demo paths each need their own representation or accessor layer. The current
+  GUI parameter-list construction also carries history from earlier boilerplate reduction work. Review this separately
+  from parameter synchronization so the sync protocol does not become a generic parameter framework by accident.
 - **Static and dynamic config flows share concepts but use different timing mechanisms.** Plugin host-origin changes use
   sample-based delay from the realtime callback, plugin GUI-origin changes use wall-clock delay in the editor, desktop
   worker changes use the worker debounce schedule, and WASM uses async delayed queue items. That may be fine, but it

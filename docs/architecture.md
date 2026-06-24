@@ -327,13 +327,16 @@ Both surfaces need to stay in sync, but blindly reflecting every update in both 
 the DAW updates the plugin, the GUI mirrors the change, the GUI writes the value back through the plugin setter, and the
 host treats that as another user edit.
 
-The current plugin code handles this by tagging config tasks with `UpdateOrigin::Daw` or `UpdateOrigin::Gui`. The
-origin decides which side is considered authoritative for that update and whether the other side must refresh its local
-config. The detailed host-origin and GUI-origin flows live in [runtime lifecycle](runtime-lifecycle.md).
+The current plugin code handles this by tagging config tasks with `ParameterSyncRequest::Host` or
+`ParameterSyncRequest::Gui`. The origin decides which side is considered authoritative for that update and whether the
+other side must refresh its local config. The detailed host-origin and GUI-origin flows live in
+[runtime lifecycle](runtime-lifecycle.md).
 
-This area is a likely refactor target. The desired end state is a small, explicit parameter-sync protocol that documents
-which surface owns an update, which side must refresh, and when BPM recomputation is required. That protocol should make
-feedback-loop prevention obvious instead of depending on scattered flags and timing behavior.
+The desired cleanup is intentionally small: keep the worker task origin explicit and keep the fixed timing constants named.
+The docs spell out which surface owns an update, which side must refresh, and when BPM recomputation is required. Do not
+model a possible third origin or shared policy layer before production code needs it. This should not become a generic
+parameter framework: origin-specific call sites should keep direct facts direct, such as fixed coalescing windows and
+unconditional forced recompute, instead of asking a shared policy object questions whose answer cannot vary there.
 
 ## Open Architecture Questions
 
@@ -347,7 +350,8 @@ These points are worth re-checking when changing ownership, communication, or ru
 - Plugin mode is the production target and drives the realtime constraints. Desktop and WASM preserve the same model but
   can use less restrictive runtime mechanisms.
 - Plugin parameter synchronization is intentionally bidirectional, but the current implementation may still contain
-  workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design.
+  workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design, and
+  avoid adding optional-looking policy paths for states that are not actually possible at a given boundary.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
 - [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram. More detailed
