@@ -16,8 +16,8 @@ use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
+    parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncRequest},
     plugin_parameters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
-    task_executor::UpdateOrigin,
 };
 
 const CONFIG: &str = include_str!("../config/base_config.toml");
@@ -93,26 +93,26 @@ impl BaseConfig {
     pub fn apply_delayed_updates(&mut self) {
         if self
             .delayed_update_static_bpm_detection_config
-            .is_some_and(|instant| instant.elapsed() > Duration::from_millis(200))
+            .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
         {
             {
                 *self.shared_config.write() = self.config.clone();
             }
 
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
-            self.async_executor.execute_background(Task::StaticBPMDetectionConfig(UpdateOrigin::Gui));
+            self.async_executor.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncRequest::Gui));
             self.delayed_update_static_bpm_detection_config = None;
             info!("apply static params");
         }
         if self
             .delayed_update_dynamic_bpm_detection_config
-            .is_some_and(|instant| instant.elapsed() > Duration::from_millis(200))
+            .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
         {
             {
                 *self.shared_config.write() = self.config.clone();
             }
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
-            self.async_executor.execute_background(Task::DynamicBPMDetectionConfig(UpdateOrigin::Gui));
+            self.async_executor.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Gui));
             self.delayed_update_dynamic_bpm_detection_config = None;
             info!("apply dynamic params");
         }
