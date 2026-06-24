@@ -375,11 +375,13 @@ These points are worth validating before writing deeper runtime diagrams:
   workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- The most useful next diagram is probably a data-flow/thread-boundary diagram, not a sequence diagram. Sequence diagrams
-  will be useful later for specific flows such as "plugin MIDI note received" or "GUI parameter change propagates".
+- [Runtime lifecycle](runtime-lifecycle.md) is the first data-flow/thread-boundary diagram. More detailed sequence
+  diagrams may still be useful later for flows that need code-level precision.
 
 ## Detailed Flow Notes
 
+- [Runtime lifecycle](runtime-lifecycle.md) documents bootstrap wiring, ownership boundaries, and the main data flows
+  after startup across plugin, desktop, and WASM mode.
 - [Native MIDI flow](native-midi-flow.md) documents the desktop MIDI service, BPM worker, output thread, and the
   closure-command boundary used by `MidiService::execute()`.
 - [Plugin flow](plugin-flow.md) documents host buffer processing, realtime handoff, background BPM work, and plugin
