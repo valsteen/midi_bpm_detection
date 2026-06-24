@@ -278,35 +278,15 @@ constraints:
 These constraints should be treated as design rules when changing plugin-mode code. If a change requires allocation,
 blocking I/O, lock contention, or unbounded work, it belongs outside the realtime callback.
 
-## Forked Plugin Dependencies
+## Plugin Dependency Notes
 
 The plugin path currently uses forks of `nih-plug` and `egui-baseview`. This should be treated as a pragmatic extension
 of upstream crates, not as a permanent divergence goal.
 
-The `nih-plug` fork currently carries four kinds of changes.
-
-First, the fork changes `TaskExecutor` from `Fn` to `FnMut`. This project hands NIH-plug a closure that owns the plugin's
-background executor and calls `TaskExecutor::execute(&mut self, task)`. That executor mutates the BPM model, shared config,
-GUI remote, DAW tempo connection, and ring-buffer receiver. A plain `Fn` executor cannot express that owned mutable state
-without introducing extra interior-mutability ceremony around the whole executor.
-
-Second, the fork keeps the plugin editor aligned with the shared GUI stack. `nih_plug_egui` is pointed at the local
-`egui-baseview` fork, now on the same egui generation as the desktop and WASM GUI. The fork also removes NIH-plug-egui's
-unconditional `request_repaint()` in the editor update loop because this project has explicit repaint paths through
-`GuiRemote`; always repainting kept the editor active even while visually idle.
-
-Third, the fork carries small compatibility fixes required by the newer egui generation, including the
-`ResizableWindow` integration update and one explicit `f32` literal in NIH-plug-egui widget code.
-
-Fourth, the fork restores exhaustive matching for `NoteEvent` and adds `NoteEvent::UnsupportedMidi` as an explicit raw
-MIDI escape hatch. That variant is for compact MIDI-shaped messages NIH-plug does not model as first-class events, while
-real SysEx messages starting with `0xf0` still use NIH-plug's `SysExMessage` path. This keeps the low-level passthrough
-feature available for adjacent controller/host experiments without keeping the old SysEx-tempo hack in this project.
-
-The abandoned experiment was to send tempo data through SysEx or SysEx-like MIDI routing so a DAW-side controller script
-could read it. Host behavior around SysEx routing was too inconsistent and under-documented for that path to be a stable
-feature. The standalone binary also uses NIH-plug's public standalone entry point now, so the fork no longer exposes
-private standalone wrapper modules.
+The fork exists for plugin/editor compatibility work that the project currently needs: mutable background task execution,
+alignment with the shared egui stack, small compatibility fixes for the current egui generation, and a compact raw-MIDI
+escape hatch. The abandoned SysEx-tempo experiment should not be treated as the production integration strategy; plugin
+tempo feedback now uses the localhost controller bridge described in [plugin flow](plugin-flow.md).
 
 Forks should follow a forward-only policy:
 
@@ -315,9 +295,9 @@ Forks should follow a forward-only policy:
 - pin commits in this repository so plugin builds are reproducible;
 - periodically check whether upstream has caught up enough to drop the fork or reduce its diff.
 
-The egui/wgpu update that removed `block v0.1.6` follows this policy. Instead of patching `block`, `metal`, or
-`wgpu-hal` 25, the project moved to the upstream generation where Metal uses `block2`/`objc2`. The only fork updates
-needed were compatibility bumps so the plugin editor and shared desktop/WASM GUI could stay on the same egui generation.
+The dependency rule is forward movement over patching obsolete transitive crates. For example, the egui/wgpu update that
+removed `block v0.1.6` moved to the upstream generation where Metal uses `block2`/`objc2`, then kept fork changes limited
+to compatibility work needed by the plugin editor and shared desktop/WASM GUI.
 
 ## Configuration Shape
 
@@ -347,22 +327,17 @@ Both surfaces need to stay in sync, but blindly reflecting every update in both 
 the DAW updates the plugin, the GUI mirrors the change, the GUI writes the value back through the plugin setter, and the
 host treats that as another user edit.
 
-The current plugin code handles this by tagging config tasks with `UpdateOrigin::Daw` or `UpdateOrigin::Gui`. The origin
-decides which side is considered authoritative for that update and whether the other side must refresh its local config.
-This is intentional architecture, but some surrounding code should be treated as archeology from that struggle:
-
-- startup forces an initial parameter sync so saved DAW parameters populate the GUI config;
-- `gui_must_update_config` tells the editor to reload config after DAW-originated changes;
-- GUI-originated changes are delayed and batched before they reach the background task executor;
-- static and dynamic config updates use similar but not identical refresh/recompute paths.
+The current plugin code handles this by tagging config tasks with `UpdateOrigin::Daw` or `UpdateOrigin::Gui`. The
+origin decides which side is considered authoritative for that update and whether the other side must refresh its local
+config. The detailed host-origin and GUI-origin flows live in [runtime lifecycle](runtime-lifecycle.md).
 
 This area is a likely refactor target. The desired end state is a small, explicit parameter-sync protocol that documents
 which surface owns an update, which side must refresh, and when BPM recomputation is required. That protocol should make
 feedback-loop prevention obvious instead of depending on scattered flags and timing behavior.
 
-## Validation Notes
+## Open Architecture Questions
 
-These points are worth validating before writing deeper runtime diagrams:
+These points are worth re-checking when changing ownership, communication, or runtime boundaries:
 
 - `bpm_detection_core` now owns the algorithm/config/core-note surface, while `bpm_detection_midi` owns native MIDI
   service integration. If core grows again, keep checking whether new code belongs to the algorithm model, a
@@ -375,8 +350,8 @@ These points are worth validating before writing deeper runtime diagrams:
   workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- [Runtime lifecycle](runtime-lifecycle.md) is the first data-flow/thread-boundary diagram. More detailed sequence
-  diagrams may still be useful later for flows that need code-level precision.
+- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram. More detailed
+  sequence diagrams may still be useful later for flows that need code-level precision.
 
 ## Detailed Flow Notes
 

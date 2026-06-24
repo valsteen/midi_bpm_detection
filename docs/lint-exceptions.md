@@ -13,7 +13,7 @@ Policy:
 
 ## Audit Notes
 
-Reviewed on 2026-06-21 while removing stale exceptions.
+Reviewed on 2026-06-24 against the tracked crates while keeping the 2026-06-21 cleanup notes below.
 
 Removed during this audit:
 
@@ -30,7 +30,7 @@ These are the main cleanup risk. They are not immediate behavior bugs, but they 
 crates:
 
 - `missing_panics_doc`, `missing_errors_doc`, `module_name_repetitions`
-  - Present in core, GUI, desktop, WASM, sync, parameter, errors, build, and native MIDI crates.
+  - Present across core, GUI, WASM, sync, parameter, errors, build, native MIDI, and plugin crates.
   - Mostly documentation/API-style noise from `clippy::pedantic`.
   - Acceptable temporarily, but should not be copied to new crates without confirmation.
 - Cast lint groups such as `cast_possible_truncation`, `cast_sign_loss`, `cast_possible_wrap`, and
@@ -38,6 +38,9 @@ crates:
   - Present mainly in core numeric code, GUI rendering, parameter conversion, plugin code, and WASM input adapters.
   - Higher-risk than doc/style exceptions because they can hide real overflow or precision bugs.
   - Keep reviewing these opportunistically when touching numeric conversion code.
+- `similar_names`
+  - Present in the plugin crate.
+  - Treat this as readability debt in a dense integration layer, not as permission to introduce confusing local names.
 
 ### Local Exceptions That Look Intentional
 
@@ -58,8 +61,7 @@ crates:
 These exceptions are signs of code that may deserve splitting or clearer names:
 
 - `too_many_lines`
-  - Present in BPM scoring, native worker loop, plugin task executor, plugin parameter construction, and desktop
-    bootstrap/UI integration code.
+  - Present in BPM scoring, native worker loop, plugin task executor, and plugin parameter construction.
   - These are complexity markers. Refactor when working in those areas, but avoid mechanical extraction that hides the
     flow.
 - `too_many_arguments`

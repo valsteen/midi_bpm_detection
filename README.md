@@ -1,54 +1,60 @@
-# Midi BPM detection
+# MIDI BPM Detection
 
-The purpose of this project is to let you play a midi instrument without worrying about being on time when recording,
-instead, the tempo at which you play is evaluated in real time and injected into the host DAW ; doing so, hopefully,
-your
-recording will nicely fit into a loop without needing adjustments.
+MIDI BPM Detection estimates tempo from incoming MIDI note-on events while you play. The goal is to let a musician record
+freely, infer the tempo from the performance in realtime, and feed that tempo back to the host DAW so the recording can
+fit a loop with less manual adjustment.
 
-The plugin does so by comparing all combinations of intervals between notes and finding regularities, accounting for a
-range of tempo configured by the user, a margin of error and other configurable parameters.
+The detector compares intervals between recent notes, scores likely beat durations, and exposes both a single estimated
+BPM and a histogram that shows competing tempo candidates. The histogram is important: it makes the guess inspectable
+instead of hiding the model behind one number.
 
-The screenshot below shows the different parameters and the realtime representation of the evaluation. The highest curve
-will be the most probable BPM.
+The screenshot below shows the plugin/demo UI with detection parameters and the realtime histogram. The strongest peak is
+the current most likely BPM.
 
 <a href="https://valsteen.github.io/midi_bpm_detection/"><img src="screenshot.png" alt="screenshot"></a>
 
-The process is indeed not perfect and parameters must be tweaked depending on the play style.
+Try the browser demo: https://valsteen.github.io/midi_bpm_detection/
 
-WASM Demo: https://valsteen.github.io/midi_bpm_detection/
+## Project Shape
 
-## State of the project
+This is an experimental Rust project with three runtime modes:
 
-This is in a very early works-on-my-machine state and will require further cleanup and testing.
+- `plugin`: the CLAP/VST3 target intended to run inside a DAW. This is the production constraint.
+- `desktop`: a native GUI app used for local iteration and native MIDI experiments.
+- `wasm`: a browser demo that makes the detector easy to try and share.
 
-In the meantime curious developers may simply have a look at the model, the core of the BPM evaluation can be found in
-[midi/bpm_detection.rs](crates/bpm_detection_core/src/bpm_detection.rs).
+The project is still a work in progress. Tempo detection depends on play style and parameter tuning, and the host tempo
+feedback path is currently shaped around Bitwig integration.
 
-Development build, formatter, linter, plugin, and WASM commands are documented in
-[docs/development.md](docs/development.md).
+The core BPM evaluation lives in
+[crates/bpm_detection_core/src/bpm_detection.rs](crates/bpm_detection_core/src/bpm_detection.rs).
 
-A first-pass architecture map is available in [docs/architecture.md](docs/architecture.md).
+## Documentation
 
-## Building and using the Clap/VST3 Plugin
+- [Architecture](docs/architecture.md): crate map, runtime modes, and architecture boundaries.
+- [Runtime lifecycle](docs/runtime-lifecycle.md): bootstrap wiring and data flows between plugin, desktop, WASM, GUI, and
+  BPM detection components.
+- [Plugin flow](docs/plugin-flow.md): host buffer processing, realtime handoff, background work, and tempo feedback.
+- [Native MIDI flow](docs/native-midi-flow.md): desktop MIDI service, controller boundary, worker messages, and native
+  MIDI output ownership.
+- [Algorithm archaeology](docs/algorithm-archaeology.md): the original tempo-detection idea and why the histogram exists.
+- [Development commands](docs/development.md): setup, formatting, checking, plugin bundling, and WASM demo commands.
 
-This has not been thoroughly tested and only on Mac.
+## Building And Using The CLAP/VST3 Plugin
 
-The process should be:
+Bundle the plugin with:
 
 ```shell
 cargo xtask bundle midi-bpm-detector-plugin --release
 ```
 
-The plugin in two formats should be available under `target/bundled` , as `midi-bpm-detector-plugin.clap` and
+The plugin artifacts are written under `target/bundled` as `midi-bpm-detector-plugin.clap` and
 `midi-bpm-detector-plugin.vst3`.
 
-To make it really useful, it has to control the tempo of the host DAW. Plugins don't have this capability so there is
-the companion controller script for Bitwig:
+To control the host DAW tempo, the plugin needs a companion controller integration. The current Bitwig controller script
+is here:
 
 https://github.com/valsteen/bitwig-beat-detection-controller
 
-Just make sure to load the controller script, then add the Clap plugin to the track on which you'll do your midi
-recording.
-Upon selecting the plugin, the controller script will detect it and start communicating with it ( the "DAW Port"
-parameter will change, they will communicate via TCP from there ).
-Then set the "Send tempo" to "On".
+Load the controller script, add the CLAP plugin to the MIDI track, and select the plugin. The controller should detect it
+and set the plugin's `DAW Port` parameter for local TCP communication. Then enable `Send tempo`.

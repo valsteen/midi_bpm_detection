@@ -66,9 +66,9 @@ The native desktop binary starts egui directly and keeps MIDI work behind explic
 - The command worker starts only after the controller exists, so queued callbacks never operate on an unset controller.
 - `AppBuilderShell` receives `DesktopBaseConfig` only after the controller/runtime are ready.
 
-## Proposed Desktop Controller Boundary
+## Desktop Controller Boundary
 
-The future desktop GUI needs an integration layer above `gui` and `bpm_detection_midi`.
+The desktop GUI uses an integration layer above `gui` and `bpm_detection_midi`.
 
 That layer should depend on both crates, but neither shared crate should depend back on it:
 
@@ -79,7 +79,7 @@ That layer should depend on both crates, but neither shared crate should depend 
 - The desktop controller should own the relationship between the two: native device selection, selected input lifetime,
   MIDI display/debug state if still useful, config propagation, and desktop-only MIDI side effects.
 
-The controller should expose capabilities that map to user intent rather than TUI actions:
+The controller exposes capabilities that map to user intent rather than TUI actions:
 
 ```text
 DesktopController
