@@ -49,8 +49,12 @@ Repository instructions for AI coding agents working on this project.
 - When touching confusing code, clarify terminology near the code or in the relevant docs.
 - Keep comments concise: where data comes from, where it goes, what moment in the flow it belongs to, and why the boundary exists.
 - Use `docs/architecture.md` for stable architecture narrative.
+- Use `docs/runtime-lifecycle.md` for bootstrap wiring, ownership boundaries, and runtime data-flow diagrams.
+- Use `docs/plugin-flow.md` for plugin realtime/audio callback details.
 - Use `docs/development.md` for build, lint, format, and run commands.
 - Use `docs/native-midi-flow.md` for native MIDI and desktop flow details.
+- Use `docs/algorithm-archaeology.md` for algorithm history, interval-domain terminology, and histogram reasoning.
+- Use `docs/lint-exceptions.md` when reviewing or changing existing `#[allow(...)]` lint exceptions.
 - Use `docs/superpowers/plans/` for stepwise migration plans.
 
 ## Current Direction
