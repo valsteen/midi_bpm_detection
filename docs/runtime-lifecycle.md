@@ -398,13 +398,17 @@ sequenceDiagram
 WASM follows the same conceptual pipeline, but browser constraints replace native threads with async tasks and bounded
 channels. It is useful for demos and model/UI iteration, not the production constraint.
 
-## Current Refactor Signals
+## Refactor Review Prompts
+
+This section is not part of the implemented runtime contract. It records places to inspect when planning future cleanup,
+and each note includes a stop condition so it does not become an accidental architecture plan.
 
 - **Plugin parameter synchronization is functional but distributed.** The lifecycle crosses host callbacks,
   `DeferredConfigUpdate`, `process()`, `TaskExecutor`, `GuiEditor`, `BaseConfig`, `LiveConfig`, `ParamSetter`, and shared
-  config flags. The current cleanup target is narrow: name the worker task origin and timing constants, then stop. Future
-  steps should keep behavior changes separate from protocol naming, and should not add policy enums, mapping methods,
-  optional-looking branches, or future origins before production code needs them.
+  config flags. The current cleanup target has been completed: the worker task origin and timing constants are named.
+  Stop there unless production code gains another real consumer of shared parameter-sync behavior. Future steps should
+  keep behavior changes separate from protocol naming, and should not add policy enums, mapping methods, optional-looking
+  branches, or future origins before production code needs them.
 - **Parameter definitions and GUI parameter construction are duplicated across runtime modes.** The shared GUI, plugin
   host parameters, desktop config, and WASM/demo paths each need their own representation or accessor layer. The current
   GUI parameter-list construction also carries history from earlier boilerplate reduction work. Review this separately

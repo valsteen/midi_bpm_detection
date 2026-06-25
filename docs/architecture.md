@@ -332,11 +332,9 @@ The current plugin code handles this by tagging config tasks with `ParameterSync
 other side must refresh its local config. The detailed host-origin and GUI-origin flows live in
 [runtime lifecycle](runtime-lifecycle.md).
 
-The desired cleanup is intentionally small: keep the worker task origin explicit and keep the fixed timing constants named.
-The docs spell out which surface owns an update, which side must refresh, and when BPM recomputation is required. Do not
-model a possible third origin or shared policy layer before production code needs it. This should not become a generic
-parameter framework: origin-specific call sites should keep direct facts direct, such as fixed coalescing windows and
-unconditional forced recompute, instead of asking a shared policy object questions whose answer cannot vary there.
+The current boundary is intentionally small: the worker task carries only the update origin, and the fixed timing and
+recompute facts stay direct at the origin-specific call sites. This is not a generic parameter framework. Do not model a
+possible third origin or shared policy layer before production code needs it.
 
 ## Open Architecture Questions
 
@@ -349,9 +347,9 @@ These points are worth re-checking when changing ownership, communication, or ru
   and egui rendering.
 - Plugin mode is the production target and drives the realtime constraints. Desktop and WASM preserve the same model but
   can use less restrictive runtime mechanisms.
-- Plugin parameter synchronization is intentionally bidirectional, but the current implementation may still contain
-  workaround-shaped code from avoiding DAW/GUI feedback loops. Review this before documenting it as final design, and
-  avoid adding optional-looking policy paths for states that are not actually possible at a given boundary.
+- Plugin parameter synchronization is intentionally bidirectional. Before changing it, re-check the lifecycle docs and
+  preserve the current distinction between host-origin and GUI-origin updates. Avoid adding optional-looking policy paths
+  for states that are not actually possible at a given boundary.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
 - [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram. More detailed
