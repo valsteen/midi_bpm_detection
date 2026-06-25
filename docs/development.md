@@ -155,7 +155,7 @@ Useful commands:
 `packageBitwigExtension` produces:
 
 ```text
-extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionController.bwextension
+extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionExtension.bwextension
 ```
 
 `installBitwigExtension` resolves the local Bitwig extension directory in this order:

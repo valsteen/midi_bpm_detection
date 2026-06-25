@@ -24,14 +24,6 @@ tasks.register("packageBitwigExtension") {
     dependsOn(packageExtensions)
 }
 
-fun String.toPascalCase(): String =
-    split("-")
-        .joinToString("") { segment ->
-            segment.replaceFirstChar { character ->
-                character.titlecase()
-            }
-        }
-
 subprojects {
     plugins.withId("org.jetbrains.kotlin.jvm") {
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension>("kotlin") {
@@ -80,21 +72,16 @@ subprojects {
     }
 
     if (path.startsWith(":extensions:")) {
-        val packageTask = tasks.register("package${name.toPascalCase()}") {
-            group = "bitwig"
-            description = "Packages the ${project.name} Bitwig extension."
-        }
-
         afterEvaluate {
-            tasks.findByName("packageBitwigExtension")?.let { bitwigPackageTask ->
-                packageTask.configure {
-                    dependsOn(bitwigPackageTask)
+            val packageTask =
+                tasks.findByName("verifyBitwigExtensionArchiveContents")
+                    ?: tasks.findByName("packageBitwigExtension")
+
+            packageTask?.let { extensionPackageTask ->
+                rootProject.tasks.named("packageExtensions") {
+                    dependsOn(extensionPackageTask)
                 }
             }
-        }
-
-        rootProject.tasks.named("packageExtensions") {
-            dependsOn(packageTask)
         }
     }
 }

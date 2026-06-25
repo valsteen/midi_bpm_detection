@@ -33,14 +33,20 @@ tasks.jar {
     }
 }
 
+val bitwigExtensionArchiveName = "BeatDetectionExtension.bwextension"
+val bitwigExtensionOutputDirectory = layout.buildDirectory.dir("bitwig-extension")
+val bitwigExtensionArchiveFile = layout.buildDirectory.file("bitwig-extension/$bitwigExtensionArchiveName")
+
 val packageBitwigExtension =
-    tasks.register<Copy>("packageBitwigExtension") {
+    tasks.register<Sync>("packageBitwigExtension") {
         group = "bitwig"
         description = "Packages the Beat Detection Bitwig controller extension."
         dependsOn(tasks.jar)
         from(tasks.jar)
-        into(layout.buildDirectory.dir("bitwig-extension"))
-        rename { "BeatDetectionController.bwextension" }
+        into(bitwigExtensionOutputDirectory)
+        rename { bitwigExtensionArchiveName }
+        inputs.property("bitwigExtensionArchiveName", bitwigExtensionArchiveName)
+        outputs.file(bitwigExtensionArchiveFile)
     }
 
 val verifyBitwigExtensionArchiveContents =
@@ -49,12 +55,7 @@ val verifyBitwigExtensionArchiveContents =
         description = "Verifies that the packaged extension archive contains runtime classes."
         dependsOn(packageBitwigExtension)
 
-        val archiveFile =
-            packageBitwigExtension.flatMap {
-                layout.buildDirectory.file("bitwig-extension/BeatDetectionController.bwextension")
-            }
-
-        inputs.file(archiveFile)
+        inputs.file(bitwigExtensionArchiveFile)
 
         doLast {
             val requiredEntries =
@@ -66,7 +67,7 @@ val verifyBitwigExtensionArchiveContents =
                 )
             val forbiddenEntriesPrefix = "com/bitwig/extension/"
 
-            ZipFile(archiveFile.get().asFile).use { archive ->
+            ZipFile(bitwigExtensionArchiveFile.get().asFile).use { archive ->
                 val archiveEntries =
                     archive
                         .entries()
@@ -125,14 +126,10 @@ tasks.register<Copy>("installBitwigExtension") {
     description = "Installs the Beat Detection Bitwig controller extension into the user Bitwig extensions directory."
     dependsOn(tasks.test)
     dependsOn(verifyBitwigExtensionArchiveContents)
-    from(packageBitwigExtension.map { it.destinationDir })
+    from(bitwigExtensionOutputDirectory)
     into(bitwigExtensionsDirectory.map { file(it) })
 
     doFirst {
         println("Installing Bitwig extension into: ${bitwigExtensionsDirectory.get()}")
     }
-}
-
-tasks.named("packageBeatDetectionController") {
-    dependsOn(verifyBitwigExtensionArchiveContents)
 }
