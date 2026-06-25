@@ -259,9 +259,9 @@ The preferred direction is:
 - after bootstrap, peers communicate through the connection they actually need instead of returning to a universal bus.
 
 The tradeoff is that connections become more distributed. Bootstrap therefore becomes important documentation: it should
-read like clean configuration of the runtime graph, not like a second hidden orchestrator. If future runtime features
-need pluggable components, they should follow the same shape: discover compatible producers and consumers, connect them,
-then let that pair communicate through its own protocol.
+read like clean configuration of the runtime graph, not like a second hidden orchestrator. Pluggable components should
+follow the same shape: discover compatible producers and consumers, connect them, then let that pair communicate through
+its own protocol.
 
 Small explicit enums are still valid when the protocol is narrow and stable. `BpmWorkerCommand` is a good example: it
 belongs to one worker boundary and does not try to describe the whole application.
@@ -356,7 +356,7 @@ The current boundary is intentionally small: the worker task carries only the up
 recompute facts stay direct at the origin-specific call sites. This is not a generic parameter framework. Do not model a
 possible third origin or shared policy layer before production code needs it.
 
-## Open Architecture Questions
+## Change Review Checklist
 
 These points are worth re-checking when changing ownership, communication, or runtime boundaries:
 
@@ -372,8 +372,7 @@ These points are worth re-checking when changing ownership, communication, or ru
   for states that are not actually possible at a given boundary.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram. More detailed
-  sequence diagrams may still be useful later for flows that need code-level precision.
+- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram.
 
 ## Detailed Flow Notes
 

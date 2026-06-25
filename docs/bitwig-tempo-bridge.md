@@ -92,9 +92,9 @@ work. Socket connection and writes belong to `TaskExecutor`.
 - If a BPM write fails, the plugin drops the socket and waits for another rendezvous port.
 - If no plugin connects, the extension stays loaded and waits for a client connection.
 
-## Non-Goals
+## Bridge Boundaries
 
-- Do not add a root `protocol/` directory for this bridge while it only carries one BPM value.
-- Do not use this bridge as a catch-all remote-control channel.
-- Do not move Bitwig controller API dependencies into the Rust workspace.
-- Do not make the audio/realtime callback responsible for connection management or socket writes.
+- The bridge carries one BPM payload shape today: `f32_be bpm` inside Bitwig's length-prefixed remote socket frame.
+- The bridge is scoped to tempo feedback, not general Bitwig remote control.
+- Bitwig controller API calls stay in the Kotlin extension.
+- Socket connection management and writes stay outside the plugin audio/realtime callback.

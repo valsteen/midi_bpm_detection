@@ -397,27 +397,3 @@ sequenceDiagram
 
 WASM follows the same conceptual pipeline, but browser constraints replace native threads with async tasks and bounded
 channels. It is useful for demos and model/UI iteration, not the production constraint.
-
-## Maintenance Review Notes
-
-This section is not part of the implemented runtime contract. It records places to inspect when changing these areas, and
-each note includes a stop condition so the maintenance note does not become accidental architecture work.
-
-- **Plugin parameter synchronization is functional but distributed.** The lifecycle crosses host callbacks,
-  `DeferredConfigUpdate`, `process()`, `TaskExecutor`, `GuiEditor`, `BaseConfig`, `LiveConfig`, `ParamSetter`, and shared
-  config flags. The current cleanup target has been completed: the worker task origin and timing constants are named.
-  Stop there unless production code gains another real consumer of shared parameter-sync behavior. Follow-up work should
-  keep behavior changes separate from protocol naming, and should not add policy enums, mapping methods, optional-looking
-  branches, or extra origins before production code needs them.
-- **Parameter definitions and GUI parameter construction are duplicated across runtime modes.** The shared GUI, plugin
-  host parameters, desktop config, and WASM/demo paths each need their own representation or accessor layer. The current
-  GUI parameter-list construction also carries history from earlier boilerplate reduction work. Review this separately
-  from parameter synchronization so the sync protocol does not become a generic parameter framework by accident.
-- **Static and dynamic config flows share concepts but use different timing mechanisms.** Plugin host-origin changes use
-  sample-based delay from the realtime callback, plugin GUI-origin changes use wall-clock delay in the editor, desktop
-  worker changes use the worker debounce schedule, and WASM uses async delayed queue items. That may be fine, but it
-  should stay explicit.
-- **Bootstrap is doing useful documentation work.** If startup grows enough that it reads like a hidden orchestrator,
-  split a peer protocol or name a boundary rather than introducing a broad application bus.
-- **Tempo feedback has two meanings.** Plugin production feedback is the localhost controller bridge. Desktop feedback is
-  native MIDI output and experimental clock/SysEx support. Keep those paths named separately when refactoring.
