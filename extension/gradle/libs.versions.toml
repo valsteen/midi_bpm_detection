@@ -1,0 +1,16 @@
+[versions]
+bitwig-extension-api = "2"
+detekt = "2.0.0-alpha.5"
+junit-jupiter = "6.0.1"
+kotlin = "2.4.0"
+spotless = "8.7.0"
+
+[libraries]
+bitwig-extension-api = { module = "com.bitwig:extension-api", version.ref = "bitwig-extension-api" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-jupiter" }
+
+[plugins]
+detekt = { id = "dev.detekt", version.ref = "detekt" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

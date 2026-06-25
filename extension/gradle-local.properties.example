@@ -1,0 +1,4 @@
+# Optional local Bitwig extension install directory.
+# Copy this file to gradle-local.properties and adjust the path for your machine.
+#
+# bitwigExtensionsDir=/Users/you/Documents/Bitwig Studio/Extensions

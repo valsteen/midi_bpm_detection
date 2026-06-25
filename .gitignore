@@ -1,4 +1,10 @@
 /target
+/rust/target
+/extension/.gradle
+/extension/.kotlin
+/extension/build
+/extension/**/build
+/extension/gradle-local.properties
 **/*.rs.bkx
 .idea
 **/.DS_Store
