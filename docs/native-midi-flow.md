@@ -145,10 +145,8 @@ This keeps clock ticks, play/stop, and optional tempo SysEx serialized through o
 while draining output commands: when several tempo values are queued, only the newest value is emitted.
 
 MIDI clock enablement is currently a shared atomic flag read by the output thread. That avoids blocking a GUI caller on
-the output owner, but it also means the output thread uses a short idle timeout while the clock is disabled. A better
-future shape is likely an event plus state pair: writers update cheap shared state, then wake the output owner so it can
-react without polling. Any change here should keep the clock tick path owned by one thread and avoid introducing native
-MIDI dependencies into `gui`.
+the output owner, but it also means the output thread uses a short idle timeout while the clock is disabled. The current
+design keeps the clock tick path owned by one thread and avoids introducing native MIDI dependencies into `gui`.
 
 ## Config Timing
 
@@ -171,3 +169,6 @@ These names and boundaries are current working vocabulary, not final doctrine:
   event enum again, treat that as a refactor candidate rather than a design rule.
 - The native MIDI clock path is desktop/experimental support. The plugin production path uses a controller bridge
   instead of acting as a MIDI clock provider.
+- If the output thread's disabled-clock polling becomes a real problem, review an event-plus-state shape: writers update
+  cheap shared state, then wake the output owner so it can react without polling. Keep that as an output-thread ownership
+  refactor, not a reason for `gui` to learn native MIDI details.
