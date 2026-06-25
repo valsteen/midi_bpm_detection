@@ -186,8 +186,7 @@ runtime that wires them together.
 - `extension/libs/bitwig-bootstrap`
   - Shared Kotlin bootstrap helpers for Bitwig extension metadata and host logging.
 
-The plugin/extension rendezvous and socket frame are documented in [Bitwig tempo bridge](bitwig-tempo-bridge.md). The
-same pattern is summarized for reuse in [Bitwig extension rendezvous handover](handoff/bitwig-extension-rendezvous.md).
+The plugin/extension rendezvous and socket frame are documented in [Bitwig tempo bridge](bitwig-tempo-bridge.md).
 
 ## Operating Mode Boundaries
 

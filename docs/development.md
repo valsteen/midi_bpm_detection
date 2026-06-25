@@ -24,6 +24,14 @@ The Bitwig controller extension workspace lives under `extension/`. Run extensio
 cd extension
 ```
 
+The extension build uses the Gradle wrapper. Gradle needs a JDK to run, and the Kotlin build targets JVM 17. Toolchain
+auto-download is enabled, so Gradle can provision JDK 17 when needed. Check what Gradle sees with:
+
+```shell
+./gradlew --version
+./gradlew javaToolchains
+```
+
 ## One Command Surface
 
 Use the helper script when you do not remember the exact Cargo invocation:

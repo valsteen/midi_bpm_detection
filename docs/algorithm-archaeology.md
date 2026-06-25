@@ -96,10 +96,10 @@ axis. This is a display artifact caused by translating duration to BPM.
 The exact perceived direction of the artifact should be validated against the current GUI, because the bars are sampled
 in duration space and then plotted at BPM positions.
 
-## Future Direction: Tempo Distribution Space
+## Research Note: Tempo Distribution Space
 
-The current detector already scores interval durations, then exposes a winning BPM and a histogram that the GUI remaps
-to BPM labels. A future model could make that boundary more explicit: store and exchange tempo estimates as a
+The current detector scores interval durations, then exposes a winning BPM and a histogram that the GUI remaps to BPM
+labels. A research direction is to make that boundary more explicit: store and exchange tempo estimates as a
 distribution over beat duration, and treat BPM as one possible projection for display or host integration.
 
 This would preserve the uncertainty model at the same scale where it is computed. If human tapping imprecision is

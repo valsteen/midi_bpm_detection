@@ -23,7 +23,6 @@ or Gradle own the Rust workspace.
 - The production Bitwig tempo-control path crosses both build roots: the Rust plugin estimates BPM, and the Kotlin
   Bitwig controller extension owns the Bitwig transport-tempo write.
 - Use `docs/bitwig-tempo-bridge.md` for the plugin-to-extension rendezvous and socket bridge.
-- Use `docs/handoff/bitwig-extension-rendezvous.md` when carrying the same rendezvous pattern into another project.
 - Keep the bridge narrow. Do not turn it into a general remote-control protocol unless a concrete feature needs that.
 - Do not move Bitwig controller API dependencies into `rust/`.
 - Do not move Rust plugin or egui dependencies into `extension/`.
