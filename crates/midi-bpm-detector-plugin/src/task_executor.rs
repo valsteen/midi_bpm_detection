@@ -17,7 +17,7 @@ use parameter::OnOff;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
-use crate::{MidiBpmDetectorParams, bpm_detector_configuration::PluginConfig, parameter_sync::ParameterSyncRequest};
+use crate::{MidiBpmDetectorParams, bpm_detector_configuration::PluginConfig, parameter_sync::ParameterSyncOrigin};
 
 const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);
@@ -27,8 +27,8 @@ const TEMPO_CONTROLLER_FRAME_BYTES: usize = 8;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Task {
     ProcessNotes { force_evaluate_bpm_detection: bool },
-    StaticBPMDetectionConfig(ParameterSyncRequest),
-    DynamicBPMDetectionConfig(ParameterSyncRequest),
+    StaticBPMDetectionConfig(ParameterSyncOrigin),
+    DynamicBPMDetectionConfig(ParameterSyncOrigin),
 }
 
 pub enum Event {
@@ -104,7 +104,7 @@ impl TaskExecutor {
 
             Task::StaticBPMDetectionConfig(sync) => {
                 match sync {
-                    ParameterSyncRequest::Host => {
+                    ParameterSyncOrigin::Host => {
                         let config = {
                             let mut config = self.config.write();
                             config.static_bpm_detection_config.bpm_center =
@@ -130,7 +130,7 @@ impl TaskExecutor {
                         self.bpm_detection.update_static_config(config);
                         self.execute(Task::ProcessNotes { force_evaluate_bpm_detection: true });
                     }
-                    ParameterSyncRequest::Gui => {
+                    ParameterSyncOrigin::Gui => {
                         let config = self.config.read();
                         let static_bpm_detection_config = &config.static_bpm_detection_config;
                         self.bpm_detection.update_static_config(static_bpm_detection_config.clone());
@@ -140,7 +140,7 @@ impl TaskExecutor {
                 }
             }
             Task::DynamicBPMDetectionConfig(sync) => match sync {
-                ParameterSyncRequest::Host => {
+                ParameterSyncOrigin::Host => {
                     {
                         let mut config = self.config.write();
 
@@ -201,7 +201,7 @@ impl TaskExecutor {
                     self.gui_must_update_config.store(true, Ordering::Relaxed);
                     self.execute(Task::ProcessNotes { force_evaluate_bpm_detection: true });
                 }
-                ParameterSyncRequest::Gui => {
+                ParameterSyncOrigin::Gui => {
                     let config = self.config.read();
                     self.dynamic_bpm_detection_config = config.dynamic_bpm_detection_config.clone();
                 }

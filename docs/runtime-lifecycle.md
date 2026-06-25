@@ -208,8 +208,8 @@ sequenceDiagram
     Host->>Params: set static/dynamic/gui parameter
     Params->>Marker: mark_changed_at_if_idle(current_sample)
     Process->>Marker: after 50 ms worth of samples
-    Process->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncRequest::Host)
-    Process->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Host)
+    Process->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host)
+    Process->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host)
     Exec->>Config: copy authoritative values from host params
     Exec->>Gui: gui_must_update_config = true
     Exec->>Model: update_static_config or dynamic config snapshot
@@ -235,8 +235,8 @@ sequenceDiagram
     Live->>Setter: begin/set/end matching host parameter
     Live->>Live: delay static or dynamic change for 200 ms
     Live->>Config: write edited PluginConfig after delay
-    Live->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncRequest::Gui)
-    Live->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Gui)
+    Live->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Gui)
+    Live->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Gui)
     Exec->>Config: read GUI-authored config
     Exec->>Model: apply static config or dynamic snapshot
     Exec->>Model: recompute on forced ProcessNotes
@@ -246,7 +246,7 @@ The GUI-origin path intentionally writes host parameters through `ParamSetter`, 
 editor change. The GUI-origin parameter sync tasks then let the background BPM model consume the already-shared config
 without treating the host callback as the source of truth.
 
-The plugin code names the origin with `ParameterSyncRequest::Host` or `ParameterSyncRequest::Gui`; the consequences are
+The plugin code names the origin with `ParameterSyncOrigin::Host` or `ParameterSyncOrigin::Gui`; the consequences are
 fixed:
 
 | Origin | Authoritative surface | Coalescing window | GUI refresh | Host refresh | BPM recompute |

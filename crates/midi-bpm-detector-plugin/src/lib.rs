@@ -34,7 +34,7 @@ use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLoc
 use crate::{
     bpm_detector_configuration::PluginConfig,
     gui::GuiEditor,
-    parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncRequest},
+    parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task},
 };
@@ -270,10 +270,10 @@ impl Plugin for MidiBpmDetector {
         let current_sample = self.current_sample.load(Ordering::Relaxed);
         let delay_by = duration_to_sample(sample_rate, HOST_PARAMETER_SYNC_COALESCING_WINDOW);
         Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncRequest::Host));
+            context.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host));
         });
         Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Host));
+            context.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));
         });
         self.receive_notes_at_sample_rate(context, sample_rate);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);

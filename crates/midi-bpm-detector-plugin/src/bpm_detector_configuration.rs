@@ -16,7 +16,7 @@ use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
-    parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncRequest},
+    parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
     plugin_parameters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
 };
 
@@ -100,7 +100,7 @@ impl BaseConfig {
             }
 
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
-            self.async_executor.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncRequest::Gui));
+            self.async_executor.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Gui));
             self.delayed_update_static_bpm_detection_config = None;
             info!("apply static params");
         }
@@ -112,7 +112,7 @@ impl BaseConfig {
                 *self.shared_config.write() = self.config.clone();
             }
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
-            self.async_executor.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncRequest::Gui));
+            self.async_executor.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Gui));
             self.delayed_update_dynamic_bpm_detection_config = None;
             info!("apply dynamic params");
         }
