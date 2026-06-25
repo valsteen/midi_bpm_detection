@@ -327,8 +327,8 @@ Both surfaces need to stay in sync, but blindly reflecting every update in both 
 the DAW updates the plugin, the GUI mirrors the change, the GUI writes the value back through the plugin setter, and the
 host treats that as another user edit.
 
-The current plugin code handles this by tagging config tasks with `ParameterSyncRequest::Host` or
-`ParameterSyncRequest::Gui`. The origin decides which side is considered authoritative for that update and whether the
+The current plugin code handles this by tagging config tasks with `ParameterSyncOrigin::Host` or
+`ParameterSyncOrigin::Gui`. The origin decides which side is considered authoritative for that update and whether the
 other side must refresh its local config. The detailed host-origin and GUI-origin flows live in
 [runtime lifecycle](runtime-lifecycle.md).
 
