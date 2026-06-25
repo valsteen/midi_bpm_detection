@@ -39,7 +39,7 @@ desktop bootstrap
 
 The native desktop entry point started as a TUI because that looked like the quickest way to build the first experiment:
 select a MIDI controller, show log-like feedback, and drive the BPM detector. In practice the TUI became its own source
-of complexity, and the project now uses `crates/desktop` as the native app path.
+of complexity, and the project now uses `rust/crates/desktop` as the native app path.
 
 This means the TUI/event-bus shape should not be treated as final architecture. It is an artifact of the first working
 proof of concept. The broad `tui::Event` and `Action` types encode terminal input, MIDI device discovery, MIDI messages,

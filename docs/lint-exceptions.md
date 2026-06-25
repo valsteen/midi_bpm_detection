@@ -1,11 +1,12 @@
 # Lint Exceptions
 
-This file records the current `allow` attributes that keep `scripts/dev.sh clippy-all` warning-free.
+This file records approved lint exceptions for both build roots: Rust `allow` attributes and Kotlin/Detekt suppressions.
 
 Policy:
 
 - Fix Clippy warnings by default.
-- Do not add a new `allow` without human confirmation.
+- Fix Kotlin compiler warnings, Detekt findings, and Spotless failures by default.
+- Do not add a new Rust `allow`, Kotlin suppression, or Detekt ignore without human confirmation.
 - If an exception is confirmed, keep it narrow and explain why it exists near the code.
 - Prefer removing broad legacy exceptions as touched code becomes clearer.
 - When a small helper exists only to wrap synchronization or another focused concern, prefer moving it to the focused
@@ -13,7 +14,9 @@ Policy:
 
 ## Audit Notes
 
-Reviewed on 2026-06-24 against the tracked crates while keeping the 2026-06-21 cleanup notes below.
+Rust reviewed on 2026-06-24 against the tracked crates while keeping the 2026-06-21 cleanup notes below.
+
+Kotlin currently has no approved suppressions or Detekt ignores.
 
 Removed during this audit:
 

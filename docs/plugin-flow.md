@@ -68,5 +68,7 @@ The plugin cannot act as a system MIDI device or MIDI clock provider. It is load
 feedback, it optionally writes detected BPM to a localhost controller bridge. That bridge is separate from the realtime
 MIDI/audio callback and is handled by the background task executor.
 
+The bridge contract is documented in [Bitwig tempo bridge](bitwig-tempo-bridge.md).
+
 This differs from the desktop/native MIDI path, where the app can own a virtual MIDI output and emit MIDI clock as an
 experimental integration route.

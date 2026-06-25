@@ -15,19 +15,134 @@ the current most likely BPM.
 
 Try the browser demo: https://valsteen.github.io/midi_bpm_detection/
 
-## Project Shape
+## What This Repository Contains
 
-This is an experimental Rust project with three runtime modes:
+This is an experimental BPM detection monorepo. The Rust side contains three runtime modes:
 
 - `plugin`: the CLAP/VST3 target intended to run inside a DAW. This is the production constraint.
 - `desktop`: a native GUI app used for local iteration and native MIDI experiments.
 - `wasm`: a browser demo that makes the detector easy to try and share.
 
+The Kotlin side contains the companion Bitwig controller extension used by the production Bitwig tempo-control path.
+The extension creates the Bitwig remote connection, writes its port into the selected plugin's `DAW Port` parameter, and
+applies incoming BPM updates to Bitwig's transport tempo.
+
 The project is still a work in progress. Tempo detection depends on play style and parameter tuning, and the host tempo
 feedback path is currently shaped around Bitwig integration.
 
 The core BPM evaluation lives in
-[crates/bpm_detection_core/src/bpm_detection.rs](crates/bpm_detection_core/src/bpm_detection.rs).
+[rust/crates/bpm_detection_core/src/bpm_detection.rs](rust/crates/bpm_detection_core/src/bpm_detection.rs).
+
+## Quick Start
+
+The full Bitwig tempo-control path needs both build roots:
+
+- the Rust CLAP/VST3 plugin, built from `rust/`;
+- the Kotlin Bitwig controller extension, built from `extension/`.
+
+### Prerequisites
+
+- Rust via [rustup](https://rustup.rs/).
+- The stable Rust toolchain selected by [rust/rust-toolchain.toml](rust/rust-toolchain.toml).
+- Nightly `rustfmt`, because [rust/rustfmt.toml](rust/rustfmt.toml) uses nightly-only formatting options.
+- A JDK available to run Gradle. The extension build targets JVM 17, and Gradle can auto-provision that toolchain.
+- Bitwig Studio.
+
+Install the Rust components:
+
+```shell
+cd rust
+rustup component add clippy rustfmt rust-src
+rustup toolchain install nightly --component rustfmt
+```
+
+Check the Rust toolchain:
+
+```shell
+./scripts/dev.sh doctor
+```
+
+Check the Gradle and Java setup from the Kotlin build root:
+
+```shell
+cd ../extension
+./gradlew --version
+./gradlew javaToolchains
+```
+
+### Build The Plugin
+
+```shell
+cd rust
+cargo xtask bundle midi-bpm-detector-plugin --release
+```
+
+The plugin bundles are written under:
+
+```text
+rust/target/bundled/
+```
+
+The release bundle command currently creates:
+
+```text
+rust/target/bundled/midi-bpm-detector-plugin.clap
+rust/target/bundled/midi-bpm-detector-plugin.vst3
+```
+
+### Build The Bitwig Extension
+
+```shell
+cd extension
+./gradlew packageBitwigExtension
+```
+
+The Bitwig extension package is written to:
+
+```text
+extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionExtension.bwextension
+```
+
+To copy it into the default Bitwig extensions folder for your user account:
+
+```shell
+./gradlew installBitwigExtension
+```
+
+The install task defaults to:
+
+```text
+${HOME}/Documents/Bitwig Studio/Extensions
+```
+
+You can override the install location with `-PbitwigExtensionsDir=...`, `BITWIG_EXTENSIONS_DIR`, or an ignored local
+`extension/gradle-local.properties` file. See [development commands](docs/development.md) for details.
+
+### Install In Bitwig
+
+Bitwig scans plug-ins from the folders configured in `Dashboard > Settings > Locations > Plug-in Locations`. Copy or
+symlink the bundled CLAP/VST3 plug-in into one of those folders, or add the bundle folder to Bitwig's plug-in locations,
+then let Bitwig rescan. Bitwig's user guide documents the Dashboard settings and plug-in locations in
+[The Dashboard](https://www.bitwig.com/userguide/latest/the_dashboard/) and plug-in behavior in
+[Plug-in Handling and Options](https://www.bitwig.com/userguide/latest/vst_plug-in_handling_and_options/).
+
+Install the `.bwextension` package with `./gradlew installBitwigExtension` or copy it into Bitwig's user extensions
+folder. In Bitwig, add the controller extension from `Dashboard > Settings > Controllers > Add`; it appears as the
+`Beat Detection Bitwig Extension` from `Midi BPM Detection`. Bitwig's user guide covers controller setup in
+[MIDI Controllers](https://www.bitwig.com/userguide/latest/midi_controllers/). Bitwig's official controller-extension
+repository also notes that the controller API guide and reference are available inside Bitwig Studio under
+`Help > Documentation > Developer Resources`: [bitwig/bitwig-extensions](https://github.com/bitwig/bitwig-extensions).
+
+### Use In Bitwig
+
+1. Load the Bitwig controller extension.
+2. Add the BPM detector plug-in to a track that receives MIDI notes.
+3. Select the plug-in device in Bitwig.
+4. Enable the plug-in's `Send tempo` parameter.
+
+The extension follows the currently selected device. When it recognizes this plug-in, it writes a localhost port into
+the plug-in's `DAW Port` parameter. The plug-in then sends detected BPM updates over that socket, and the extension
+applies them to Bitwig's transport tempo.
 
 ## Documentation
 
@@ -35,26 +150,9 @@ The core BPM evaluation lives in
 - [Runtime lifecycle](docs/runtime-lifecycle.md): bootstrap wiring and data flows between plugin, desktop, WASM, GUI, and
   BPM detection components.
 - [Plugin flow](docs/plugin-flow.md): host buffer processing, realtime handoff, background work, and tempo feedback.
+- [Bitwig tempo bridge](docs/bitwig-tempo-bridge.md): the narrow plugin-to-controller-extension contract used to set
+  Bitwig tempo, including the selected-device parameter rendezvous.
 - [Native MIDI flow](docs/native-midi-flow.md): desktop MIDI service, controller boundary, worker messages, and native
   MIDI output ownership.
 - [Algorithm archaeology](docs/algorithm-archaeology.md): the original tempo-detection idea and why the histogram exists.
 - [Development commands](docs/development.md): setup, formatting, checking, plugin bundling, and WASM demo commands.
-
-## Building And Using The CLAP/VST3 Plugin
-
-Bundle the plugin with:
-
-```shell
-cargo xtask bundle midi-bpm-detector-plugin --release
-```
-
-The plugin artifacts are written under `target/bundled` as `midi-bpm-detector-plugin.clap` and
-`midi-bpm-detector-plugin.vst3`.
-
-To control the host DAW tempo, the plugin needs a companion controller integration. The current Bitwig controller script
-is here:
-
-https://github.com/valsteen/bitwig-beat-detection-controller
-
-Load the controller script, add the CLAP plugin to the MIDI track, and select the plugin. The controller should detect it
-and set the plugin's `DAW Port` parameter for local TCP communication. Then enable `Send tempo`.

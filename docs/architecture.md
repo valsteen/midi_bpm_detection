@@ -8,7 +8,12 @@ AI agent understand the main boundaries before following the detailed runtime da
 The project estimates the tempo of incoming MIDI notes in realtime. The core algorithm compares intervals between recent
 notes, scores likely beat durations, and exposes the most likely BPM plus histogram data for visualization.
 
-The same BPM detection model is used in three operating modes:
+The repository has two build roots:
+
+- `rust`: the Cargo workspace for the BPM detector core, plugin, desktop app, WASM demo, and Rust tools.
+- `extension`: the Gradle workspace for the Bitwig controller extension that lets the plugin control Bitwig tempo.
+
+The same BPM detection model is used in three Rust operating modes:
 
 - `plugin`: a CLAP/VST3 plugin intended to run inside a DAW. This is the production target.
 - `desktop`: a native GUI development app.
@@ -17,6 +22,9 @@ The same BPM detection model is used in three operating modes:
 The main architectural goal is to keep these modes from importing unnecessary dependencies from each other. Each mode
 owns its host/runtime integration, while shared crates carry the algorithm, configuration shapes, reusable GUI, and small
 cross-platform abstractions.
+
+The production Bitwig tempo-control path spans both build roots: the Rust plugin estimates BPM and sends tempo updates
+over a localhost bridge, while the Kotlin Bitwig controller extension owns the Bitwig transport-tempo write.
 
 ## Terminology
 
@@ -105,68 +113,80 @@ runtime that wires them together.
 
 ### Core Domain
 
-- `crates/bpm_detection_core`
+- `rust/crates/bpm_detection_core`
   - Owns the BPM detection algorithm.
   - Defines the in-house note event shape consumed by the algorithm, static/dynamic BPM detection config, and BPM
     conversion helpers.
   - Does not depend on native MIDI runtimes or a MIDI protocol parser.
   - Exposes `BPMDetectionReceiver`, the callback boundary used to publish detected BPM and histogram data.
 
-- `crates/parameter`
+- `rust/crates/parameter`
   - Defines generic parameter metadata and value conversion helpers.
   - Keeps parameter description reusable across GUI, plugin, and core config code.
 
 ### Shared Infrastructure
 
-- `crates/sync`
+- `rust/crates/sync`
   - Provides synchronization aliases/wrappers that differ by target.
   - Keeps platform-specific lock/atomic choices out of higher-level crates.
 
-- `crates/errors`
+- `rust/crates/errors`
   - Centralizes error reporting, logging, panic handling, and tracing helpers.
 
-- `crates/build`
+- `rust/crates/build`
   - Provides build metadata and project directories shared by multiple binaries/crates.
 
 ### Shared GUI
 
-- `crates/gui`
+- `rust/crates/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
   - Defines `GuiRemote`, the cross-thread/task bridge used to push BPM/histogram updates into the UI.
   - Does not own a specific runtime mode; plugin, desktop, and WASM provide the surrounding application/runtime.
 
 ### Runtime Modes
 
-- `crates/midi-bpm-detector-plugin`
+- `rust/crates/midi-bpm-detector-plugin`
   - CLAP/VST3 integration via `nih-plug`.
   - Receives MIDI in the plugin `process` callback.
   - Parses host MIDI bytes at the plugin boundary and maps note-on events into the core note type.
   - Uses a fixed ring buffer and host background tasks so the realtime callback avoids expensive work.
   - Owns DAW/plugin parameter integration and optional tempo feedback to the Bitwig controller socket.
 
-- `crates/desktop`
+- `rust/crates/desktop`
   - Native desktop GUI app.
   - Owns native MIDI device selection and startup orchestration for desktop mode.
   - Uses `bpm_detection_midi::MidiService` through a desktop controller boundary.
   - Reuses the shared `gui` crate for visualization and configuration.
 
-- `crates/wasm`
+- `rust/crates/wasm`
   - Browser demo wrapper.
   - Uses Trunk, wasm-bindgen, browser MIDI/keyboard input, and the shared egui UI.
   - Uses async browser tasks and bounded channels instead of native threads.
 
-- `crates/midi-reset`
+- `rust/crates/midi-reset`
   - Small macOS utility for restarting CoreMIDI.
   - Kept separate from the main operating modes.
 
-- `crates/bpm_detection_midi`
+- `rust/crates/bpm_detection_midi`
   - Native MIDI runtime used by the desktop mode.
   - Owns MIDI device discovery/input, virtual MIDI output, SysEx control messages, playback clock emission, and the
     worker threads around `BPMDetection`.
   - Kept out of plugin and WASM builds so those modes do not inherit native MIDI service dependencies.
 
-- `crates/midi-bpm-detector-plugin/xtask`
+- `rust/crates/midi-bpm-detector-plugin/xtask`
   - Packaging helper for plugin bundles.
+
+### Bitwig Controller Extension
+
+- `extension/extensions/beat-detection-controller`
+  - Bitwig controller extension that creates the host remote connection.
+  - Writes the chosen port into the selected plugin's `DAW Port` parameter.
+  - Receives BPM payloads from the Rust plugin and applies them to Bitwig's transport tempo.
+
+- `extension/libs/bitwig-bootstrap`
+  - Shared Kotlin bootstrap helpers for Bitwig extension metadata and host logging.
+
+The plugin/extension rendezvous and socket frame are documented in [Bitwig tempo bridge](bitwig-tempo-bridge.md).
 
 ## Operating Mode Boundaries
 
@@ -239,9 +259,9 @@ The preferred direction is:
 - after bootstrap, peers communicate through the connection they actually need instead of returning to a universal bus.
 
 The tradeoff is that connections become more distributed. Bootstrap therefore becomes important documentation: it should
-read like clean configuration of the runtime graph, not like a second hidden orchestrator. If future runtime features
-need pluggable components, they should follow the same shape: discover compatible producers and consumers, connect them,
-then let that pair communicate through its own protocol.
+read like clean configuration of the runtime graph, not like a second hidden orchestrator. Pluggable components should
+follow the same shape: discover compatible producers and consumers, connect them, then let that pair communicate through
+its own protocol.
 
 Small explicit enums are still valid when the protocol is narrow and stable. `BpmWorkerCommand` is a good example: it
 belongs to one worker boundary and does not try to describe the whole application.
@@ -336,7 +356,7 @@ The current boundary is intentionally small: the worker task carries only the up
 recompute facts stay direct at the origin-specific call sites. This is not a generic parameter framework. Do not model a
 possible third origin or shared policy layer before production code needs it.
 
-## Open Architecture Questions
+## Change Review Checklist
 
 These points are worth re-checking when changing ownership, communication, or runtime boundaries:
 
@@ -352,8 +372,7 @@ These points are worth re-checking when changing ownership, communication, or ru
   for states that are not actually possible at a given boundary.
 - Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
   section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram. More detailed
-  sequence diagrams may still be useful later for flows that need code-level precision.
+- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram.
 
 ## Detailed Flow Notes
 

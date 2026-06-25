@@ -1,0 +1,41 @@
+config:
+  validation: true
+
+style:
+  ForbiddenComment:
+    active: true
+    comments:
+      - reason: 'Keep task markers out of committed code.'
+        value: 'TODO:'
+      - reason: 'Keep task markers out of committed code.'
+        value: 'FIXME:'
+      - reason: 'Keep task markers out of committed code.'
+        value: 'STOPSHIP:'
+  ForbiddenSuppress:
+    active: true
+    rules:
+      - 'ForbiddenComment'
+      - 'ForbiddenImport'
+      - 'LateinitUsage'
+      - 'MagicNumber'
+      - 'NullableBooleanCheck'
+      - 'OptionalUnit'
+      - 'ReturnCount'
+  ForbiddenImport:
+    active: true
+    forbiddenImports:
+      - 'kotlinx.coroutines.GlobalScope'
+  MagicNumber:
+    active: false
+  NullableBooleanCheck:
+    active: true
+  OptionalUnit:
+    active: true
+  RedundantVisibilityModifier:
+    active: false
+  ReturnCount:
+    active: false
+
+potential-bugs:
+  LateinitUsage:
+    active: true

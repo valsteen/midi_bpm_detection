@@ -9,7 +9,39 @@ env:
   CARGO_TERM_COLOR: always
   WASM_BINDGEN_CLI_VERSION: 0.2.125
 
+defaults:
+  run:
+    working-directory: rust
+
 jobs:
+  extension:
+    name: extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test extension
+        run: ./gradlew test
+
+      - name: Lint extension
+        run: ./gradlew spotlessCheck detekt
+
+      - name: Package extension
+        run: ./gradlew packageBitwigExtension
+
   format:
     name: format
     runs-on: ubuntu-latest
@@ -52,19 +84,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('rust/Cargo.lock') }}
 
       - name: Cache cargo index
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('rust/Cargo.lock') }}
 
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          path: rust/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-build-
             ${{ runner.os }}-cargo-build-
@@ -105,19 +137,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-wasm-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-wasm-cargo-registry-${{ hashFiles('rust/Cargo.lock') }}
 
       - name: Cache cargo index
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-wasm-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-wasm-cargo-index-${{ hashFiles('rust/Cargo.lock') }}
 
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-wasm-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          path: rust/target
+          key: ${{ runner.os }}-wasm-cargo-build-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-wasm-cargo-build-
             ${{ runner.os }}-cargo-build-
@@ -139,5 +171,5 @@ jobs:
         run: cargo clippy --locked -p wasm --target wasm32-unknown-unknown -- -D warnings
 
       - name: Build wasm app
-        working-directory: crates/wasm
+        working-directory: rust/crates/wasm
         run: NO_COLOR=false trunk build --locked

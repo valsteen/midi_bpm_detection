@@ -1,13 +1,36 @@
 # Development Commands
 
-This project has three main build modes:
+This project has one Rust workspace and one Kotlin/Gradle Bitwig extension workspace.
 
-- `desktop`: the native desktop GUI application in `crates/desktop`, sharing the `gui` crate.
-- `plugin`: the CLAP/VST3 plugin in `crates/midi-bpm-detector-plugin`.
-- `wasm`: the browser demo in `crates/wasm`.
+The Rust side has three main build modes:
 
-The root workspace default members are `desktop` and `midi-reset`. The plugin and wasm crates should be checked
+- `desktop`: the native desktop GUI application in `rust/crates/desktop`, sharing the `gui` crate.
+- `plugin`: the CLAP/VST3 plugin in `rust/crates/midi-bpm-detector-plugin`.
+- `wasm`: the browser demo in `rust/crates/wasm`.
+
+The Rust workspace lives under `rust/`. Unless a command says otherwise, run the Rust commands in this document from
+that directory:
+
+```shell
+cd rust
+```
+
+The Rust workspace default members are `desktop` and `midi-reset`. The plugin and wasm crates should be checked
 explicitly.
+
+The Bitwig controller extension workspace lives under `extension/`. Run extension commands from that directory:
+
+```shell
+cd extension
+```
+
+The extension build uses the Gradle wrapper. Gradle needs a JDK to run, and the Kotlin build targets JVM 17. Toolchain
+auto-download is enabled, so Gradle can provision JDK 17 when needed. Check what Gradle sees with:
+
+```shell
+./gradlew --version
+./gradlew javaToolchains
+```
 
 ## One Command Surface
 
@@ -121,7 +144,40 @@ cargo check -p midi-bpm-detector-plugin
 cargo xtask bundle midi-bpm-detector-plugin --release
 ```
 
-Bundled plugin artifacts are written under `target/bundled`.
+Bundled plugin artifacts are written under `rust/target/bundled` when viewed from the repository root.
+
+## Bitwig Controller Extension
+
+The companion Bitwig controller extension is a Gradle multi-project build under `extension/`.
+
+Useful commands:
+
+```shell
+./gradlew test
+./gradlew spotlessCheck detekt
+./gradlew packageBitwigExtension
+./gradlew printBitwigExtensionInstallDirectory
+./gradlew installBitwigExtension
+```
+
+`packageBitwigExtension` produces:
+
+```text
+extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionExtension.bwextension
+```
+
+`installBitwigExtension` resolves the local Bitwig extension directory in this order:
+
+1. `-PbitwigExtensionsDir=...`
+2. `BITWIG_EXTENSIONS_DIR`
+3. ignored `extension/gradle-local.properties`
+4. `${user.home}/Documents/Bitwig Studio/Extensions`
+
+To use a local file, copy `extension/gradle-local.properties.example` to `extension/gradle-local.properties` and set:
+
+```properties
+bitwigExtensionsDir=/Users/you/Documents/Bitwig Studio/Extensions
+```
 
 ## MIDI Reset Utility
 
