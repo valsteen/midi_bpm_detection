@@ -187,49 +187,55 @@ struct DynamicRemoteControlParams<'params, 'page, Page> {
     page: &'page mut Page,
 }
 
+impl<Page: RemoteControlsPage> DynamicRemoteControlParams<'_, '_, Page> {
+    fn add_plugin_on_off_param(&mut self, param: &PluginOnOffParam) {
+        self.page.add_param(param.param());
+    }
+}
+
 impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<()> for DynamicRemoteControlParams<'_, '_, Page> {
     fn beats_lookback(&mut self, _parameter: Parameter<(), u8>) {
         self.page.add_param(&self.params.beats_lookback);
     }
 
     fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.normal_distribution_weight.param());
+        self.add_plugin_on_off_param(&self.params.normal_distribution_weight);
     }
 
     fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.time_distance_weight.param());
+        self.add_plugin_on_off_param(&self.params.time_distance_weight);
     }
 
     fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.velocity_current_note_weight.param());
+        self.add_plugin_on_off_param(&self.params.velocity_current_note_weight);
     }
 
     fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.velocity_note_from_weight.param());
+        self.add_plugin_on_off_param(&self.params.velocity_note_from_weight);
     }
 
     fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.in_beat_range_weight.param());
+        self.add_plugin_on_off_param(&self.params.in_beat_range_weight);
     }
 
     fn multiplier_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.multiplier_weight.param());
+        self.add_plugin_on_off_param(&self.params.multiplier_weight);
     }
 
     fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.subdivision_weight.param());
+        self.add_plugin_on_off_param(&self.params.subdivision_weight);
     }
 
     fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.octave_distance_weight.param());
+        self.add_plugin_on_off_param(&self.params.octave_distance_weight);
     }
 
     fn pitch_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.pitch_distance_weight.param());
+        self.add_plugin_on_off_param(&self.params.pitch_distance_weight);
     }
 
     fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(self.params.high_tempo_bias_weight.param());
+        self.add_plugin_on_off_param(&self.params.high_tempo_bias_weight);
     }
 }
 
@@ -238,49 +244,64 @@ struct DynamicHostConfigReader<'params, 'config> {
     config: &'config mut DynamicBPMDetectionConfig,
 }
 
+impl DynamicHostConfigReader<'_, '_> {
+    fn read_plugin_on_off_param(param: &PluginOnOffParam, config_value: &mut OnOff<f32>) {
+        *config_value = param.read();
+    }
+}
+
 impl DynamicBPMDetectionParameterVisitor<()> for DynamicHostConfigReader<'_, '_> {
     fn beats_lookback(&mut self, _parameter: Parameter<(), u8>) {
         self.config.beats_lookback = self.params.beats_lookback.unmodulated_plain_value() as u8;
     }
 
     fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.normal_distribution_weight = self.params.normal_distribution_weight.read();
+        Self::read_plugin_on_off_param(
+            &self.params.normal_distribution_weight,
+            &mut self.config.normal_distribution_weight,
+        );
     }
 
     fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.time_distance_weight = self.params.time_distance_weight.read();
+        Self::read_plugin_on_off_param(&self.params.time_distance_weight, &mut self.config.time_distance_weight);
     }
 
     fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.velocity_current_note_weight = self.params.velocity_current_note_weight.read();
+        Self::read_plugin_on_off_param(
+            &self.params.velocity_current_note_weight,
+            &mut self.config.velocity_current_note_weight,
+        );
     }
 
     fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.velocity_note_from_weight = self.params.velocity_note_from_weight.read();
+        Self::read_plugin_on_off_param(
+            &self.params.velocity_note_from_weight,
+            &mut self.config.velocity_note_from_weight,
+        );
     }
 
     fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.in_beat_range_weight = self.params.in_beat_range_weight.read();
+        Self::read_plugin_on_off_param(&self.params.in_beat_range_weight, &mut self.config.in_beat_range_weight);
     }
 
     fn multiplier_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.multiplier_weight = self.params.multiplier_weight.read();
+        Self::read_plugin_on_off_param(&self.params.multiplier_weight, &mut self.config.multiplier_weight);
     }
 
     fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.subdivision_weight = self.params.subdivision_weight.read();
+        Self::read_plugin_on_off_param(&self.params.subdivision_weight, &mut self.config.subdivision_weight);
     }
 
     fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.octave_distance_weight = self.params.octave_distance_weight.read();
+        Self::read_plugin_on_off_param(&self.params.octave_distance_weight, &mut self.config.octave_distance_weight);
     }
 
     fn pitch_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.pitch_distance_weight = self.params.pitch_distance_weight.read();
+        Self::read_plugin_on_off_param(&self.params.pitch_distance_weight, &mut self.config.pitch_distance_weight);
     }
 
     fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.high_tempo_bias_weight = self.params.high_tempo_bias_weight.read();
+        Self::read_plugin_on_off_param(&self.params.high_tempo_bias_weight, &mut self.config.high_tempo_bias_weight);
     }
 }
 
