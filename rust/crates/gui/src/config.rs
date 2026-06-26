@@ -40,6 +40,24 @@ impl GUIConfigAccessor for () {
     }
 }
 
+impl GUIConfigAccessor for GUIConfig {
+    fn interpolation_duration(&self) -> Duration {
+        self.interpolation_duration
+    }
+
+    fn interpolation_curve(&self) -> f32 {
+        self.interpolation_curve
+    }
+
+    fn set_interpolation_duration(&mut self, val: Duration) {
+        self.interpolation_duration = val;
+    }
+
+    fn set_interpolation_curve(&mut self, val: f32) {
+        self.interpolation_curve = val;
+    }
+}
+
 pub type DefaultGUIParameters = GUIParameters<()>;
 
 impl Default for GUIConfig {

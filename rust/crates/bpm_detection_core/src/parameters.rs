@@ -88,6 +88,44 @@ impl StaticBPMDetectionConfigAccessor for () {
     }
 }
 
+impl StaticBPMDetectionConfigAccessor for StaticBPMDetectionConfig {
+    fn bpm_center(&self) -> f32 {
+        self.bpm_center
+    }
+
+    fn bpm_range(&self) -> u16 {
+        self.bpm_range
+    }
+
+    fn sample_rate(&self) -> u16 {
+        self.sample_rate
+    }
+
+    fn index_to_bpm(&self, index: usize) -> f32 {
+        Self::index_to_bpm(self, index)
+    }
+
+    fn highest_bpm(&self) -> f32 {
+        Self::highest_bpm(self)
+    }
+
+    fn lowest_bpm(&self) -> f32 {
+        Self::lowest_bpm(self)
+    }
+
+    fn set_bpm_center(&mut self, val: f32) {
+        self.bpm_center = val;
+    }
+
+    fn set_bpm_range(&mut self, val: u16) {
+        self.bpm_range = val;
+    }
+
+    fn set_sample_rate(&mut self, val: u16) {
+        self.sample_rate = val;
+    }
+}
+
 pub type DefaultStaticBPMDetectionParameters = StaticBPMDetectionParameters<()>;
 
 impl Default for StaticBPMDetectionConfig {
@@ -643,6 +681,40 @@ impl NormalDistributionConfigAccessor for () {
 
     fn set_resolution(&mut self, _: f32) {
         unimplemented!()
+    }
+}
+
+impl NormalDistributionConfigAccessor for NormalDistributionConfig {
+    fn std_dev(&self) -> f64 {
+        self.std_dev
+    }
+
+    fn factor(&self) -> f32 {
+        self.factor
+    }
+
+    fn cutoff(&self) -> f32 {
+        self.cutoff
+    }
+
+    fn resolution(&self) -> f32 {
+        self.resolution
+    }
+
+    fn set_std_dev(&mut self, val: f64) {
+        self.std_dev = val;
+    }
+
+    fn set_factor(&mut self, val: f32) {
+        self.factor = val;
+    }
+
+    fn set_cutoff(&mut self, val: f32) {
+        self.cutoff = val;
+    }
+
+    fn set_resolution(&mut self, val: f32) {
+        self.resolution = val;
     }
 }
 

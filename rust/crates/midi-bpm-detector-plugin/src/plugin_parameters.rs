@@ -8,11 +8,11 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DefaultDynamicBPMDetectionParameters, DefaultNormalDistributionParameters, DefaultStaticBPMDetectionParameters,
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
-    DynamicBPMDetectionParameters,
+    DefaultDynamicBPMDetectionParameters, DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor,
+    DynamicBPMDetectionParameterVisitor, DynamicBPMDetectionParameters, NormalDistributionConfig,
+    NormalDistributionParameters, StaticBPMDetectionConfig, StaticBPMDetectionParameters,
 };
-use gui::DefaultGUIParameters;
+use gui::{GUIConfig, GUIParameters};
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Param, Params, persist},
     prelude::{FloatRange, IntRange, ParamPtr, ParamSetter, RemoteControlsPage},
@@ -25,6 +25,9 @@ use sync::ArcAtomicOptionNonZeroU16;
 use crate::{DeferredConfigUpdate, bpm_detector_configuration::PluginConfig};
 
 type DynamicConfigParameters = DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>;
+type GuiConfigParameters = GUIParameters<GUIConfig>;
+type StaticConfigParameters = StaticBPMDetectionParameters<StaticBPMDetectionConfig>;
+type NormalDistributionConfigParameters = NormalDistributionParameters<NormalDistributionConfig>;
 
 #[derive(Params)]
 pub struct PluginGUIParams {
@@ -360,43 +363,62 @@ impl MidiBpmDetectorParams {
                 }),
             ),
             gui_params: PluginGUIParams {
-                interpolation_duration: DefaultGUIParameters::INTERPOLATION_DURATION
-                    .to_param(config.gui_config.interpolation_duration, &update_dynamic_changed_at_f32),
-                interpolation_curve: DefaultGUIParameters::INTERPOLATION_CURVE
-                    .to_param(config.gui_config.interpolation_curve, &update_dynamic_changed_at_f32),
+                interpolation_duration: to_plugin_duration_param(
+                    &GuiConfigParameters::INTERPOLATION_DURATION,
+                    &config.gui_config,
+                    &update_dynamic_changed_at_f32,
+                ),
+                interpolation_curve: to_plugin_float_param(
+                    &GuiConfigParameters::INTERPOLATION_CURVE,
+                    &config.gui_config,
+                    &update_dynamic_changed_at_f32,
+                ),
             },
             static_params: PluginStaticParams {
-                bpm_center: DefaultStaticBPMDetectionParameters::BPM_CENTER
-                    .to_param(config.static_bpm_detection_config.bpm_center, &update_static_changed_at_f32),
-                bpm_range: DefaultStaticBPMDetectionParameters::BPM_RANGE
-                    .to_param(config.static_bpm_detection_config.bpm_range, &update_static_changed_at_u16),
-                sample_rate: u16_range_to_logarithmic_param(
-                    &DefaultStaticBPMDetectionParameters::SAMPLE_RATE,
-                    config.static_bpm_detection_config.sample_rate,
+                bpm_center: to_plugin_float_param(
+                    &StaticConfigParameters::BPM_CENTER,
+                    &config.static_bpm_detection_config,
+                    &update_static_changed_at_f32,
+                ),
+                bpm_range: to_plugin_int_param(
+                    &StaticConfigParameters::BPM_RANGE,
+                    &config.static_bpm_detection_config,
+                    &update_static_changed_at_u16,
+                ),
+                sample_rate: to_plugin_u16_logarithmic_param(
+                    &StaticConfigParameters::SAMPLE_RATE,
+                    &config.static_bpm_detection_config,
                     &update_static_changed_at_f32,
                 ),
                 normal_distribution: NormalDistributionParams {
-                    std_dev: DefaultNormalDistributionParameters::STD_DEV.to_param(
-                        config.static_bpm_detection_config.normal_distribution.std_dev,
+                    std_dev: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::STD_DEV,
+                        &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    factor: DefaultNormalDistributionParameters::FACTOR.to_param(
-                        config.static_bpm_detection_config.normal_distribution.factor,
+                    factor: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::FACTOR,
+                        &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    cutoff: DefaultNormalDistributionParameters::CUTOFF.to_param(
-                        config.static_bpm_detection_config.normal_distribution.cutoff,
+                    cutoff: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::CUTOFF,
+                        &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    resolution: DefaultNormalDistributionParameters::RESOLUTION.to_param(
-                        config.static_bpm_detection_config.normal_distribution.resolution,
+                    resolution: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::RESOLUTION,
+                        &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
                 },
             },
             dynamic_params: PluginDynamicParams {
-                beats_lookback: DefaultDynamicBPMDetectionParameters::BEATS_LOOKBACK
-                    .to_param(config.dynamic_bpm_detection_config.beats_lookback, &update_dynamic_changed_at_u8),
+                beats_lookback: to_plugin_int_param(
+                    &DynamicConfigParameters::BEATS_LOOKBACK,
+                    dynamic_parameters,
+                    &update_dynamic_changed_at_u8,
+                ),
                 normal_distribution_weight: to_plugin_on_off_param(
                     "normal_distribution_weight",
                     &DynamicConfigParameters::NORMAL_DISTRIBUTION_WEIGHT,
@@ -487,6 +509,51 @@ fn to_plugin_on_off_param<Config: DynamicBPMDetectionConfigAccessor>(
     PluginOnOffParam::new(id, parameter.to_param(value, callback), value)
 }
 
+fn to_plugin_float_param<Config, ValueType>(
+    parameter: &Parameter<Config, ValueType>,
+    config: &Config,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+) -> FloatParam
+where
+    Parameter<Config, ValueType>: ToParam<ValueType, Param = FloatParam, ParamType = f32>,
+{
+    let value = (parameter.get)(config);
+
+    parameter.to_param(value, callback)
+}
+
+fn to_plugin_duration_param<Config>(
+    parameter: &Parameter<Config, Duration>,
+    config: &Config,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+) -> FloatParam
+where
+    Parameter<Config, Duration>: ToParam<Duration, Param = FloatParam, ParamType = f32>,
+{
+    to_plugin_float_param(parameter, config, callback)
+}
+
+fn to_plugin_int_param<Config, ValueType>(
+    parameter: &Parameter<Config, ValueType>,
+    config: &Config,
+    callback: &Arc<dyn Fn(i32) + Send + Sync>,
+) -> IntParam
+where
+    Parameter<Config, ValueType>: ToParam<ValueType, Param = IntParam, ParamType = i32>,
+{
+    let value = (parameter.get)(config);
+
+    parameter.to_param(value, callback)
+}
+
+fn to_plugin_u16_logarithmic_param<Config>(
+    parameter: &Parameter<Config, u16>,
+    config: &Config,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+) -> FloatParam {
+    u16_range_to_logarithmic_param(parameter, (parameter.get)(config), callback)
+}
+
 pub fn apply_float_param<V>(param: &FloatParam, value: V, setter: &ParamSetter)
 where
     V: 'static + ToPrimitive + Copy,
@@ -522,7 +589,7 @@ pub fn apply_duration_param(param: &FloatParam, value: Duration, setter: &ParamS
 
 macro_rules! impl_to_param_for_float {
     ($float_type:ty) => {
-        impl ToParam<$float_type> for Parameter<(), $float_type> {
+        impl<Config> ToParam<$float_type> for Parameter<Config, $float_type> {
             type Param = FloatParam;
             type ParamType = f32;
             type Type = $float_type;
@@ -550,7 +617,7 @@ macro_rules! impl_to_param_for_float {
 
 macro_rules! impl_to_param_for_integer {
     ($int_type:ty) => {
-        impl ToParam<$int_type> for Parameter<(), $int_type> {
+        impl<Config> ToParam<$int_type> for Parameter<Config, $int_type> {
             type Param = IntParam;
             type ParamType = i32;
             type Type = i32;
@@ -594,7 +661,7 @@ fn build_float_param<Config, ValueType>(
     float_param.with_value_to_string(Arc::new(|value| format!("{value:.2}")))
 }
 
-impl ToParam<Duration> for Parameter<(), Duration> {
+impl<Config> ToParam<Duration> for Parameter<Config, Duration> {
     type Param = FloatParam;
     type ParamType = f32;
     type Type = f32;
@@ -620,8 +687,8 @@ impl_to_param_for_float!(f64);
 impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
 
-pub fn u16_range_to_logarithmic_param(
-    parameter: &Parameter<(), u16>,
+pub fn u16_range_to_logarithmic_param<Config>(
+    parameter: &Parameter<Config, u16>,
     val: u16,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> FloatParam {
@@ -645,7 +712,11 @@ pub fn u16_range_to_logarithmic_param(
 mod tests {
     use std::sync::{Arc, atomic::AtomicUsize};
 
-    use bpm_detection_core::parameters::DynamicBPMDetectionConfig;
+    use bpm_detection_core::parameters::{
+        DynamicBPMDetectionConfig, NormalDistributionConfig, NormalDistributionParameters, StaticBPMDetectionConfig,
+        StaticBPMDetectionParameters,
+    };
+    use gui::{GUIConfig, GUIParameters};
     use nih_plug::prelude::{Params, RemoteControlsPage};
 
     use super::*;
@@ -659,6 +730,10 @@ mod tests {
         }
 
         fn add_spacer(&mut self) {}
+    }
+
+    fn assert_float_eq(actual: f32, expected: f32) {
+        assert!((actual - expected).abs() < f32::EPSILON, "{actual} != {expected}");
     }
 
     #[test]
@@ -691,6 +766,46 @@ mod tests {
         );
 
         assert_eq!(plugin_param.read(), OnOff::Off(1.5));
+    }
+
+    #[test]
+    fn plugin_int_param_uses_parameter_accessor_to_read_initial_value() {
+        let callback: Arc<dyn Fn(i32) + Send + Sync> = Arc::new(|_: i32| {});
+        let config = DynamicBPMDetectionConfig { beats_lookback: 13, ..Default::default() };
+
+        let plugin_param = to_plugin_int_param(&DynamicConfigParameters::BEATS_LOOKBACK, &config, &callback);
+
+        assert_eq!(plugin_param.unmodulated_plain_value(), 13);
+    }
+
+    #[test]
+    fn plugin_params_use_parameter_accessors_to_read_initial_values() {
+        let update_f32: Arc<dyn Fn(f32) + Send + Sync> = Arc::new(|_: f32| {});
+        let update_i32: Arc<dyn Fn(i32) + Send + Sync> = Arc::new(|_: i32| {});
+        let gui_config = GUIConfig { interpolation_duration: Duration::from_millis(820), interpolation_curve: 1.25 };
+        let static_config =
+            StaticBPMDetectionConfig { bpm_center: 111.5, bpm_range: 48, sample_rate: 720, ..Default::default() };
+        let normal_distribution_config = NormalDistributionConfig { std_dev: 18.0, factor: 41.0, ..Default::default() };
+
+        let interpolation_duration =
+            to_plugin_duration_param(&GUIParameters::INTERPOLATION_DURATION, &gui_config, &update_f32);
+        let interpolation_curve = to_plugin_float_param(&GUIParameters::INTERPOLATION_CURVE, &gui_config, &update_f32);
+        let bpm_center = to_plugin_float_param(&StaticBPMDetectionParameters::BPM_CENTER, &static_config, &update_f32);
+        let bpm_range = to_plugin_int_param(&StaticBPMDetectionParameters::BPM_RANGE, &static_config, &update_i32);
+        let sample_rate =
+            to_plugin_u16_logarithmic_param(&StaticBPMDetectionParameters::SAMPLE_RATE, &static_config, &update_f32);
+        let std_dev =
+            to_plugin_float_param(&NormalDistributionParameters::STD_DEV, &normal_distribution_config, &update_f32);
+        let factor =
+            to_plugin_float_param(&NormalDistributionParameters::FACTOR, &normal_distribution_config, &update_f32);
+
+        assert_float_eq(interpolation_duration.unmodulated_plain_value(), 0.82);
+        assert_float_eq(interpolation_curve.unmodulated_plain_value(), 1.25);
+        assert_float_eq(bpm_center.unmodulated_plain_value(), 111.5);
+        assert_eq!(bpm_range.unmodulated_plain_value(), 48);
+        assert_float_eq(sample_rate.unmodulated_plain_value(), 720.0);
+        assert_float_eq(std_dev.unmodulated_plain_value(), 18.0);
+        assert_float_eq(factor.unmodulated_plain_value(), 41.0);
     }
 
     #[test]
