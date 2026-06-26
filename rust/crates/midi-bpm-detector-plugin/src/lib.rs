@@ -7,6 +7,8 @@
 mod bpm_detector_configuration;
 mod gui;
 mod parameter_sync;
+mod plugin_config;
+mod plugin_parameter_adapters;
 mod plugin_parameters;
 mod task_executor;
 
@@ -32,9 +34,9 @@ use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Sp
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
 
 use crate::{
-    bpm_detector_configuration::PluginConfig,
     gui::GuiEditor,
     parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
+    plugin_config::PluginConfig,
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task},
 };
@@ -436,16 +438,7 @@ impl ClapPlugin for MidiBpmDetector {
         });
         context.add_section("Dynamic parameters", |section| {
             section.add_page("Dynamic parameters", |page| {
-                page.add_param(&self.params.dynamic_params.beats_lookback);
-                page.add_param(&self.params.dynamic_params.velocity_current_note_weight);
-                page.add_param(&self.params.dynamic_params.velocity_note_from_weight);
-                page.add_param(&self.params.dynamic_params.time_distance_weight);
-                page.add_param(&self.params.dynamic_params.octave_distance_weight);
-                page.add_param(&self.params.dynamic_params.pitch_distance_weight);
-                page.add_param(&self.params.dynamic_params.multiplier_weight);
-                page.add_param(&self.params.dynamic_params.subdivision_weight);
-                page.add_param(&self.params.dynamic_params.normal_distribution_weight);
-                page.add_param(&self.params.dynamic_params.high_tempo_bias);
+                self.params.dynamic_params.add_remote_controls(page);
             });
         });
     }

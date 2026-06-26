@@ -25,6 +25,7 @@ mod worker;
 mod worker_command;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MidiServiceConfig {
     pub device_name: String,
     pub send_tempo: ArcAtomicBool,

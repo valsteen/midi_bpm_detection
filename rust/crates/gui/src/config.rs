@@ -4,7 +4,7 @@ use parameter::Parameter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct GUIConfig {
     pub interpolation_duration: Duration,
 
@@ -40,7 +40,34 @@ impl GUIConfigAccessor for () {
     }
 }
 
+impl GUIConfigAccessor for GUIConfig {
+    fn interpolation_duration(&self) -> Duration {
+        self.interpolation_duration
+    }
+
+    fn interpolation_curve(&self) -> f32 {
+        self.interpolation_curve
+    }
+
+    fn set_interpolation_duration(&mut self, val: Duration) {
+        self.interpolation_duration = val;
+    }
+
+    fn set_interpolation_curve(&mut self, val: f32) {
+        self.interpolation_curve = val;
+    }
+}
+
 pub type DefaultGUIParameters = GUIParameters<()>;
+
+impl GUIConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        GUIParameters::<Self>::INTERPOLATION_DURATION.validate_config_value(self)?;
+        GUIParameters::<Self>::INTERPOLATION_CURVE.validate_config_value(self)?;
+
+        Ok(())
+    }
+}
 
 impl Default for GUIConfig {
     fn default() -> Self {
