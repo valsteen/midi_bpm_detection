@@ -9,7 +9,8 @@ use std::{
 
 use bpm_detection_core::parameters::{
     DefaultDynamicBPMDetectionParameters, DefaultNormalDistributionParameters, DefaultStaticBPMDetectionParameters,
-    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor,
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
+    DynamicBPMDetectionParameters,
 };
 use gui::DefaultGUIParameters;
 use nih_plug::{
@@ -22,6 +23,8 @@ use parameter::{OnOff, Parameter};
 use sync::ArcAtomicOptionNonZeroU16;
 
 use crate::{DeferredConfigUpdate, bpm_detector_configuration::PluginConfig};
+
+type DynamicConfigParameters = DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>;
 
 #[derive(Params)]
 pub struct PluginGUIParams {
@@ -344,6 +347,7 @@ impl MidiBpmDetectorParams {
         let update_static_changed_at_u16 = static_updater_factory.update_changed_at();
         let update_dynamic_changed_at_f32 = dynamic_updater_factory.update_changed_at();
         let update_dynamic_changed_at_u8 = dynamic_updater_factory.update_changed_at();
+        let dynamic_parameters = &config.dynamic_bpm_detection_config;
 
         Self {
             editor_state: EguiState::from_size(1200, 600),
@@ -395,62 +399,62 @@ impl MidiBpmDetectorParams {
                     .to_param(config.dynamic_bpm_detection_config.beats_lookback, &update_dynamic_changed_at_u8),
                 normal_distribution_weight: to_plugin_on_off_param(
                     "normal_distribution_weight",
-                    &DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION_WEIGHT,
-                    config.dynamic_bpm_detection_config.normal_distribution_weight,
+                    &DynamicConfigParameters::NORMAL_DISTRIBUTION_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 time_distance_weight: to_plugin_on_off_param(
                     "time_distance_weight",
-                    &DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT,
-                    config.dynamic_bpm_detection_config.time_distance_weight,
+                    &DynamicConfigParameters::TIME_DISTANCE_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 velocity_current_note_weight: to_plugin_on_off_param(
                     "velocity_current_note_weight",
-                    &DefaultDynamicBPMDetectionParameters::VELOCITY_CURRENT_NOTE_WEIGHT,
-                    config.dynamic_bpm_detection_config.velocity_current_note_weight,
+                    &DynamicConfigParameters::VELOCITY_CURRENT_NOTE_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 velocity_note_from_weight: to_plugin_on_off_param(
                     "velocity_note_from_weight",
-                    &DefaultDynamicBPMDetectionParameters::VELOCITY_NOTE_FROM_WEIGHT,
-                    config.dynamic_bpm_detection_config.velocity_note_from_weight,
+                    &DynamicConfigParameters::VELOCITY_NOTE_FROM_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 in_beat_range_weight: to_plugin_on_off_param(
                     "in_beat_range_weight",
-                    &DefaultDynamicBPMDetectionParameters::IN_BEAT_RANGE_WEIGHT,
-                    config.dynamic_bpm_detection_config.in_beat_range_weight,
+                    &DynamicConfigParameters::IN_BEAT_RANGE_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 multiplier_weight: to_plugin_on_off_param(
                     "multiplier_weight",
-                    &DefaultDynamicBPMDetectionParameters::MULTIPLIER_WEIGHT,
-                    config.dynamic_bpm_detection_config.multiplier_weight,
+                    &DynamicConfigParameters::MULTIPLIER_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 subdivision_weight: to_plugin_on_off_param(
                     "subdivision_weight",
-                    &DefaultDynamicBPMDetectionParameters::SUBDIVISION_WEIGHT,
-                    config.dynamic_bpm_detection_config.subdivision_weight,
+                    &DynamicConfigParameters::SUBDIVISION_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 octave_distance_weight: to_plugin_on_off_param(
                     "octave_distance_weight",
-                    &DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE_WEIGHT,
-                    config.dynamic_bpm_detection_config.octave_distance_weight,
+                    &DynamicConfigParameters::OCTAVE_DISTANCE_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 pitch_distance_weight: to_plugin_on_off_param(
                     "pitch_distance_weight",
-                    &DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE_WEIGHT,
-                    config.dynamic_bpm_detection_config.pitch_distance_weight,
+                    &DynamicConfigParameters::PITCH_DISTANCE_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
                 high_tempo_bias_weight: to_plugin_on_off_param(
                     "high_tempo_bias_weight",
-                    &DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS_WEIGHT,
-                    config.dynamic_bpm_detection_config.high_tempo_bias_weight,
+                    &DynamicConfigParameters::HIGH_TEMPO_BIAS_WEIGHT,
+                    dynamic_parameters,
                     &update_dynamic_changed_at_f32,
                 ),
             },
@@ -472,12 +476,14 @@ pub trait ToParam<ValueType> {
     fn to_param(&self, val: ValueType, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param;
 }
 
-fn to_plugin_on_off_param(
+fn to_plugin_on_off_param<Config: DynamicBPMDetectionConfigAccessor>(
     id: &'static str,
-    parameter: &Parameter<(), OnOff<f32>>,
-    value: OnOff<f32>,
+    parameter: &Parameter<Config, OnOff<f32>>,
+    config: &Config,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> PluginOnOffParam {
+    let value = (parameter.get)(config);
+
     PluginOnOffParam::new(id, parameter.to_param(value, callback), value)
 }
 
@@ -565,8 +571,8 @@ macro_rules! impl_to_param_for_integer {
     };
 }
 
-fn build_float_param<ValueType>(
-    param: &Parameter<(), ValueType>,
+fn build_float_param<Config, ValueType>(
+    param: &Parameter<Config, ValueType>,
     val: f32,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> FloatParam {
@@ -598,7 +604,7 @@ impl ToParam<Duration> for Parameter<(), Duration> {
     }
 }
 
-impl ToParam<OnOff<f32>> for Parameter<(), OnOff<f32>> {
+impl<Config> ToParam<OnOff<f32>> for Parameter<Config, OnOff<f32>> {
     type Param = FloatParam;
     type ParamType = f32;
     type Type = f32;
@@ -669,6 +675,21 @@ mod tests {
 
         assert_eq!(param_ids, ["time_distance_weight"]);
         assert_eq!(serialized["time_distance_weight_onoff"], "false");
+        assert_eq!(plugin_param.read(), OnOff::Off(1.5));
+    }
+
+    #[test]
+    fn plugin_on_off_param_uses_parameter_accessor_to_read_initial_value() {
+        let callback: Arc<dyn Fn(f32) + Send + Sync> = Arc::new(|_: f32| {});
+        let config = DynamicBPMDetectionConfig { time_distance_weight: OnOff::Off(1.5), ..Default::default() };
+
+        let plugin_param = to_plugin_on_off_param(
+            "time_distance_weight",
+            &DynamicConfigParameters::TIME_DISTANCE_WEIGHT,
+            &config,
+            &callback,
+        );
+
         assert_eq!(plugin_param.read(), OnOff::Off(1.5));
     }
 
