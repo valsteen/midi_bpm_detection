@@ -7,6 +7,8 @@
 mod bpm_detector_configuration;
 mod gui;
 mod parameter_sync;
+mod plugin_config;
+mod plugin_parameter_adapters;
 mod plugin_parameters;
 mod task_executor;
 
@@ -32,9 +34,9 @@ use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Sp
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
 
 use crate::{
-    bpm_detector_configuration::PluginConfig,
     gui::GuiEditor,
     parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
+    plugin_config::PluginConfig,
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task},
 };

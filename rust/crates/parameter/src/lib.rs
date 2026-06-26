@@ -37,6 +37,22 @@ impl<Config, ValueType> Parameter<Config, ValueType> {
     }
 }
 
+impl<Config, ValueType: Asf64> Parameter<Config, ValueType> {
+    pub fn validate_config_value(&self, config: &Config) -> Result<(), String> {
+        let value = (self.get)(config).as_f64();
+        if self.range.contains(&value) {
+            return Ok(());
+        }
+
+        Err(format!(
+            "{} value {value} is outside declared range {}..={}",
+            self.label,
+            self.range.start(),
+            self.range.end()
+        ))
+    }
+}
+
 pub trait Asf64 {
     fn as_f64(&self) -> f64;
     fn set_from_f64(&mut self, value: f64);
@@ -248,6 +264,23 @@ where
             OnOff::On(_) => true,
             OnOff::Off(_) => false,
         }
+    }
+}
+
+impl<T> Asf64 for OnOff<T>
+where
+    T: Asf64 + Copy,
+{
+    fn as_f64(&self) -> f64 {
+        self.value().as_f64()
+    }
+
+    fn set_from_f64(&mut self, value: f64) {
+        *self = Self::new(self.is_enabled(), T::new_from(value));
+    }
+
+    fn new_from(value: f64) -> Self {
+        Self::On(T::new_from(value))
     }
 }
 

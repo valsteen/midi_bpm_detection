@@ -53,7 +53,18 @@ impl DesktopConfig {
                 config::File::from(config_dir.join("config.toml")).format(config::FileFormat::Toml).required(false),
             );
 
-        Ok(builder.build()?.try_deserialize()?)
+        let config: Self = builder.build()?.try_deserialize()?;
+        config.validate().map_err(ConfigError::Message)?;
+
+        Ok(config)
+    }
+
+    fn validate(&self) -> std::result::Result<(), String> {
+        self.gui_config.validate()?;
+        self.static_bpm_detection_config.validate()?;
+        self.dynamic_bpm_detection_config.validate()?;
+
+        Ok(())
     }
 
     /// Persist the user-editable desktop configuration to the configured config directory.

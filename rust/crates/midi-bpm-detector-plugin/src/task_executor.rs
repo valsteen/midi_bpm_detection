@@ -16,7 +16,7 @@ use nih_plug::params::Param;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
-use crate::{MidiBpmDetectorParams, bpm_detector_configuration::PluginConfig, parameter_sync::ParameterSyncOrigin};
+use crate::{MidiBpmDetectorParams, parameter_sync::ParameterSyncOrigin, plugin_config::PluginConfig};
 
 const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);

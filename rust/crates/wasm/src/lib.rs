@@ -22,11 +22,30 @@ pub mod wasm;
 const CONFIG: &str = include_str!("../config/base_config.toml");
 
 #[derive(Clone, Derivative, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WASMConfig {
     #[serde(rename = "GUI")]
     pub gui_config: GUIConfig,
     pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     pub static_bpm_detection_config: StaticBPMDetectionConfig,
+}
+
+impl WASMConfig {
+    fn from_toml(config: &str) -> Result<Self, String> {
+        let config =
+            toml::de::Deserializer::parse(config).and_then(Self::deserialize).map_err(|err| err.to_string())?;
+        config.validate()?;
+
+        Ok(config)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        self.gui_config.validate()?;
+        self.static_bpm_detection_config.validate()?;
+        self.dynamic_bpm_detection_config.validate()?;
+
+        Ok(())
+    }
 }
 
 enum QueueItem {
@@ -272,7 +291,7 @@ impl BPMDetectionConfig for BaseConfig {
 
 impl Default for WASMConfig {
     fn default() -> Self {
-        match toml::de::Deserializer::parse(CONFIG).and_then(WASMConfig::deserialize) {
+        match Self::from_toml(CONFIG) {
             Ok(config) => config,
             Err(err) => {
                 error_backtrace!("{err}");

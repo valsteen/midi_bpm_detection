@@ -7,9 +7,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::DurationOps;
 
+struct ConfigParameterValidator<'config, Config> {
+    config: &'config Config,
+    result: Result<(), String>,
+}
+
+impl<'config, Config> ConfigParameterValidator<'config, Config> {
+    fn new(config: &'config Config) -> Self {
+        Self { config, result: Ok(()) }
+    }
+
+    fn validate<ValueType: Asf64>(&mut self, parameter: &Parameter<Config, ValueType>) {
+        if self.result.is_ok() {
+            self.result = parameter.validate_config_value(self.config);
+        }
+    }
+
+    fn finish(self) -> Result<(), String> {
+        self.result
+    }
+}
+
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct StaticBPMDetectionConfig {
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub bpm_center: f32,
@@ -20,6 +41,15 @@ pub struct StaticBPMDetectionConfig {
 }
 
 impl StaticBPMDetectionConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        StaticBPMDetectionParameters::<Self>::BPM_CENTER.validate_config_value(self)?;
+        StaticBPMDetectionParameters::<Self>::BPM_RANGE.validate_config_value(self)?;
+        StaticBPMDetectionParameters::<Self>::SAMPLE_RATE.validate_config_value(self)?;
+        self.normal_distribution.validate()?;
+
+        Ok(())
+    }
+
     #[inline]
     #[must_use]
     pub fn index_to_bpm(&self, index: usize) -> f32 {
@@ -162,7 +192,7 @@ impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameters<Conf
 
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct DynamicBPMDetectionConfig {
     pub beats_lookback: u8,
     pub normal_distribution_weight: OnOff<f32>,
@@ -385,6 +415,14 @@ impl DynamicBPMDetectionConfigAccessor for DynamicBPMDetectionConfig {
 
 pub type DefaultDynamicBPMDetectionParameters = DynamicBPMDetectionParameters<()>;
 
+impl DynamicBPMDetectionConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        let mut validator = ConfigParameterValidator::new(self);
+        DynamicBPMDetectionParameters::<Self>::visit(&mut validator);
+        validator.finish()
+    }
+}
+
 impl Default for DynamicBPMDetectionConfig {
     fn default() -> Self {
         Self {
@@ -408,17 +446,59 @@ pub struct DynamicBPMDetectionParameters<Config> {
 }
 
 pub trait DynamicBPMDetectionParameterVisitor<Config: DynamicBPMDetectionConfigAccessor> {
-    fn beats_lookback(&mut self, parameter: Parameter<Config, u8>);
-    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn velocity_current_note_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn in_beat_range_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn multiplier_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn octave_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn pitch_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn high_tempo_bias_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
+    fn parameter<ValueType: Asf64>(&mut self, _parameter: Parameter<Config, ValueType>) {}
+
+    fn beats_lookback(&mut self, parameter: Parameter<Config, u8>) {
+        self.parameter(parameter);
+    }
+
+    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn velocity_current_note_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn in_beat_range_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn multiplier_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn octave_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn pitch_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+
+    fn high_tempo_bias_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.parameter(parameter);
+    }
+}
+
+impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisitor<Config>
+    for ConfigParameterValidator<'_, Config>
+{
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<Config, ValueType>) {
+        self.validate(&parameter);
+    }
 }
 
 impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameters<Config> {
@@ -626,7 +706,7 @@ pub fn max_histogram_data_buffer_size() -> usize {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Derivative)]
 #[derivative(PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct NormalDistributionConfig {
     #[derivative(PartialEq(compare_with = "f64::eq"))]
     pub std_dev: f64,
@@ -719,6 +799,17 @@ impl NormalDistributionConfigAccessor for NormalDistributionConfig {
 }
 
 pub type DefaultNormalDistributionParameters = NormalDistributionParameters<()>;
+
+impl NormalDistributionConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        NormalDistributionParameters::<Self>::STD_DEV.validate_config_value(self)?;
+        NormalDistributionParameters::<Self>::FACTOR.validate_config_value(self)?;
+        NormalDistributionParameters::<Self>::CUTOFF.validate_config_value(self)?;
+        NormalDistributionParameters::<Self>::RESOLUTION.validate_config_value(self)?;
+
+        Ok(())
+    }
+}
 
 impl Default for NormalDistributionConfig {
     fn default() -> Self {

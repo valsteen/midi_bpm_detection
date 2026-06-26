@@ -4,44 +4,20 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor,
-    StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
 };
-use errors::{error_backtrace, info};
-use gui::{BPMDetectionConfig, GUIConfig, GUIConfigAccessor};
+use errors::info;
+use gui::{BPMDetectionConfig, GUIConfigAccessor};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use parameter::OnOff;
-use serde::{Deserialize, Serialize};
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
     parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
-    plugin_parameters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
+    plugin_config::PluginConfig,
+    plugin_parameter_adapters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
 };
-
-const CONFIG: &str = include_str!("../config/base_config.toml");
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PluginConfig {
-    #[serde(rename = "GUI")]
-    pub gui_config: GUIConfig,
-    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    pub static_bpm_detection_config: StaticBPMDetectionConfig,
-    pub send_tempo: ArcAtomicBool,
-}
-
-impl Default for PluginConfig {
-    fn default() -> Self {
-        match toml::de::Deserializer::parse(CONFIG).and_then(PluginConfig::deserialize) {
-            Ok(config) => config,
-            Err(err) => {
-                error_backtrace!("{err}");
-                panic!("invalid built-in configuration");
-            }
-        }
-    }
-}
 
 pub struct BaseConfig {
     pub config: PluginConfig,
