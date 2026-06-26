@@ -24,17 +24,7 @@ impl BPMDetectionGUI {
             slide_adder.add(&NormalDistributionParameters::CUTOFF);
             slide_adder.add(&NormalDistributionParameters::FACTOR);
 
-            slide_adder.add(&DynamicBPMDetectionParameters::BEATS_LOOKBACK);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::NORMAL_DISTRIBUTION);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::TIME_DISTANCE);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::CURRENT_VELOCITY);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::VELOCITY_FROM);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::IN_RANGE);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::MULTIPLIER_FACTOR);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::SUBDIVISION_FACTOR);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::OCTAVE_DISTANCE);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::PITCH_DISTANCE);
-            slide_adder.add_on_off(&DynamicBPMDetectionParameters::HIGH_TEMPO_BIAS);
+            DynamicBPMDetectionParameters::visit(&mut slide_adder);
 
             let mut send_tempo_enabled = config.get_send_tempo();
             if ui.toggle_value(&mut send_tempo_enabled, "Send tempo").changed() {

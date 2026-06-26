@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bpm_detection_core::parameters::{DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor};
 use eframe::{
     egui,
     egui::{Slider, SliderClamping},
@@ -103,5 +104,70 @@ impl<Config> SlideAdder<'_, Config> {
 
             current_value.value().as_f64()
         });
+    }
+}
+
+impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisitor<Config> for SlideAdder<'_, Config> {
+    fn beats_lookback(&mut self, parameter: Parameter<Config, u8>) {
+        self.add(&parameter);
+    }
+
+    fn velocity_current_note_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn high_tempo_bias(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn in_beat_range_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn multiplier_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn octave_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn pitch_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bpm_detection_core::parameters::{DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor};
+
+    use super::*;
+
+    fn assert_dynamic_parameter_visitor<Config>()
+    where
+        Config: DynamicBPMDetectionConfigAccessor,
+        for<'a> SlideAdder<'a, Config>: DynamicBPMDetectionParameterVisitor<Config>,
+    {
+    }
+
+    #[test]
+    fn slide_adder_can_render_dynamic_parameter_visitor() {
+        assert_dynamic_parameter_visitor::<()>();
     }
 }

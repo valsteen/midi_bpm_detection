@@ -436,16 +436,7 @@ impl ClapPlugin for MidiBpmDetector {
         });
         context.add_section("Dynamic parameters", |section| {
             section.add_page("Dynamic parameters", |page| {
-                page.add_param(&self.params.dynamic_params.beats_lookback);
-                page.add_param(&self.params.dynamic_params.velocity_current_note_weight);
-                page.add_param(&self.params.dynamic_params.velocity_note_from_weight);
-                page.add_param(&self.params.dynamic_params.time_distance_weight);
-                page.add_param(&self.params.dynamic_params.octave_distance_weight);
-                page.add_param(&self.params.dynamic_params.pitch_distance_weight);
-                page.add_param(&self.params.dynamic_params.multiplier_weight);
-                page.add_param(&self.params.dynamic_params.subdivision_weight);
-                page.add_param(&self.params.dynamic_params.normal_distribution_weight);
-                page.add_param(&self.params.dynamic_params.high_tempo_bias);
+                self.params.dynamic_params.add_remote_controls(page);
             });
         });
     }
