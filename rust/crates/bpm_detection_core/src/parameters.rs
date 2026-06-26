@@ -127,46 +127,54 @@ impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameters<Conf
 #[serde(default)]
 pub struct DynamicBPMDetectionConfig {
     pub beats_lookback: u8,
+    pub normal_distribution_weight: OnOff<f32>,
+    pub time_distance_weight: OnOff<f32>,
     pub velocity_current_note_weight: OnOff<f32>,
     pub velocity_note_from_weight: OnOff<f32>,
-    pub time_distance_weight: OnOff<f32>,
-    pub octave_distance_weight: OnOff<f32>,
-    pub pitch_distance_weight: OnOff<f32>,
+    pub in_beat_range_weight: OnOff<f32>,
     pub multiplier_weight: OnOff<f32>,
     pub subdivision_weight: OnOff<f32>,
-    pub in_beat_range_weight: OnOff<f32>,
-    pub normal_distribution_weight: OnOff<f32>,
-    pub high_tempo_bias: OnOff<f32>,
+    pub octave_distance_weight: OnOff<f32>,
+    pub pitch_distance_weight: OnOff<f32>,
+    pub high_tempo_bias_weight: OnOff<f32>,
 }
 
 pub trait DynamicBPMDetectionConfigAccessor {
     fn beats_lookback(&self) -> u8;
+    fn normal_distribution_weight(&self) -> OnOff<f32>;
+    fn time_distance_weight(&self) -> OnOff<f32>;
     fn velocity_current_note_weight(&self) -> OnOff<f32>;
     fn velocity_note_from_weight(&self) -> OnOff<f32>;
-    fn time_distance_weight(&self) -> OnOff<f32>;
-    fn octave_distance_weight(&self) -> OnOff<f32>;
-    fn pitch_distance_weight(&self) -> OnOff<f32>;
+    fn in_beat_range_weight(&self) -> OnOff<f32>;
     fn multiplier_weight(&self) -> OnOff<f32>;
     fn subdivision_weight(&self) -> OnOff<f32>;
-    fn in_beat_range_weight(&self) -> OnOff<f32>;
-    fn normal_distribution_weight(&self) -> OnOff<f32>;
-    fn high_tempo_bias(&self) -> OnOff<f32>;
+    fn octave_distance_weight(&self) -> OnOff<f32>;
+    fn pitch_distance_weight(&self) -> OnOff<f32>;
+    fn high_tempo_bias_weight(&self) -> OnOff<f32>;
     fn set_beats_lookback(&mut self, val: u8);
 
+    fn set_normal_distribution_weight(&mut self, val: OnOff<f32>);
+    fn set_time_distance_weight(&mut self, val: OnOff<f32>);
     fn set_velocity_current_note_weight(&mut self, val: OnOff<f32>);
     fn set_velocity_note_from_weight(&mut self, val: OnOff<f32>);
-    fn set_time_distance_weight(&mut self, val: OnOff<f32>);
-    fn set_octave_distance_weight(&mut self, val: OnOff<f32>);
-    fn set_pitch_distance_weight(&mut self, val: OnOff<f32>);
+    fn set_in_beat_range_weight(&mut self, val: OnOff<f32>);
     fn set_multiplier_weight(&mut self, val: OnOff<f32>);
     fn set_subdivision_weight(&mut self, val: OnOff<f32>);
-    fn set_in_beat_range_weight(&mut self, val: OnOff<f32>);
-    fn set_normal_distribution_weight(&mut self, val: OnOff<f32>);
-    fn set_high_tempo_bias(&mut self, val: OnOff<f32>);
+    fn set_octave_distance_weight(&mut self, val: OnOff<f32>);
+    fn set_pitch_distance_weight(&mut self, val: OnOff<f32>);
+    fn set_high_tempo_bias_weight(&mut self, val: OnOff<f32>);
 }
 
 impl DynamicBPMDetectionConfigAccessor for () {
     fn beats_lookback(&self) -> u8 {
+        unimplemented!()
+    }
+
+    fn normal_distribution_weight(&self) -> OnOff<f32> {
+        unimplemented!()
+    }
+
+    fn time_distance_weight(&self) -> OnOff<f32> {
         unimplemented!()
     }
 
@@ -178,15 +186,7 @@ impl DynamicBPMDetectionConfigAccessor for () {
         unimplemented!()
     }
 
-    fn time_distance_weight(&self) -> OnOff<f32> {
-        unimplemented!()
-    }
-
-    fn octave_distance_weight(&self) -> OnOff<f32> {
-        unimplemented!()
-    }
-
-    fn pitch_distance_weight(&self) -> OnOff<f32> {
+    fn in_beat_range_weight(&self) -> OnOff<f32> {
         unimplemented!()
     }
 
@@ -198,19 +198,27 @@ impl DynamicBPMDetectionConfigAccessor for () {
         unimplemented!()
     }
 
-    fn in_beat_range_weight(&self) -> OnOff<f32> {
+    fn octave_distance_weight(&self) -> OnOff<f32> {
         unimplemented!()
     }
 
-    fn normal_distribution_weight(&self) -> OnOff<f32> {
+    fn pitch_distance_weight(&self) -> OnOff<f32> {
         unimplemented!()
     }
 
-    fn high_tempo_bias(&self) -> OnOff<f32> {
+    fn high_tempo_bias_weight(&self) -> OnOff<f32> {
         unimplemented!()
     }
 
     fn set_beats_lookback(&mut self, _: u8) {
+        unimplemented!()
+    }
+
+    fn set_normal_distribution_weight(&mut self, _: OnOff<f32>) {
+        unimplemented!()
+    }
+
+    fn set_time_distance_weight(&mut self, _: OnOff<f32>) {
         unimplemented!()
     }
 
@@ -222,15 +230,7 @@ impl DynamicBPMDetectionConfigAccessor for () {
         unimplemented!()
     }
 
-    fn set_time_distance_weight(&mut self, _: OnOff<f32>) {
-        unimplemented!()
-    }
-
-    fn set_octave_distance_weight(&mut self, _: OnOff<f32>) {
-        unimplemented!()
-    }
-
-    fn set_pitch_distance_weight(&mut self, _: OnOff<f32>) {
+    fn set_in_beat_range_weight(&mut self, _: OnOff<f32>) {
         unimplemented!()
     }
 
@@ -242,15 +242,15 @@ impl DynamicBPMDetectionConfigAccessor for () {
         unimplemented!()
     }
 
-    fn set_in_beat_range_weight(&mut self, _: OnOff<f32>) {
+    fn set_octave_distance_weight(&mut self, _: OnOff<f32>) {
         unimplemented!()
     }
 
-    fn set_normal_distribution_weight(&mut self, _: OnOff<f32>) {
+    fn set_pitch_distance_weight(&mut self, _: OnOff<f32>) {
         unimplemented!()
     }
 
-    fn set_high_tempo_bias(&mut self, _: OnOff<f32>) {
+    fn set_high_tempo_bias_weight(&mut self, _: OnOff<f32>) {
         unimplemented!()
     }
 }
@@ -261,16 +261,16 @@ impl Default for DynamicBPMDetectionConfig {
     fn default() -> Self {
         Self {
             beats_lookback: 8,
+            normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION_WEIGHT.default,
+            time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT.default,
             velocity_current_note_weight: DefaultDynamicBPMDetectionParameters::VELOCITY_CURRENT_NOTE_WEIGHT.default,
             velocity_note_from_weight: DefaultDynamicBPMDetectionParameters::VELOCITY_NOTE_FROM_WEIGHT.default,
-            time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT.default,
-            octave_distance_weight: DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE_WEIGHT.default,
-            pitch_distance_weight: DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE_WEIGHT.default,
+            in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_BEAT_RANGE_WEIGHT.default,
             multiplier_weight: DefaultDynamicBPMDetectionParameters::MULTIPLIER_WEIGHT.default,
             subdivision_weight: DefaultDynamicBPMDetectionParameters::SUBDIVISION_WEIGHT.default,
-            in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_BEAT_RANGE_WEIGHT.default,
-            normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION_WEIGHT.default,
-            high_tempo_bias: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS.default,
+            octave_distance_weight: DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE_WEIGHT.default,
+            pitch_distance_weight: DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE_WEIGHT.default,
+            high_tempo_bias_weight: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS_WEIGHT.default,
         }
     }
 }
@@ -281,16 +281,16 @@ pub struct DynamicBPMDetectionParameters<Config> {
 
 pub trait DynamicBPMDetectionParameterVisitor<Config: DynamicBPMDetectionConfigAccessor> {
     fn beats_lookback(&mut self, parameter: Parameter<Config, u8>);
+    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
+    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
     fn velocity_current_note_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn high_tempo_bias(&mut self, parameter: Parameter<Config, OnOff<f32>>);
+    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
     fn in_beat_range_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
     fn multiplier_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
+    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
     fn octave_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
     fn pitch_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
-    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
+    fn high_tempo_bias_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>);
 }
 
 impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameters<Config> {
@@ -304,15 +304,15 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameters<Co
         Config::beats_lookback,
         Config::set_beats_lookback,
     );
-    pub const HIGH_TEMPO_BIAS: Parameter<Config, OnOff<f32>> = Parameter::new(
+    pub const HIGH_TEMPO_BIAS_WEIGHT: Parameter<Config, OnOff<f32>> = Parameter::new(
         "High tempo bias",
         None,
         0.0..=3.0,
         0.0,
         false,
         OnOff::On(0.2),
-        Config::high_tempo_bias,
-        Config::set_high_tempo_bias,
+        Config::high_tempo_bias_weight,
+        Config::set_high_tempo_bias_weight,
     );
     pub const IN_BEAT_RANGE_WEIGHT: Parameter<Config, OnOff<f32>> = Parameter::new(
         "In beat range",
@@ -407,16 +407,16 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameters<Co
 
     pub fn visit(visitor: &mut impl DynamicBPMDetectionParameterVisitor<Config>) {
         visitor.beats_lookback(Self::BEATS_LOOKBACK);
+        visitor.normal_distribution_weight(Self::NORMAL_DISTRIBUTION_WEIGHT);
+        visitor.time_distance_weight(Self::TIME_DISTANCE_WEIGHT);
         visitor.velocity_current_note_weight(Self::VELOCITY_CURRENT_NOTE_WEIGHT);
         visitor.velocity_note_from_weight(Self::VELOCITY_NOTE_FROM_WEIGHT);
-        visitor.time_distance_weight(Self::TIME_DISTANCE_WEIGHT);
-        visitor.octave_distance_weight(Self::OCTAVE_DISTANCE_WEIGHT);
-        visitor.pitch_distance_weight(Self::PITCH_DISTANCE_WEIGHT);
+        visitor.in_beat_range_weight(Self::IN_BEAT_RANGE_WEIGHT);
         visitor.multiplier_weight(Self::MULTIPLIER_WEIGHT);
         visitor.subdivision_weight(Self::SUBDIVISION_WEIGHT);
-        visitor.in_beat_range_weight(Self::IN_BEAT_RANGE_WEIGHT);
-        visitor.normal_distribution_weight(Self::NORMAL_DISTRIBUTION_WEIGHT);
-        visitor.high_tempo_bias(Self::HIGH_TEMPO_BIAS);
+        visitor.octave_distance_weight(Self::OCTAVE_DISTANCE_WEIGHT);
+        visitor.pitch_distance_weight(Self::PITCH_DISTANCE_WEIGHT);
+        visitor.high_tempo_bias_weight(Self::HIGH_TEMPO_BIAS_WEIGHT);
     }
 }
 
@@ -611,11 +611,19 @@ mod parameter_inventory_tests {
             self.0.push(parameter.label);
         }
 
+        fn normal_distribution_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+            self.0.push(parameter.label);
+        }
+
+        fn time_distance_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+            self.0.push(parameter.label);
+        }
+
         fn velocity_current_note_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn high_tempo_bias(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn velocity_note_from_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
@@ -627,7 +635,7 @@ mod parameter_inventory_tests {
             self.0.push(parameter.label);
         }
 
-        fn normal_distribution_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn subdivision_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
@@ -639,15 +647,7 @@ mod parameter_inventory_tests {
             self.0.push(parameter.label);
         }
 
-        fn subdivision_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
-            self.0.push(parameter.label);
-        }
-
-        fn time_distance_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
-            self.0.push(parameter.label);
-        }
-
-        fn velocity_note_from_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn high_tempo_bias_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
             self.0.push(parameter.label);
         }
     }
@@ -662,15 +662,15 @@ mod parameter_inventory_tests {
             labels.0,
             [
                 "Beats Lookback",
+                "Normal distribution",
+                "Time distance",
                 "Note velocity",
                 "From note velocity",
-                "Time distance",
-                "Octave distance",
-                "Pitch distance",
+                "In beat range",
                 "Multiplier",
                 "Subdivision",
-                "In beat range",
-                "Normal distribution",
+                "Octave distance",
+                "Pitch distance",
                 "High tempo bias",
             ]
         );

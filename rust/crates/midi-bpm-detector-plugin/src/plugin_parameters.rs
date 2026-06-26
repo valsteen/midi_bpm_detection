@@ -35,46 +35,46 @@ pub struct PluginGUIParams {
 pub struct PluginDynamicParams {
     #[id = "beats_lookback"]
     pub beats_lookback: IntParam,
-    #[id = "velocity_current_note_weight"]
-    pub velocity_current_note_weight: FloatParam,
-    #[persist = "velocity_current_note_onoff"]
-    pub velocity_current_note_onoff: AtomicBool,
-    #[id = "velocity_note_from_weight"]
-    pub velocity_note_from_weight: FloatParam,
-    #[persist = "velocity_note_from_onoff"]
-    pub velocity_note_from_onoff: AtomicBool,
-    #[id = "time_distance_weight"]
-    pub time_distance_weight: FloatParam,
-    #[persist = "time_distance_onoff"]
-    pub time_distance_onoff: AtomicBool,
-    #[id = "octave_distance_weight"]
-    pub octave_distance_weight: FloatParam,
-    #[persist = "octave_distance_onoff"]
-    pub octave_distance_onoff: AtomicBool,
-    #[id = "pitch_distance_weight"]
-    pub pitch_distance_weight: FloatParam,
-    #[persist = "pitch_distance_onoff"]
-    pub pitch_distance_onoff: AtomicBool,
-    #[id = "multiplier_weight"]
-    pub multiplier_weight: FloatParam,
-    #[persist = "multiplier_onoff"]
-    pub multiplier_onoff: AtomicBool,
-    #[id = "subdivision_weight"]
-    pub subdivision_weight: FloatParam,
-    #[persist = "subdivision_onoff"]
-    pub subdivision_onoff: AtomicBool,
-    #[id = "in_beat_range_weight"]
-    pub in_beat_range_weight: FloatParam,
-    #[persist = "in_beat_range_onoff"]
-    pub in_beat_range_onoff: AtomicBool,
     #[id = "normal_distribution_weight"]
     pub normal_distribution_weight: FloatParam,
-    #[persist = "normal_distribution_onoff"]
-    pub normal_distribution_onoff: AtomicBool,
-    #[id = "high_tempo_bias"]
-    pub high_tempo_bias: FloatParam,
-    #[persist = "high_tempo_bias_onoff"]
-    pub high_tempo_bias_onoff: AtomicBool,
+    #[persist = "normal_distribution_weight_onoff"]
+    pub normal_distribution_weight_onoff: AtomicBool,
+    #[id = "time_distance_weight"]
+    pub time_distance_weight: FloatParam,
+    #[persist = "time_distance_weight_onoff"]
+    pub time_distance_weight_onoff: AtomicBool,
+    #[id = "velocity_current_note_weight"]
+    pub velocity_current_note_weight: FloatParam,
+    #[persist = "velocity_current_note_weight_onoff"]
+    pub velocity_current_note_weight_onoff: AtomicBool,
+    #[id = "velocity_note_from_weight"]
+    pub velocity_note_from_weight: FloatParam,
+    #[persist = "velocity_note_from_weight_onoff"]
+    pub velocity_note_from_weight_onoff: AtomicBool,
+    #[id = "in_beat_range_weight"]
+    pub in_beat_range_weight: FloatParam,
+    #[persist = "in_beat_range_weight_onoff"]
+    pub in_beat_range_weight_onoff: AtomicBool,
+    #[id = "multiplier_weight"]
+    pub multiplier_weight: FloatParam,
+    #[persist = "multiplier_weight_onoff"]
+    pub multiplier_weight_onoff: AtomicBool,
+    #[id = "subdivision_weight"]
+    pub subdivision_weight: FloatParam,
+    #[persist = "subdivision_weight_onoff"]
+    pub subdivision_weight_onoff: AtomicBool,
+    #[id = "octave_distance_weight"]
+    pub octave_distance_weight: FloatParam,
+    #[persist = "octave_distance_weight_onoff"]
+    pub octave_distance_weight_onoff: AtomicBool,
+    #[id = "pitch_distance_weight"]
+    pub pitch_distance_weight: FloatParam,
+    #[persist = "pitch_distance_weight_onoff"]
+    pub pitch_distance_weight_onoff: AtomicBool,
+    #[id = "high_tempo_bias_weight"]
+    pub high_tempo_bias_weight: FloatParam,
+    #[persist = "high_tempo_bias_weight_onoff"]
+    pub high_tempo_bias_weight_onoff: AtomicBool,
 }
 
 #[derive(Params)]
@@ -91,9 +91,9 @@ pub struct NormalDistributionParams {
 
 #[derive(Params)]
 pub struct PluginStaticParams {
-    #[id = "lower_bound"]
+    #[id = "bpm_center"]
     pub bpm_center: FloatParam,
-    #[id = "upper_bound"]
+    #[id = "bpm_range"]
     pub bpm_range: IntParam,
     #[id = "sample_rate"]
     pub sample_rate: FloatParam,
@@ -146,12 +146,20 @@ impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<()> for Dynam
         self.page.add_param(&self.params.beats_lookback);
     }
 
+    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.page.add_param(&self.params.normal_distribution_weight);
+    }
+
+    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.page.add_param(&self.params.time_distance_weight);
+    }
+
     fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.page.add_param(&self.params.velocity_current_note_weight);
     }
 
-    fn high_tempo_bias(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(&self.params.high_tempo_bias);
+    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.page.add_param(&self.params.velocity_note_from_weight);
     }
 
     fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
@@ -162,8 +170,8 @@ impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<()> for Dynam
         self.page.add_param(&self.params.multiplier_weight);
     }
 
-    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(&self.params.normal_distribution_weight);
+    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.page.add_param(&self.params.subdivision_weight);
     }
 
     fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
@@ -174,16 +182,8 @@ impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<()> for Dynam
         self.page.add_param(&self.params.pitch_distance_weight);
     }
 
-    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(&self.params.subdivision_weight);
-    }
-
-    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(&self.params.time_distance_weight);
-    }
-
-    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.page.add_param(&self.params.velocity_note_from_weight);
+    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.page.add_param(&self.params.high_tempo_bias_weight);
     }
 }
 
@@ -197,73 +197,73 @@ impl DynamicBPMDetectionParameterVisitor<()> for DynamicHostConfigReader<'_, '_>
         self.config.beats_lookback = self.params.beats_lookback.unmodulated_plain_value() as u8;
     }
 
+    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.config.normal_distribution_weight = OnOff::new(
+            self.params.normal_distribution_weight_onoff.load(Ordering::Relaxed),
+            self.params.normal_distribution_weight.unmodulated_plain_value(),
+        );
+    }
+
+    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.config.time_distance_weight = OnOff::new(
+            self.params.time_distance_weight_onoff.load(Ordering::Relaxed),
+            self.params.time_distance_weight.unmodulated_plain_value(),
+        );
+    }
+
     fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.config.velocity_current_note_weight = OnOff::new(
-            self.params.velocity_current_note_onoff.load(Ordering::Relaxed),
+            self.params.velocity_current_note_weight_onoff.load(Ordering::Relaxed),
             self.params.velocity_current_note_weight.unmodulated_plain_value(),
         );
     }
 
-    fn high_tempo_bias(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.high_tempo_bias = OnOff::new(
-            self.params.high_tempo_bias_onoff.load(Ordering::Relaxed),
-            self.params.high_tempo_bias.unmodulated_plain_value(),
+    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.config.velocity_note_from_weight = OnOff::new(
+            self.params.velocity_note_from_weight_onoff.load(Ordering::Relaxed),
+            self.params.velocity_note_from_weight.unmodulated_plain_value(),
         );
     }
 
     fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.config.in_beat_range_weight = OnOff::new(
-            self.params.in_beat_range_onoff.load(Ordering::Relaxed),
+            self.params.in_beat_range_weight_onoff.load(Ordering::Relaxed),
             self.params.in_beat_range_weight.unmodulated_plain_value(),
         );
     }
 
     fn multiplier_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.config.multiplier_weight = OnOff::new(
-            self.params.multiplier_onoff.load(Ordering::Relaxed),
+            self.params.multiplier_weight_onoff.load(Ordering::Relaxed),
             self.params.multiplier_weight.unmodulated_plain_value(),
         );
     }
 
-    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.normal_distribution_weight = OnOff::new(
-            self.params.normal_distribution_onoff.load(Ordering::Relaxed),
-            self.params.normal_distribution_weight.unmodulated_plain_value(),
+    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.config.subdivision_weight = OnOff::new(
+            self.params.subdivision_weight_onoff.load(Ordering::Relaxed),
+            self.params.subdivision_weight.unmodulated_plain_value(),
         );
     }
 
     fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.config.octave_distance_weight = OnOff::new(
-            self.params.octave_distance_onoff.load(Ordering::Relaxed),
+            self.params.octave_distance_weight_onoff.load(Ordering::Relaxed),
             self.params.octave_distance_weight.unmodulated_plain_value(),
         );
     }
 
     fn pitch_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
         self.config.pitch_distance_weight = OnOff::new(
-            self.params.pitch_distance_onoff.load(Ordering::Relaxed),
+            self.params.pitch_distance_weight_onoff.load(Ordering::Relaxed),
             self.params.pitch_distance_weight.unmodulated_plain_value(),
         );
     }
 
-    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.subdivision_weight = OnOff::new(
-            self.params.subdivision_onoff.load(Ordering::Relaxed),
-            self.params.subdivision_weight.unmodulated_plain_value(),
-        );
-    }
-
-    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.time_distance_weight = OnOff::new(
-            self.params.time_distance_onoff.load(Ordering::Relaxed),
-            self.params.time_distance_weight.unmodulated_plain_value(),
-        );
-    }
-
-    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
-        self.config.velocity_note_from_weight = OnOff::new(
-            self.params.velocity_note_from_onoff.load(Ordering::Relaxed),
-            self.params.velocity_note_from_weight.unmodulated_plain_value(),
+    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+        self.config.high_tempo_bias_weight = OnOff::new(
+            self.params.high_tempo_bias_weight_onoff.load(Ordering::Relaxed),
+            self.params.high_tempo_bias_weight.unmodulated_plain_value(),
         );
     }
 }
@@ -356,12 +356,28 @@ impl MidiBpmDetectorParams {
             dynamic_params: PluginDynamicParams {
                 beats_lookback: DefaultDynamicBPMDetectionParameters::BEATS_LOOKBACK
                     .to_param(config.dynamic_bpm_detection_config.beats_lookback, &update_dynamic_changed_at_u8),
+                normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION_WEIGHT.to_param(
+                    config.dynamic_bpm_detection_config.normal_distribution_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                normal_distribution_weight_onoff: config
+                    .dynamic_bpm_detection_config
+                    .normal_distribution_weight
+                    .is_enabled()
+                    .into(),
+                time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT
+                    .to_param(config.dynamic_bpm_detection_config.time_distance_weight, &update_dynamic_changed_at_f32),
+                time_distance_weight_onoff: config
+                    .dynamic_bpm_detection_config
+                    .time_distance_weight
+                    .is_enabled()
+                    .into(),
                 velocity_current_note_weight: DefaultDynamicBPMDetectionParameters::VELOCITY_CURRENT_NOTE_WEIGHT
                     .to_param(
                         config.dynamic_bpm_detection_config.velocity_current_note_weight,
                         &update_dynamic_changed_at_f32,
                     ),
-                velocity_current_note_onoff: config
+                velocity_current_note_weight_onoff: config
                     .dynamic_bpm_detection_config
                     .velocity_current_note_weight
                     .is_enabled()
@@ -370,45 +386,51 @@ impl MidiBpmDetectorParams {
                     config.dynamic_bpm_detection_config.velocity_note_from_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                velocity_note_from_onoff: config
+                velocity_note_from_weight_onoff: config
                     .dynamic_bpm_detection_config
                     .velocity_note_from_weight
                     .is_enabled()
                     .into(),
-                time_distance_weight: DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT
-                    .to_param(config.dynamic_bpm_detection_config.time_distance_weight, &update_dynamic_changed_at_f32),
-                time_distance_onoff: config.dynamic_bpm_detection_config.time_distance_weight.is_enabled().into(),
+                in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_BEAT_RANGE_WEIGHT
+                    .to_param(config.dynamic_bpm_detection_config.in_beat_range_weight, &update_dynamic_changed_at_f32),
+                in_beat_range_weight_onoff: config
+                    .dynamic_bpm_detection_config
+                    .in_beat_range_weight
+                    .is_enabled()
+                    .into(),
+                multiplier_weight: DefaultDynamicBPMDetectionParameters::MULTIPLIER_WEIGHT
+                    .to_param(config.dynamic_bpm_detection_config.multiplier_weight, &update_dynamic_changed_at_f32),
+                multiplier_weight_onoff: config.dynamic_bpm_detection_config.multiplier_weight.is_enabled().into(),
+                subdivision_weight: DefaultDynamicBPMDetectionParameters::SUBDIVISION_WEIGHT
+                    .to_param(config.dynamic_bpm_detection_config.subdivision_weight, &update_dynamic_changed_at_f32),
+                subdivision_weight_onoff: config.dynamic_bpm_detection_config.subdivision_weight.is_enabled().into(),
                 octave_distance_weight: DefaultDynamicBPMDetectionParameters::OCTAVE_DISTANCE_WEIGHT.to_param(
                     config.dynamic_bpm_detection_config.octave_distance_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                octave_distance_onoff: config.dynamic_bpm_detection_config.octave_distance_weight.is_enabled().into(),
+                octave_distance_weight_onoff: config
+                    .dynamic_bpm_detection_config
+                    .octave_distance_weight
+                    .is_enabled()
+                    .into(),
                 pitch_distance_weight: DefaultDynamicBPMDetectionParameters::PITCH_DISTANCE_WEIGHT.to_param(
                     config.dynamic_bpm_detection_config.pitch_distance_weight,
                     &update_dynamic_changed_at_f32,
                 ),
-                pitch_distance_onoff: config.dynamic_bpm_detection_config.pitch_distance_weight.is_enabled().into(),
-                multiplier_weight: DefaultDynamicBPMDetectionParameters::MULTIPLIER_WEIGHT
-                    .to_param(config.dynamic_bpm_detection_config.multiplier_weight, &update_dynamic_changed_at_f32),
-                multiplier_onoff: config.dynamic_bpm_detection_config.multiplier_weight.is_enabled().into(),
-                subdivision_weight: DefaultDynamicBPMDetectionParameters::SUBDIVISION_WEIGHT
-                    .to_param(config.dynamic_bpm_detection_config.subdivision_weight, &update_dynamic_changed_at_f32),
-                subdivision_onoff: config.dynamic_bpm_detection_config.subdivision_weight.is_enabled().into(),
-                in_beat_range_weight: DefaultDynamicBPMDetectionParameters::IN_BEAT_RANGE_WEIGHT
-                    .to_param(config.dynamic_bpm_detection_config.in_beat_range_weight, &update_dynamic_changed_at_f32),
-                in_beat_range_onoff: config.dynamic_bpm_detection_config.in_beat_range_weight.is_enabled().into(),
-                normal_distribution_weight: DefaultDynamicBPMDetectionParameters::NORMAL_DISTRIBUTION_WEIGHT.to_param(
-                    config.dynamic_bpm_detection_config.normal_distribution_weight,
-                    &update_dynamic_changed_at_f32,
-                ),
-                normal_distribution_onoff: config
+                pitch_distance_weight_onoff: config
                     .dynamic_bpm_detection_config
-                    .normal_distribution_weight
+                    .pitch_distance_weight
                     .is_enabled()
                     .into(),
-                high_tempo_bias: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS
-                    .to_param(config.dynamic_bpm_detection_config.high_tempo_bias, &update_dynamic_changed_at_f32),
-                high_tempo_bias_onoff: config.dynamic_bpm_detection_config.high_tempo_bias.is_enabled().into(),
+                high_tempo_bias_weight: DefaultDynamicBPMDetectionParameters::HIGH_TEMPO_BIAS_WEIGHT.to_param(
+                    config.dynamic_bpm_detection_config.high_tempo_bias_weight,
+                    &update_dynamic_changed_at_f32,
+                ),
+                high_tempo_bias_weight_onoff: config
+                    .dynamic_bpm_detection_config
+                    .high_tempo_bias_weight
+                    .is_enabled()
+                    .into(),
             },
             daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).with_callback(Arc::new({
                 let daw_port = daw_port.clone();
@@ -596,7 +618,7 @@ mod tests {
     };
 
     use bpm_detection_core::parameters::DynamicBPMDetectionConfig;
-    use nih_plug::prelude::RemoteControlsPage;
+    use nih_plug::prelude::{Params, RemoteControlsPage};
 
     use super::*;
     use crate::DeferredConfigUpdate;
@@ -627,8 +649,8 @@ mod tests {
 
         let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
 
-        assert!(params.dynamic_params.velocity_current_note_onoff.load(Ordering::Relaxed));
-        assert!(!params.dynamic_params.velocity_note_from_onoff.load(Ordering::Relaxed));
+        assert!(params.dynamic_params.velocity_current_note_weight_onoff.load(Ordering::Relaxed));
+        assert!(!params.dynamic_params.velocity_note_from_weight_onoff.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -646,34 +668,74 @@ mod tests {
             remote_controls.0,
             [
                 "Beats Lookback",
+                "Normal distribution",
+                "Time distance",
                 "Note velocity",
                 "From note velocity",
-                "Time distance",
-                "Octave distance",
-                "Pitch distance",
+                "In beat range",
                 "Multiplier",
                 "Subdivision",
-                "In beat range",
-                "Normal distribution",
+                "Octave distance",
+                "Pitch distance",
                 "High tempo bias",
             ]
         );
     }
 
     #[test]
+    fn static_plugin_parameter_ids_match_config_field_names() {
+        let mut config = PluginConfig::default();
+        let current_sample = Arc::new(AtomicUsize::new(0));
+        let changed_at = DeferredConfigUpdate::idle();
+        let daw_port = ArcAtomicOptionNonZeroU16::none();
+        let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+        let param_ids = params.param_map().into_iter().map(|(id, _, _)| id).collect::<Vec<_>>();
+
+        assert!(param_ids.contains(&String::from("bpm_center")));
+        assert!(param_ids.contains(&String::from("bpm_range")));
+        assert!(!param_ids.contains(&String::from("lower_bound")));
+        assert!(!param_ids.contains(&String::from("upper_bound")));
+    }
+
+    #[test]
+    fn dynamic_on_off_persistent_keys_match_parameter_ids() {
+        let mut config = PluginConfig::default();
+        let current_sample = Arc::new(AtomicUsize::new(0));
+        let changed_at = DeferredConfigUpdate::idle();
+        let daw_port = ArcAtomicOptionNonZeroU16::none();
+        let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+        let persistent_keys = params.serialize_fields().into_keys().collect::<Vec<_>>();
+
+        for key in [
+            "normal_distribution_weight_onoff",
+            "time_distance_weight_onoff",
+            "velocity_current_note_weight_onoff",
+            "velocity_note_from_weight_onoff",
+            "in_beat_range_weight_onoff",
+            "multiplier_weight_onoff",
+            "subdivision_weight_onoff",
+            "octave_distance_weight_onoff",
+            "pitch_distance_weight_onoff",
+            "high_tempo_bias_weight_onoff",
+        ] {
+            assert!(persistent_keys.contains(&String::from(key)));
+        }
+    }
+
+    #[test]
     fn dynamic_params_read_initialized_host_values_as_dynamic_config() {
         let source_dynamic_config = DynamicBPMDetectionConfig {
             beats_lookback: 13,
+            normal_distribution_weight: OnOff::On(0.9),
+            time_distance_weight: OnOff::On(1.3),
             velocity_current_note_weight: OnOff::On(1.1),
             velocity_note_from_weight: OnOff::Off(1.2),
-            time_distance_weight: OnOff::On(1.3),
-            octave_distance_weight: OnOff::Off(1.4),
-            pitch_distance_weight: OnOff::On(1.5),
+            in_beat_range_weight: OnOff::Off(1.8),
             multiplier_weight: OnOff::Off(1.6),
             subdivision_weight: OnOff::On(1.7),
-            in_beat_range_weight: OnOff::Off(1.8),
-            normal_distribution_weight: OnOff::On(0.9),
-            high_tempo_bias: OnOff::Off(2.1),
+            octave_distance_weight: OnOff::Off(1.4),
+            pitch_distance_weight: OnOff::On(1.5),
+            high_tempo_bias_weight: OnOff::Off(2.1),
         };
         let mut config =
             PluginConfig { dynamic_bpm_detection_config: source_dynamic_config.clone(), ..PluginConfig::default() };

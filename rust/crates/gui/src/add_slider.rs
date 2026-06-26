@@ -112,11 +112,19 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisi
         self.add(&parameter);
     }
 
+    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
+    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+        self.add_on_off(&parameter);
+    }
+
     fn velocity_current_note_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
         self.add_on_off(&parameter);
     }
 
-    fn high_tempo_bias(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
         self.add_on_off(&parameter);
     }
 
@@ -128,7 +136,7 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisi
         self.add_on_off(&parameter);
     }
 
-    fn normal_distribution_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
         self.add_on_off(&parameter);
     }
 
@@ -140,15 +148,7 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisi
         self.add_on_off(&parameter);
     }
 
-    fn subdivision_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
-        self.add_on_off(&parameter);
-    }
-
-    fn time_distance_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
-        self.add_on_off(&parameter);
-    }
-
-    fn velocity_note_from_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
+    fn high_tempo_bias_weight(&mut self, parameter: Parameter<Config, OnOff<f32>>) {
         self.add_on_off(&parameter);
     }
 }

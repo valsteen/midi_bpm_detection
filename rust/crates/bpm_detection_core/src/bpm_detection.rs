@@ -155,7 +155,7 @@ impl BPMDetection {
             let velocity_note_from = f32::from(note_from.event.velocity) / 127.;
             let velocity_current_note = f32::from(note_to.event.velocity) / 127.;
 
-            let high_tempo_bias = {
+            let high_tempo_bias_score = {
                 let interval_low_num = self.interval_low.num_microseconds().unwrap() as f32;
                 let interval_high_num = self.interval_high.num_microseconds().unwrap() as f32;
                 let note_interval_num = interval.num_microseconds().unwrap() as f32;
@@ -171,7 +171,7 @@ impl BPMDetection {
                 (multiplier, dynamic_bpm_detection_config.multiplier_weight.weight()),
                 (subdivision, dynamic_bpm_detection_config.subdivision_weight.weight()),
                 (in_range, dynamic_bpm_detection_config.in_beat_range_weight.weight()),
-                (high_tempo_bias, dynamic_bpm_detection_config.high_tempo_bias.weight()),
+                (high_tempo_bias_score, dynamic_bpm_detection_config.high_tempo_bias_weight.weight()),
             ]
             .into_iter()
             // We normalize the value to be between 1 and 10, so log10 will give a value between 0 and 1,

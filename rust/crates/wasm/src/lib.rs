@@ -105,6 +105,14 @@ impl DynamicBPMDetectionConfigAccessor for BaseConfig {
         self.config.dynamic_bpm_detection_config.beats_lookback
     }
 
+    fn normal_distribution_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.normal_distribution_weight
+    }
+
+    fn time_distance_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.time_distance_weight
+    }
+
     fn velocity_current_note_weight(&self) -> OnOff<f32> {
         self.config.dynamic_bpm_detection_config.velocity_current_note_weight
     }
@@ -113,16 +121,8 @@ impl DynamicBPMDetectionConfigAccessor for BaseConfig {
         self.config.dynamic_bpm_detection_config.velocity_note_from_weight
     }
 
-    fn time_distance_weight(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.time_distance_weight
-    }
-
-    fn octave_distance_weight(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.octave_distance_weight
-    }
-
-    fn pitch_distance_weight(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.pitch_distance_weight
+    fn in_beat_range_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.in_beat_range_weight
     }
 
     fn multiplier_weight(&self) -> OnOff<f32> {
@@ -133,20 +133,30 @@ impl DynamicBPMDetectionConfigAccessor for BaseConfig {
         self.config.dynamic_bpm_detection_config.subdivision_weight
     }
 
-    fn in_beat_range_weight(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.in_beat_range_weight
+    fn octave_distance_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.octave_distance_weight
     }
 
-    fn normal_distribution_weight(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.normal_distribution_weight
+    fn pitch_distance_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.pitch_distance_weight
     }
 
-    fn high_tempo_bias(&self) -> OnOff<f32> {
-        self.config.dynamic_bpm_detection_config.high_tempo_bias
+    fn high_tempo_bias_weight(&self) -> OnOff<f32> {
+        self.config.dynamic_bpm_detection_config.high_tempo_bias_weight
     }
 
     fn set_beats_lookback(&mut self, val: u8) {
         self.config.dynamic_bpm_detection_config.beats_lookback = val;
+        self.propagate_dynamic_changes();
+    }
+
+    fn set_normal_distribution_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.normal_distribution_weight = val;
+        self.propagate_dynamic_changes();
+    }
+
+    fn set_time_distance_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.time_distance_weight = val;
         self.propagate_dynamic_changes();
     }
 
@@ -160,18 +170,8 @@ impl DynamicBPMDetectionConfigAccessor for BaseConfig {
         self.propagate_dynamic_changes();
     }
 
-    fn set_time_distance_weight(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.time_distance_weight = val;
-        self.propagate_dynamic_changes();
-    }
-
-    fn set_octave_distance_weight(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.octave_distance_weight = val;
-        self.propagate_dynamic_changes();
-    }
-
-    fn set_pitch_distance_weight(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.pitch_distance_weight = val;
+    fn set_in_beat_range_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.in_beat_range_weight = val;
         self.propagate_dynamic_changes();
     }
 
@@ -185,18 +185,18 @@ impl DynamicBPMDetectionConfigAccessor for BaseConfig {
         self.propagate_dynamic_changes();
     }
 
-    fn set_in_beat_range_weight(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.in_beat_range_weight = val;
+    fn set_octave_distance_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.octave_distance_weight = val;
         self.propagate_dynamic_changes();
     }
 
-    fn set_normal_distribution_weight(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.normal_distribution_weight = val;
+    fn set_pitch_distance_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.pitch_distance_weight = val;
         self.propagate_dynamic_changes();
     }
 
-    fn set_high_tempo_bias(&mut self, val: OnOff<f32>) {
-        self.config.dynamic_bpm_detection_config.high_tempo_bias = val;
+    fn set_high_tempo_bias_weight(&mut self, val: OnOff<f32>) {
+        self.config.dynamic_bpm_detection_config.high_tempo_bias_weight = val;
         self.propagate_dynamic_changes();
     }
 }
