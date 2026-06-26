@@ -22,16 +22,16 @@ jobs:
         working-directory: extension
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Test extension
         run: ./gradlew test
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
@@ -72,7 +72,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -80,26 +80,11 @@ jobs:
           components: clippy
           target: ${{ matrix.target }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('rust/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('rust/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: rust/target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('rust/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-build-
-            ${{ runner.os }}-cargo-build-
+          workspaces: rust -> target
+          shared-key: native-${{ matrix.target }}
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -125,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -133,33 +118,23 @@ jobs:
           components: clippy
           target: wasm32-unknown-unknown
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-wasm-cargo-registry-${{ hashFiles('rust/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-wasm-cargo-index-${{ hashFiles('rust/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: rust/target
-          key: ${{ runner.os }}-wasm-cargo-build-${{ hashFiles('rust/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-wasm-cargo-build-
-            ${{ runner.os }}-cargo-build-
+          workspaces: rust -> target
+          shared-key: wasm
+          env-vars: WASM_BINDGEN_CLI_VERSION
 
       - name: Install wasm tools
         run: |
           sudo apt-get update
           sudo apt-get install -y binaryen
-          cargo install --locked trunk
-          cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_CLI_VERSION" --force
+          if ! command -v trunk >/dev/null; then
+            cargo install --locked trunk
+          fi
+          if ! command -v wasm-bindgen >/dev/null || [ "$(wasm-bindgen --version)" != "wasm-bindgen $WASM_BINDGEN_CLI_VERSION" ]; then
+            cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_CLI_VERSION" --force
+          fi
 
       - name: Check wasm crate
         run: cargo check --locked -p wasm --target wasm32-unknown-unknown
