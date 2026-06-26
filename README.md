@@ -11,7 +11,7 @@ instead of hiding the model behind one number.
 The screenshot below shows the plugin/demo UI with detection parameters and the realtime histogram. The strongest peak is
 the current most likely BPM.
 
-<a href="https://valsteen.github.io/midi_bpm_detection/"><img src="screenshot.png" alt="screenshot"></a>
+<a href="https://valsteen.github.io/midi_bpm_detection/"><img src="docs/assets/screenshot.png" alt="screenshot"></a>
 
 Try the browser demo: https://valsteen.github.io/midi_bpm_detection/
 
