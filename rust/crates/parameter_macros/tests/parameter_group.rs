@@ -1,4 +1,4 @@
-use parameter::{Asf64, Parameter};
+use parameter::{Asf64, Parameter, ParameterSpec};
 use parameter_macros::parameter_group;
 
 #[parameter_group(
@@ -30,6 +30,8 @@ fn parameter_group_generates_accessor_defaults_parameters_and_visit_order() {
     let value_parameter = &DefaultExampleParameters::VALUE;
     let weight_parameter = &DefaultExampleParameters::WEIGHT;
 
+    assert_parameter_spec(value_parameter);
+    assert_parameter_spec(weight_parameter);
     assert_eq!(value_parameter.label, "Example value");
     assert_f64_eq(value_parameter.step, 1.0);
     assert!(!value_parameter.logarithmic);
@@ -54,8 +56,8 @@ fn generated_validation_checks_parameter_ranges_in_visit_order() {
 
 struct Labels(Vec<&'static str>);
 
-impl ExampleParameterVisitor<()> for Labels {
-    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<(), ValueType>) {
+impl ExampleParameterVisitor<ExampleConfig> for Labels {
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<ExampleConfig, ValueType>) {
         self.0.push(parameter.label);
     }
 }
@@ -67,3 +69,5 @@ fn assert_f32_eq(actual: f32, expected: f32) {
 fn assert_f64_eq(actual: f64, expected: f64) {
     assert!((actual - expected).abs() < f64::EPSILON);
 }
+
+fn assert_parameter_spec<ValueType>(_: &ParameterSpec<ValueType>) {}

@@ -5,17 +5,10 @@
 //!
 //! - an accessor trait with one getter and setter per `#[parameter(...)]` field;
 //! - an accessor impl for the concrete config struct;
-//! - an accessor impl for `()`, used only by the default metadata catalog;
-//! - a `Default*Parameters = *Parameters<()>` alias;
+//! - a default metadata catalog with one `ParameterSpec<T>` associated const per field;
 //! - a parameter catalog type with one `Parameter<Config, T>` associated const per field;
 //! - a visitor trait and source-order `visit` traversal;
 //! - `Default` and `validate` impls for the config struct.
-//!
-//! The generated `impl Accessor for ()` is a compatibility bridge for the
-//! existing metadata-only catalog shape. Runtime code should use a real config
-//! type when invoking `Parameter::get` or `Parameter::set`; a future
-//! `ParameterSpec<T>` split could remove the fake config type without changing
-//! config structs.
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -260,11 +253,12 @@ fn expand_parameter_group(
 
     let struct_ident = &input.ident;
     let accessor_impl = expand_accessor_impl(&group.accessor, struct_ident, &fields);
+    let default_parameters_impl =
+        expand_default_parameters_impl(&group.default_parameters, &group.parameter_crate, &fields);
     let default_impl = expand_default_impl(struct_ident, &group.parameters, &group.default_parameters, &fields);
     let visitor_trait = expand_visitor_trait(&group.accessor, &group.visitor, &group.parameter_crate, &fields);
     let parameters_impl =
         expand_parameters_impl(&group.accessor, &group.parameters, &group.visitor, &group.parameter_crate, &fields);
-    let default_parameters = &group.default_parameters;
     let parameters = &group.parameters;
 
     Ok(quote! {
@@ -272,7 +266,7 @@ fn expand_parameter_group(
 
         #accessor_impl
 
-        pub type #default_parameters = #parameters<()>;
+        #default_parameters_impl
 
         #default_impl
 
@@ -319,24 +313,6 @@ fn expand_accessor_impl(accessor: &Ident, struct_ident: &Ident, fields: &[Parame
         let ty = &field.ty;
         quote! { fn #setter(&mut self, val: #ty); }
     });
-    let empty_config_reads = fields.iter().map(|field| {
-        let field_name = &field.field;
-        let ty = &field.ty;
-        quote! {
-            fn #field_name(&self) -> #ty {
-                unimplemented!()
-            }
-        }
-    });
-    let empty_config_mutations = fields.iter().map(|field| {
-        let setter = &field.setter;
-        let ty = &field.ty;
-        quote! {
-            fn #setter(&mut self, _: #ty) {
-                unimplemented!()
-            }
-        }
-    });
     let concrete_field_reads = fields.iter().map(|field| {
         let field_name = &field.field;
         let ty = &field.ty;
@@ -363,14 +339,44 @@ fn expand_accessor_impl(accessor: &Ident, struct_ident: &Ident, fields: &[Parame
             #(#setter_signatures)*
         }
 
-        impl #accessor for () {
-            #(#empty_config_reads)*
-            #(#empty_config_mutations)*
-        }
-
         impl #accessor for #struct_ident {
             #(#concrete_field_reads)*
             #(#concrete_field_assignments)*
+        }
+    }
+}
+
+fn expand_default_parameters_impl(
+    default_parameters: &Ident,
+    parameter_crate: &Path,
+    fields: &[ParameterField],
+) -> proc_macro2::TokenStream {
+    let consts = fields.iter().map(|field| {
+        let const_name = &field.const_name;
+        let ty = &field.ty;
+        let label = &field.label;
+        let unit = expand_unit(field);
+        let range = &field.range;
+        let step = &field.step;
+        let logarithmic = &field.logarithmic;
+        let default = &field.default;
+        quote! {
+            pub const #const_name: #parameter_crate::ParameterSpec<#ty> = #parameter_crate::ParameterSpec::new(
+                #label,
+                #unit,
+                #range,
+                #step,
+                #logarithmic,
+                #default,
+            );
+        }
+    });
+
+    quote! {
+        pub struct #default_parameters;
+
+        impl #default_parameters {
+            #(#consts)*
         }
     }
 }

@@ -155,7 +155,9 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisi
 
 #[cfg(test)]
 mod tests {
-    use bpm_detection_core::parameters::{DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor};
+    use bpm_detection_core::parameters::{
+        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
+    };
 
     use super::*;
 
@@ -168,6 +170,6 @@ mod tests {
 
     #[test]
     fn slide_adder_can_render_dynamic_parameter_visitor() {
-        assert_dynamic_parameter_visitor::<()>();
+        assert_dynamic_parameter_visitor::<DynamicBPMDetectionConfig>();
     }
 }

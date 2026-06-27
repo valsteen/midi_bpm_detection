@@ -30,8 +30,13 @@ Current branch checkpoint:
 - `rust/crates/parameter_macros/`
 - dynamic-config macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 
-The dynamic-config-only attribute proc-macro prototype is implemented. Static BPM, normal distribution, and GUI config
-remain hand-written.
+The dynamic-config-only attribute proc-macro prototype, first diagnostics follow-up, metadata-only dynamic spec split, and
+normal-distribution macro migration are implemented and verified. Static BPM and GUI config remain hand-written.
+
+Current commits on `codex/parameter-flow-audit`:
+
+- `431d0d3 Add dynamic parameter group macro prototype`
+- `a5fc659 Improve parameter macro diagnostics`
 
 ## Key Findings So Far
 
@@ -76,8 +81,9 @@ Use `$repo-audit-coordinator`.
 Continue with:
 
 1. Use the canonical workspace under `docs/audits/parameter-flow/`.
-2. Review the `Attribute Parameter Group Macro Prototype` back-handoff in `docs/audits/parameter-flow/handoff.md`.
-3. Decide whether to improve macro diagnostics/DX before applying the pattern to normal distribution or GUI config.
+2. Read the coordinator review and `Attribute Macro For GUIConfig` slice brief in
+   `docs/audits/parameter-flow/handoff.md`.
+3. Execute or hand off that GUI slice before designing the static BPM computed-method split.
 
 ## Prompt To Start The Next Audit-Coordinator Chat
 
@@ -91,9 +97,9 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-We are continuing the parameter mapping/refactor audit. Review the back-handoff for the attribute parameter group macro
-prototype, update the audit docs, and recommend whether to improve macro diagnostics/DX before applying the pattern next
-to normal distribution and GUI config.
+We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "Attribute Macro For
+GUIConfig" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
+implementer prompt or continue coordinator review if the docs have drifted.
 ```
 
 ## Prompt To Start A Future Implementer Chat
@@ -108,7 +114,7 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-Execute the next bounded slice selected by the audit coordinator. The dynamic-config-only attribute proc-macro prototype
-already exists; do not repeat the rejected dynamic-specific `macro_rules!` proof, and do not migrate static BPM, normal
-distribution, or GUI config unless that slice explicitly asks for it.
+Execute only the "Attribute Macro For GUIConfig" slice from docs/audits/parameter-flow/handoff.md. The dynamic-config,
+metadata-spec, and normal-distribution macro slices already exist; do not repeat the rejected dynamic-specific
+`macro_rules!` proof, and do not migrate static BPM.
 ```

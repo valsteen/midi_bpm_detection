@@ -280,203 +280,100 @@ pub fn max_histogram_data_buffer_size() -> usize {
         .expect("programming error, bpm_lower_bound > bpm_upper_bound")
 }
 
+#[parameter_group(
+    accessor = NormalDistributionConfigAccessor,
+    parameters = NormalDistributionParameters,
+    default_parameters = DefaultNormalDistributionParameters,
+    visitor = NormalDistributionParameterVisitor
+)]
 #[derive(Clone, Debug, Serialize, Deserialize, Derivative)]
 #[derivative(PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct NormalDistributionConfig {
+    #[parameter(label = "Standard deviation", range = 4.0..=40.0, default = 24.0)]
     #[derivative(PartialEq(compare_with = "f64::eq"))]
     pub std_dev: f64,
+    #[parameter(label = "factor", range = 0.0..=50.0, default = 40.0)]
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub factor: f32,
+    #[parameter(label = "Normal distribution cutoff", unit = "ms", range = 1.0..=2000.0, logarithmic = true, default = 100.0)]
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub cutoff: f32, // in millisecond
+    #[parameter(label = "Normal distribution resolution", unit = "ms", range = 0.01..=1000.0, logarithmic = true, default = 0.6)]
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub resolution: f32, // 1 means one index = 1 millisecond
 }
 
-pub trait NormalDistributionConfigAccessor {
-    fn std_dev(&self) -> f64;
-    fn factor(&self) -> f32;
-    fn cutoff(&self) -> f32;
-    fn resolution(&self) -> f32;
-
-    fn set_std_dev(&mut self, val: f64);
-    fn set_factor(&mut self, val: f32);
-    fn set_cutoff(&mut self, val: f32);
-    fn set_resolution(&mut self, val: f32);
-}
-
-impl NormalDistributionConfigAccessor for () {
-    fn std_dev(&self) -> f64 {
-        unimplemented!()
-    }
-
-    fn factor(&self) -> f32 {
-        unimplemented!()
-    }
-
-    fn cutoff(&self) -> f32 {
-        unimplemented!()
-    }
-
-    fn resolution(&self) -> f32 {
-        unimplemented!()
-    }
-
-    fn set_std_dev(&mut self, _: f64) {
-        unimplemented!()
-    }
-
-    fn set_factor(&mut self, _: f32) {
-        unimplemented!()
-    }
-
-    fn set_cutoff(&mut self, _: f32) {
-        unimplemented!()
-    }
-
-    fn set_resolution(&mut self, _: f32) {
-        unimplemented!()
-    }
-}
-
-impl NormalDistributionConfigAccessor for NormalDistributionConfig {
-    fn std_dev(&self) -> f64 {
-        self.std_dev
-    }
-
-    fn factor(&self) -> f32 {
-        self.factor
-    }
-
-    fn cutoff(&self) -> f32 {
-        self.cutoff
-    }
-
-    fn resolution(&self) -> f32 {
-        self.resolution
-    }
-
-    fn set_std_dev(&mut self, val: f64) {
-        self.std_dev = val;
-    }
-
-    fn set_factor(&mut self, val: f32) {
-        self.factor = val;
-    }
-
-    fn set_cutoff(&mut self, val: f32) {
-        self.cutoff = val;
-    }
-
-    fn set_resolution(&mut self, val: f32) {
-        self.resolution = val;
-    }
-}
-
-pub type DefaultNormalDistributionParameters = NormalDistributionParameters<()>;
-
-impl NormalDistributionConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        NormalDistributionParameters::<Self>::STD_DEV.validate_config_value(self)?;
-        NormalDistributionParameters::<Self>::FACTOR.validate_config_value(self)?;
-        NormalDistributionParameters::<Self>::CUTOFF.validate_config_value(self)?;
-        NormalDistributionParameters::<Self>::RESOLUTION.validate_config_value(self)?;
-
-        Ok(())
-    }
-}
-
-impl Default for NormalDistributionConfig {
-    fn default() -> Self {
-        Self {
-            std_dev: DefaultNormalDistributionParameters::STD_DEV.default,
-            factor: DefaultNormalDistributionParameters::FACTOR.default,
-            cutoff: DefaultNormalDistributionParameters::CUTOFF.default,
-            resolution: DefaultNormalDistributionParameters::RESOLUTION.default,
-        }
-    }
-}
-
-pub struct NormalDistributionParameters<Config> {
-    phantom: PhantomData<Config>,
-}
-
-impl<Config: NormalDistributionConfigAccessor> NormalDistributionParameters<Config> {
-    pub const CUTOFF: Parameter<Config, f32> = Parameter::new(
-        "Normal distribution cutoff",
-        Some("ms"),
-        1.0..=2000.,
-        0.0,
-        true,
-        100.0,
-        Config::cutoff,
-        Config::set_cutoff,
-    );
-    pub const FACTOR: Parameter<Config, f32> =
-        Parameter::new("factor", None, 0.0..=50., 0.0, false, 40.0, Config::factor, Config::set_factor);
-    pub const RESOLUTION: Parameter<Config, f32> = Parameter::new(
-        "Normal distribution resolution",
-        Some("ms"),
-        0.01..=1000.,
-        0.0,
-        true,
-        0.6,
-        Config::resolution,
-        Config::set_resolution,
-    );
-    pub const STD_DEV: Parameter<Config, f64> =
-        Parameter::new("Standard deviation", None, 4.0..=40.0, 0.0, false, 24.0, Config::std_dev, Config::set_std_dev);
-}
-
 #[cfg(test)]
 mod parameter_inventory_tests {
+    use parameter::ParameterSpec;
+
     use super::*;
 
     struct DynamicParameterLabels(Vec<&'static str>);
 
-    impl DynamicBPMDetectionParameterVisitor<()> for DynamicParameterLabels {
-        fn beats_lookback(&mut self, parameter: Parameter<(), u8>) {
+    impl DynamicBPMDetectionParameterVisitor<DynamicBPMDetectionConfig> for DynamicParameterLabels {
+        fn beats_lookback(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, u8>) {
             self.0.push(parameter.label);
         }
 
-        fn normal_distribution_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn normal_distribution_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn time_distance_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn time_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn velocity_current_note_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn velocity_current_note_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn velocity_note_from_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn velocity_note_from_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn in_beat_range_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn in_beat_range_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn multiplier_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn multiplier_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn subdivision_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn subdivision_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn octave_distance_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn octave_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn pitch_distance_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn pitch_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
             self.0.push(parameter.label);
         }
 
-        fn high_tempo_bias_weight(&mut self, parameter: Parameter<(), OnOff<f32>>) {
+        fn high_tempo_bias_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
+            self.0.push(parameter.label);
+        }
+    }
+
+    struct NormalDistributionParameterLabels(Vec<&'static str>);
+
+    impl NormalDistributionParameterVisitor<NormalDistributionConfig> for NormalDistributionParameterLabels {
+        fn std_dev(&mut self, parameter: Parameter<NormalDistributionConfig, f64>) {
+            self.0.push(parameter.label);
+        }
+
+        fn factor(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push(parameter.label);
+        }
+
+        fn cutoff(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push(parameter.label);
+        }
+
+        fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
             self.0.push(parameter.label);
         }
     }
@@ -504,4 +401,23 @@ mod parameter_inventory_tests {
             ]
         );
     }
+
+    #[test]
+    fn normal_distribution_parameter_specs_and_visitor_preserve_inventory() {
+        assert_parameter_spec(&DefaultNormalDistributionParameters::STD_DEV);
+        assert_parameter_spec(&DefaultNormalDistributionParameters::FACTOR);
+        assert_parameter_spec(&DefaultNormalDistributionParameters::CUTOFF);
+        assert_parameter_spec(&DefaultNormalDistributionParameters::RESOLUTION);
+
+        let mut labels = NormalDistributionParameterLabels(Vec::new());
+
+        NormalDistributionParameters::visit(&mut labels);
+
+        assert_eq!(
+            labels.0,
+            ["Standard deviation", "factor", "Normal distribution cutoff", "Normal distribution resolution",]
+        );
+    }
+
+    fn assert_parameter_spec<ValueType>(_: &ParameterSpec<ValueType>) {}
 }

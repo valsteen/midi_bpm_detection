@@ -372,6 +372,109 @@ The first implementation slice prototyped the chosen attribute proc-macro API on
 Keep all generated public names and behavior equivalent to the previous hand-written dynamic config API. Do not apply the
 macro to static BPM, normal distribution, GUI config, or plugin/egui mapping code until a later reviewed slice.
 
+## Coordinator Review: Attribute Proc-Macro Prototype
+
+Review checkpoint: `codex/parameter-flow-audit` at `a5fc659 Improve parameter macro diagnostics`, two commits ahead of
+`upstream/main`.
+
+Completed slice commits:
+
+- `431d0d3 Add dynamic parameter group macro prototype`
+- `a5fc659 Improve parameter macro diagnostics`
+
+The prototype matches the accepted direction:
+
+- `DynamicBPMDetectionConfig` remains an ordinary Rust struct with real fields.
+- Dynamic field metadata lives in small `#[parameter(...)]` attributes.
+- The macro generates the dynamic accessor trait, concrete accessor impl, default metadata catalog, parameter constants,
+  visitor trait, traversal, default impl, and validation.
+- The rejected dynamic-specific `macro_rules!` DSL is absent from production code.
+- Static BPM, normal distribution, GUI config, and runtime synchronization policy were not migrated in this slice.
+- The diagnostics follow-up improved missing/unknown/duplicate macro-argument errors and added fixture-based diagnostic
+  tests without adding a trybuild dependency.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, including 4 diagnostics tests and 2 parameter-group tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 1 test.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: the dynamic attribute macro is solid enough to keep, but the generated default catalog still exposes
+the old `Parameters<()>` compatibility bridge. That bridge is public and can panic if code calls `Parameter::get` or
+`Parameter::set` on metadata-only constants. Before applying the macro to more groups, split metadata-only parameter specs
+from config-bound parameters for the generated dynamic catalog.
+
+## Coordinator Review: Metadata-Only Dynamic Parameter Specs
+
+Review checkpoint: `codex/parameter-flow-audit`, in the coordinator checkpoint that includes the metadata-spec
+implementation on top of `a5fc659 Improve parameter macro diagnostics`.
+
+The slice matches the brief:
+
+- `parameter::ParameterSpec<ValueType>` now represents metadata-only parameter declarations.
+- The generated `DefaultDynamicBPMDetectionParameters` catalog is a concrete spec catalog, not a
+  `DynamicBPMDetectionParameters<()>` alias.
+- The generated macro output no longer includes `impl DynamicBPMDetectionConfigAccessor for ()`.
+- `DynamicBPMDetectionParameters<Config>` remains the config-bound `Parameter<Config, T>` catalog.
+- Plugin dynamic remote-control ordering and dynamic host reads now use
+  `DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>::visit`.
+- Static BPM, normal distribution, and GUI fake-config aliases remain deliberately unchanged.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter`: passed, 0 tests.
+- `cargo test -p parameter_macros`: passed, including 4 diagnostics tests and 2 parameter-group tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 1 test.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: the spec split is an improvement and removes the generated dynamic fake-config panic surface. The
+remaining `Parameters<()>` aliases are now hand-written debt in static BPM, normal distribution, and GUI config. The next
+bounded migration should apply the attribute macro to `NormalDistributionConfig`, because it is a small plain core group
+without static BPM's computed methods and without adding a new macro dependency to the GUI crate.
+
+## Coordinator Review: NormalDistributionConfig Macro Migration
+
+Review checkpoint: `codex/parameter-flow-audit`, in the coordinator checkpoint that includes the normal-distribution
+migration on top of the metadata-spec slice.
+
+The slice matches the brief:
+
+- `NormalDistributionConfig` remains an ordinary Rust struct with real fields and the existing serde/derivative behavior.
+- Normal distribution metadata now lives in field-level `#[parameter(...)]` attributes.
+- `DefaultNormalDistributionParameters` is generated as a `ParameterSpec<T>` metadata catalog.
+- `NormalDistributionParameters<Config>` remains the config-bound parameter catalog.
+- The generated macro output removes the normal distribution fake `impl NormalDistributionConfigAccessor for ()`.
+- Plugin normal distribution host params remain manually enumerated under the static parameter group.
+- Static BPM, dynamic config, and GUI config were not migrated in this slice.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 2 tests.
+- `cargo test -p bpm_detection_core`: passed, 4 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: the normal distribution migration is accepted. The next bounded migration should apply the same
+macro pattern to `GUIConfig`, while keeping GUI/display runtime update semantics unchanged. Static BPM remains later
+because its accessor trait still carries computed methods.
+
 ## Non-Goals For The Completed Macro Implementation Slice
 
 - Do not change host/GUI sync policy.
@@ -386,8 +489,10 @@ macro to static BPM, normal distribution, GUI config, or plugin/egui mapping cod
 
 1. Implement the attribute proc-macro prototype and apply it only to `DynamicBPMDetectionConfig`.
 2. Coordinator review of the generated API, diagnostics, rust-analyzer ergonomics, and diff readability.
-3. If dynamic config succeeds, apply the pattern to `NormalDistributionConfig` and `GUIConfig`.
-4. Design the static BPM computed-method split, then apply the pattern to static BPM config.
-5. Revisit egui/plugin host mapping surfaces once all typed groups are homogeneous.
-6. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
+3. Split generated dynamic default catalogs away from the `Parameters<()>` fake-config bridge.
+4. Apply the attribute macro to `NormalDistributionConfig`.
+5. Apply the attribute macro to `GUIConfig`.
+6. Design the static BPM computed-method split, then apply the pattern to static BPM config.
+7. Revisit egui/plugin host mapping surfaces once all typed groups are homogeneous.
+8. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
    assignment, and parameter-like atomics.

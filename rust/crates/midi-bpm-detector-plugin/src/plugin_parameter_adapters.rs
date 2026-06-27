@@ -303,8 +303,8 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use bpm_detection_core::parameters::{
-        DefaultDynamicBPMDetectionParameters, DynamicBPMDetectionConfig, DynamicBPMDetectionParameters,
-        NormalDistributionConfig, NormalDistributionParameters, StaticBPMDetectionConfig, StaticBPMDetectionParameters,
+        DynamicBPMDetectionConfig, DynamicBPMDetectionParameters, NormalDistributionConfig,
+        NormalDistributionParameters, StaticBPMDetectionConfig, StaticBPMDetectionParameters,
     };
     use gui::{GUIConfig, GUIParameters};
     use nih_plug::prelude::Params;
@@ -321,7 +321,8 @@ mod tests {
         let callback: Arc<dyn Fn(f32) + Send + Sync> = Arc::new(|_: f32| {});
         let plugin_param = PluginOnOffParam::new(
             "time_distance_weight",
-            DefaultDynamicBPMDetectionParameters::TIME_DISTANCE_WEIGHT.to_param(OnOff::Off(1.5), &callback),
+            DynamicBPMDetectionParameters::<DynamicBPMDetectionConfig>::TIME_DISTANCE_WEIGHT
+                .to_param(OnOff::Off(1.5), &callback),
             OnOff::Off(1.5),
         );
 

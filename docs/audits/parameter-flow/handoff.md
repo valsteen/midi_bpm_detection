@@ -6,12 +6,15 @@ This is the current restart point for a fresh bounded implementation chat.
 
 The audit found that parameter declarations and mappings are highly mechanical. Dynamic config already has a repeated
 pattern of config fields, accessor trait, concrete accessor impl, `Parameter` constants, visitor methods, and traversal.
-The user explicitly called out that this is a good fit for a macro and wants an implementer-ready artifact for the macro
-writing step.
+The user explicitly called out that this is a good fit for a macro.
 
 The first dynamic-config-only `macro_rules!` proof was rejected and scratched from production code. The chosen direction
-is now a generic attribute proc-macro API that keeps config structs as ordinary Rust and generates mechanical companion
-items.
+is a generic attribute proc-macro API that keeps config structs as ordinary Rust and generates mechanical companion
+items. The dynamic-config-only prototype and first diagnostics follow-up are now committed.
+
+The dynamic metadata-spec split and `NormalDistributionConfig` macro migration are now implemented and verified. The
+next recommended slice is to apply the existing attribute macro to `GUIConfig` only. Keep `StaticBPMDetectionConfig` out
+of that slice.
 
 ## Durable Context To Read First
 
@@ -156,7 +159,10 @@ Update `docs/audits/parameter-flow/handoff.md` with a back-handoff section conta
 Also update `docs/audits/parameter-flow/audit.md` if the implementation makes a durable design decision that future
 slices must know.
 
-## Prompt For Fresh Implementer Chat
+## Historical Prompt For Fresh Implementer Chat: Attribute Parameter Group Macro Prototype
+
+This prompt is retained as historical context for the completed prototype slice. Do not use it as the next implementer
+prompt.
 
 ```text
 [$bounded-implementer] Use the bounded implementer flow for one repository slice.
@@ -242,7 +248,7 @@ must require ordinary Rust structs and generic macro ergonomics.
 
 ### Recommended next slice
 
-Superseded. The active slice is now "Attribute Parameter Group Macro Prototype".
+Superseded. The "Attribute Parameter Group Macro Prototype" slice is now complete.
 
 ## Back-Handoff: Attribute Parameter Group Macro Prototype
 
@@ -472,3 +478,740 @@ because the current macro accepts arbitrary Rust expressions for those values.
 
 Either design the `ParameterSpec<T>` metadata-only split for default catalogs, or continue smaller macro-DX improvements
 with bare boolean flags and integer literal range syntax.
+
+## Coordinator Review: Attribute Macro Prototype And Diagnostics
+
+### Status
+
+Verified.
+
+### Branch / commits
+
+Branch: `codex/parameter-flow-audit`, two commits ahead of `upstream/main`.
+
+Commits:
+
+- `431d0d3 Add dynamic parameter group macro prototype`
+- `a5fc659 Improve parameter macro diagnostics`
+
+### Review result
+
+The committed implementation matches the accepted direction. `DynamicBPMDetectionConfig` remains an ordinary Rust struct
+with small field-level `#[parameter(...)]` metadata. The generated dynamic public API preserves the expected names and
+visitor order, and downstream GUI/plugin tests compile against it.
+
+The diagnostics follow-up is also in-scope: it addresses the prototype's highest-risk ergonomics before wider migration
+and adds local fixture-based tests without adding an external compile-fail test dependency.
+
+### Fresh verification
+
+Run from `rust/` unless noted:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, including 4 diagnostics tests and 2 parameter-group tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 1 test.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- From repo root, `git diff --check`: passed.
+
+### Remaining risk to address before wider migration
+
+The generated default catalog is still the public alias `DefaultDynamicBPMDetectionParameters =
+DynamicBPMDetectionParameters<()>`. That means metadata-only constants still carry fake `get`/`set` function pointers
+through an `impl DynamicBPMDetectionConfigAccessor for ()` that panics if used as a real config.
+
+Today this is mostly contained: call sites use default dynamic parameters for labels, defaults, ranges, visitor ordering,
+and plugin host/remote-control ordering. Still, the type advertises a real `Parameter<(), T>`, which is misleading and
+easy to misuse. Split that before migrating more groups.
+
+## Slice Brief: Metadata-Only Dynamic Parameter Specs
+
+### Objective
+
+Introduce a metadata-only parameter spec shape for generated dynamic default catalogs so
+`DefaultDynamicBPMDetectionParameters` no longer exposes `Parameter<(), T>` values or requires a generated
+`DynamicBPMDetectionConfigAccessor for ()` bridge.
+
+Keep `DynamicBPMDetectionParameters<Config>` as the config-bound `Parameter<Config, T>` catalog used by real config
+read/write paths.
+
+### Non-goals
+
+- Do not migrate static BPM, normal distribution, or GUI config to the macro in this slice.
+- Do not remove the hand-written `DefaultStaticBPMDetectionParameters`, `DefaultNormalDistributionParameters`, or
+  `DefaultGUIParameters` fake-config aliases yet.
+- Do not change runtime sync behavior in desktop, wasm, or plugin code.
+- Do not change dynamic serde schemas, public config fields, labels, ranges, defaults, units, steps, logarithmic flags, or
+  visitor order.
+- Do not replace the visitor pattern with a new catalog/enumeration.
+- Do not add new lint exceptions.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially "Coordinator Review: Attribute Proc-Macro Prototype".
+- `docs/audits/parameter-flow/handoff.md`, especially the prototype and diagnostics back-handoffs.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/parameter/src/lib.rs`
+- `rust/crates/parameter_macros/src/lib.rs`
+- `rust/crates/parameter_macros/tests/parameter_group.rs`
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- The runtime `parameter` crate should own the new metadata-only shape, tentatively `ParameterSpec<ValueType>`.
+- The macro crate should generate dynamic metadata specs and config-bound `Parameter<Config, ValueType>` constants from
+  the same field metadata.
+- `bpm_detection_core` must not gain egui, nih-plug, desktop, wasm, or plugin dependencies.
+- Plugin dynamic remote controls and host reads currently use `DefaultDynamicBPMDetectionParameters::visit` only for
+  ordering. They can switch to a real config-bound dynamic catalog, or to an explicitly metadata/spec visitor if the
+  slice adds one.
+- Static, normal, and GUI fake-config aliases remain known debt for later slices.
+
+### Expected behavioral change
+
+None intended.
+
+This is a structural cleanup of generated dynamic metadata only. Runtime config reads/writes, plugin host parameter
+values, GUI rendering, validation, and dynamic visitor order should stay equivalent.
+
+### Expected structural change
+
+- Add a metadata-only parameter spec type in `parameter`.
+- Update `parameter_macros` so the generated default dynamic catalog uses specs rather than `Parameter<(), T>`.
+- Remove generated `impl DynamicBPMDetectionConfigAccessor for ()` from the macro output.
+- Keep generated `DynamicBPMDetectionParameters<Config>` constants as config-bound `Parameter<Config, T>` values.
+- Update dynamic plugin/test call sites that used the `()` catalog for ordering or metadata.
+
+### Acceptance criteria
+
+- `DefaultDynamicBPMDetectionParameters::*` exposes metadata-only specs, not `Parameter<(), T>`.
+- The generated dynamic macro output no longer includes `impl DynamicBPMDetectionConfigAccessor for ()`.
+- `DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>` and generic
+  `DynamicBPMDetectionParameters<Config>` remain available for config-bound parameters.
+- Existing dynamic labels, ranges, defaults, units, steps, logarithmic flags, and visitor order are preserved.
+- Plugin dynamic remote controls still expose every dynamic parameter in the same order.
+- Plugin dynamic host reads still round-trip host parameter values into `DynamicBPMDetectionConfig`.
+- Static BPM, normal distribution, and GUI default aliases are not migrated in this slice.
+
+### Tests / checks
+
+- From `rust/`: `cargo test -p parameter`
+- From `rust/`: `cargo test -p parameter_macros`
+- From `rust/`: `cargo test -p bpm_detection_core parameter_inventory_tests`
+- From `rust/`: `cargo test -p bpm_detection_core`
+- From `rust/`: `cargo test -p gui`
+- From `rust/`: `cargo test -p midi-bpm-detector-plugin`
+- From `rust/`:
+  `cargo clippy -p parameter -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`
+- From repo root: `git diff --check`
+
+### Risks / open questions
+
+- Naming may settle on `ParameterSpec`, `ParameterMetadata`, or a similar term. Prefer a name that makes "no config
+  accessors here" obvious.
+- If a metadata visitor is introduced, keep it small and do not replace the existing config-bound visitor in this slice.
+- Generated code should avoid duplicating metadata literals between specs and config-bound parameters more than necessary.
+- The hand-written static/normal/gui `Parameters<()>` bridges remain after this slice; document that as deliberate
+  follow-up debt, not an accidental omission.
+
+### Back-handoff requirements
+
+Update `docs/audits/parameter-flow/handoff.md` with:
+
+- status: complete / partial / blocked;
+- branch and commit if applicable;
+- files changed;
+- final metadata type/API shape;
+- how dynamic plugin ordering/read call sites changed;
+- tests/checks run and results;
+- deviations from this brief;
+- remaining risks;
+- recommended next slice.
+
+## Prompt For Fresh Implementer Chat: Metadata-Only Dynamic Parameter Specs
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Metadata-Only Dynamic Parameter Specs" from docs/audits/parameter-flow/handoff.md.
+
+Introduce a metadata-only parameter spec shape for generated dynamic default catalogs so
+DefaultDynamicBPMDetectionParameters no longer exposes Parameter<(), T> or requires a generated
+DynamicBPMDetectionConfigAccessor for () bridge. Preserve DynamicBPMDetectionParameters<Config> as the config-bound
+Parameter<Config, T> catalog. Do not migrate static BPM, normal distribution, or GUI config. Do not change runtime sync
+behavior, serde schemas, labels, ranges, defaults, units, steps, logarithmic flags, or dynamic visitor order. Update
+docs/audits/parameter-flow/handoff.md with a back-handoff.
+```
+
+## Back-Handoff: Metadata-Only Dynamic Parameter Specs
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: none.
+
+### Files changed
+
+- `rust/crates/parameter/src/lib.rs`
+- `rust/crates/parameter_macros/src/lib.rs`
+- `rust/crates/parameter_macros/tests/parameter_group.rs`
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/add_slider.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Added `parameter::ParameterSpec<ValueType>` as the metadata-only shape for generated default parameter catalogs. The
+dynamic `#[parameter_group]` macro now generates `DefaultDynamicBPMDetectionParameters` as a concrete spec catalog whose
+associated constants are `ParameterSpec<T>`, while `DynamicBPMDetectionParameters<Config>` remains the config-bound
+`Parameter<Config, T>` catalog.
+
+### Behavioral changes
+
+None intended.
+
+Dynamic labels, ranges, defaults, units, steps, logarithmic flags, serde field shapes, validation order, plugin dynamic
+remote-control order, and plugin dynamic host-read roundtrip behavior are preserved.
+
+### Structural changes
+
+- Removed generated `impl DynamicBPMDetectionConfigAccessor for ()` from the macro output.
+- Replaced the generated `Default*Parameters = *Parameters<()>` alias with a generated concrete `Default*Parameters`
+  struct containing `ParameterSpec<T>` constants.
+- Kept the existing config-bound visitor pattern unchanged for real config catalogs.
+- Moved dynamic plugin remote-control ordering and host reads from `DefaultDynamicBPMDetectionParameters::visit` to
+  `DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>::visit`.
+- Updated dynamic-only tests that previously asserted visitor behavior through `Config = ()`.
+
+### Affected boundaries / integration points
+
+- `parameter` owns the new metadata-only public type.
+- `parameter_macros` generates specs and no longer generates fake dynamic accessors for `()`.
+- `bpm_detection_core`, `gui`, and `midi-bpm-detector-plugin` continue consuming the generated dynamic public API.
+- Static BPM, normal distribution, and GUI default aliases still use the hand-written `Parameters<()>` bridge by design.
+- No egui, nih-plug, desktop, wasm, or plugin dependencies were added to `parameter`, `parameter_macros`, or
+  `bpm_detection_core`.
+
+### Tests / checks
+
+- Red run: `cargo test -p parameter_macros --test parameter_group` failed because `parameter::ParameterSpec` did not yet
+  exist.
+- `cargo test -p parameter_macros --test parameter_group`: passed, 2 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 1 test.
+- `cargo test -p parameter`: passed, 0 tests.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: initially failed because a test still asserted `SlideAdder` visitor support for `Config = ()`;
+  passed after updating that assertion to `DynamicBPMDetectionConfig`, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `cargo +nightly fmt --all -- --check`: passed after applying rustfmt.
+- From repo root, `git diff --check`: passed.
+
+### Decisions made
+
+- Used the name `ParameterSpec<ValueType>` to make the no-config-accessor shape explicit.
+- Did not add a metadata/spec visitor in this slice. Dynamic plugin ordering and host reads use the existing
+  config-bound visitor with `DynamicBPMDetectionConfig`.
+- Did not add a `Parameter::from_spec` const helper because generic `ParameterSpec` destruction cannot be evaluated in a
+  stable const fn; the macro emits spec constants and config-bound parameter constants from the same field metadata.
+
+### Deviations from brief
+
+None intentional.
+
+### Remaining risks
+
+- The generated macro output still duplicates metadata literals internally between spec constants and config-bound
+  `Parameter` constants, although both are generated from the same field attributes.
+- Static BPM, normal distribution, and GUI fake-config default aliases remain as known follow-up debt.
+- Visitor methods still have default implementations, so visitor exhaustiveness remains unchanged from the previous
+  slice.
+
+### Recommended next slice
+
+Coordinator review of the `ParameterSpec` API and generated macro output, then either migrate `NormalDistributionConfig`
+or `GUIConfig` to the attribute macro once the metadata/spec split is accepted.
+
+## Coordinator Review: Metadata-Only Dynamic Parameter Specs
+
+### Status
+
+Verified.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: included in the coordinator checkpoint commit that follows `a5fc659 Improve parameter macro diagnostics`.
+
+### Review result
+
+The implementation satisfies the slice brief. `ParameterSpec<ValueType>` now owns metadata-only declarations, and the
+generated dynamic default catalog no longer exposes `Parameter<(), T>` or requires `DynamicBPMDetectionConfigAccessor for
+()`. The config-bound dynamic catalog remains `DynamicBPMDetectionParameters<Config>`.
+
+Plugin dynamic remote controls and dynamic host reads now traverse
+`DynamicBPMDetectionParameters<DynamicBPMDetectionConfig>`, preserving ordering while avoiding the metadata-only catalog
+for behavior.
+
+Static BPM, normal distribution, and GUI fake-config aliases remain deliberately unchanged.
+
+### Fresh verification
+
+Run from `rust/` unless noted:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter`: passed, 0 tests.
+- `cargo test -p parameter_macros`: passed, including 4 diagnostics tests and 2 parameter-group tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 1 test.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- From repo root, `git diff --check`: passed.
+
+### Remaining risks
+
+- The macro still emits duplicate metadata literals internally for specs and config-bound parameters, but both are
+  generated from the same field attributes.
+- Hand-written `Parameters<()>` bridges still exist for static BPM, normal distribution, and GUI config.
+- Visitor methods still have default implementations.
+
+### Recommended next slice
+
+Apply the attribute macro to `NormalDistributionConfig` only. This is the smallest remaining plain core parameter group:
+it has no static BPM computed methods and does not require adding the macro dependency to `gui`.
+
+## Slice Brief: Attribute Macro For NormalDistributionConfig
+
+### Objective
+
+Apply the existing generic `#[parameter_group(...)]` macro to `NormalDistributionConfig` only.
+
+Use ordinary Rust struct fields plus small `#[parameter(...)]` metadata as the source of truth, and generate the normal
+distribution accessor trait, concrete accessor impl, metadata spec catalog, config-bound parameter catalog, default impl,
+validation, and traversal.
+
+### Non-goals
+
+- Do not migrate `GUIConfig`.
+- Do not migrate `StaticBPMDetectionConfig`.
+- Do not change static BPM computed methods such as `index_to_bpm`, `highest_bpm`, or `lowest_bpm`.
+- Do not change runtime sync behavior in desktop, wasm, or plugin code.
+- Do not change serde schemas, public config fields, labels, ranges, defaults, units, steps, logarithmic flags, or plugin
+  parameter IDs.
+- Do not replace or tighten the visitor pattern globally.
+- Do not add new lint exceptions.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially the metadata-spec coordinator review.
+- `docs/audits/parameter-flow/handoff.md`, especially the dynamic macro and metadata-spec back-handoffs.
+- `docs/parameter-flow-audit.md`, especially the normal distribution inventory.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/parameter_macros/src/lib.rs`
+- `rust/crates/parameter_macros/tests/parameter_group.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- `bpm_detection_core` already depends on `parameter_macros`; do not add egui, nih-plug, desktop, wasm, or plugin
+  dependencies to core or the macro crate.
+- Normal distribution plugin host parameters are manually enumerated under the static parameter group. Preserve those
+  fields and IDs unless this slice explicitly changes only their source parameter constants.
+- Static BPM owns the nested `NormalDistributionConfig`; do not change static model computed-method semantics.
+- Keep shipped TOML defaults and serde field names stable.
+
+### Expected behavioral change
+
+None intended.
+
+This is a structural refactor of normal distribution parameter declarations only.
+
+### Expected structural change
+
+- Annotate `NormalDistributionConfig` with `#[parameter_group(...)]`.
+- Move normal distribution labels, ranges, units, steps, logarithmic flags, and defaults into field-level
+  `#[parameter(...)]` metadata.
+- Remove the hand-written normal distribution accessor trait, fake `impl ... for ()`, concrete accessor impl, default
+  alias, parameter catalog, default impl, and validation impl, replacing them with generated equivalents.
+- Add or update normal distribution traversal/inventory tests if the macro now generates a visitor for the group.
+
+### Acceptance criteria
+
+- `NormalDistributionConfig` remains an ordinary Rust struct with real fields.
+- `DefaultNormalDistributionParameters::*` exposes `ParameterSpec<T>`, not `Parameter<(), T>`.
+- There is no `impl NormalDistributionConfigAccessor for ()`.
+- `NormalDistributionParameters<Config>` remains available as the config-bound catalog.
+- Existing normal distribution labels, units, ranges, steps, logarithmic flags, defaults, serde field names, and plugin
+  parameter IDs are preserved.
+- Static BPM, dynamic config, and GUI config are not migrated in this slice.
+- Plugin tests still confirm normal distribution parameter exposure/initialization where currently covered.
+
+### Tests / checks
+
+- From `rust/`: `cargo test -p parameter_macros`
+- From `rust/`: `cargo test -p bpm_detection_core`
+- From `rust/`: `cargo test -p gui`
+- From `rust/`: `cargo test -p midi-bpm-detector-plugin`
+- From `rust/`:
+  `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`
+- From `rust/`: `cargo +nightly fmt --all -- --check`
+- From repo root: `git diff --check`
+
+### Risks / open questions
+
+- Generated visitors for normal distribution may reveal whether the dynamic visitor shape is too domain-specific. Keep
+  changes minimal and preserve the generated API if it compiles cleanly.
+- Plugin normal distribution controls are still manually enumerated. Do not force visitor-driven plugin construction in
+  this slice unless it falls out naturally and stays small.
+- Static BPM still has computed methods and remains the harder macro migration.
+
+### Back-handoff requirements
+
+Update `docs/audits/parameter-flow/handoff.md` with:
+
+- status: complete / partial / blocked;
+- branch and commit if applicable;
+- files changed;
+- summary of the generated normal distribution API shape;
+- tests/checks run and results;
+- deviations from this brief;
+- remaining risks;
+- recommended next slice.
+
+## Prompt For Fresh Implementer Chat: Attribute Macro For NormalDistributionConfig
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Attribute Macro For NormalDistributionConfig" from docs/audits/parameter-flow/handoff.md.
+
+Apply the existing generic #[parameter_group(...)] macro to NormalDistributionConfig only. Preserve serde schemas, public
+config fields, labels, ranges, defaults, units, steps, logarithmic flags, plugin parameter IDs, and runtime sync behavior.
+Do not migrate GUIConfig or StaticBPMDetectionConfig. Do not change static BPM computed methods. Update
+docs/audits/parameter-flow/handoff.md with a back-handoff.
+```
+
+## Back-Handoff: Attribute Macro For NormalDistributionConfig
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: none at implementer handoff time; included in the coordinator checkpoint commit with the metadata-spec slice.
+
+### Files changed
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Applied the existing generic `#[parameter_group(...)]` macro to `NormalDistributionConfig` only. The normal distribution
+config remains an ordinary Rust struct with real public fields, serde derives, `deny_unknown_fields`, and derivative
+float comparisons. Field-level `#[parameter(...)]` metadata now owns the existing normal distribution labels, ranges,
+defaults, units, and logarithmic flags.
+
+The generated public normal distribution API now matches the current macro shape:
+
+- `NormalDistributionConfigAccessor`
+- `impl NormalDistributionConfigAccessor for NormalDistributionConfig`
+- `DefaultNormalDistributionParameters` with `ParameterSpec<T>` associated constants
+- `NormalDistributionParameters<Config>` with config-bound `Parameter<Config, T>` constants
+- `NormalDistributionParameterVisitor<Config>`
+- `NormalDistributionParameters::<Config>::visit`
+- `NormalDistributionConfig::default`
+- `NormalDistributionConfig::validate`
+
+### Behavioral changes
+
+None intended.
+
+Normal distribution config fields, serde field names, validation ranges, labels, defaults, units, steps, logarithmic
+flags, plugin host parameter construction, plugin parameter IDs, GUI slider listing, static update routing, and runtime
+sync behavior are preserved.
+
+### Structural changes
+
+- Removed the hand-written normal distribution accessor trait, fake `impl NormalDistributionConfigAccessor for ()`,
+  concrete accessor impl, `DefaultNormalDistributionParameters = NormalDistributionParameters<()>` alias, parameter
+  catalog, default impl, and validation impl from source.
+- Replaced them with macro-generated equivalents from the annotated `NormalDistributionConfig`.
+- Added a core inventory test asserting that `DefaultNormalDistributionParameters::*` are `ParameterSpec<T>` values and
+  that generated normal traversal preserves the field-source order.
+
+### Affected boundaries / integration points
+
+- `bpm_detection_core` continues to expose the normal distribution accessor and config-bound parameter catalog consumed
+  by `gui`, `desktop`, `wasm`, and `midi-bpm-detector-plugin`.
+- Plugin normal distribution host params remain manually enumerated under the static parameter group and continue to use
+  the same generated `NormalDistributionParameters<NormalDistributionConfig>` constants.
+- Static BPM still owns the nested `NormalDistributionConfig`; static computed methods were not changed.
+- No egui, nih-plug, desktop, wasm, plugin, or new dependency surface was added to core or the macro crate.
+
+### Tests / checks
+
+- Red run: `cargo test -p bpm_detection_core parameter_inventory_tests` failed because
+  `NormalDistributionParameterVisitor` was not yet generated.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 2 tests.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 4 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `cargo +nightly fmt --all -- --check`: initially reported formatting changes in the new core test; passed after
+  running `cargo +nightly fmt --all`.
+- From repo root, `git diff --check`: passed.
+
+### Decisions made
+
+- Kept GUI and plugin normal distribution enumeration manual in this slice, because the brief only required the
+  declaration/source-of-truth migration.
+- Used the normal struct field order for generated `visit`: `std_dev`, `factor`, `cutoff`, `resolution`.
+- Kept field comments for cutoff and resolution in place beside the ordinary Rust fields.
+
+### Deviations from brief
+
+None intentional.
+
+### Remaining risks
+
+- Normal distribution now has a generated visitor, but current GUI/plugin call sites do not use it yet.
+- Static BPM and GUI still have hand-written `Parameters<()>` fake-config aliases.
+- Visitor methods still have default implementations, so exhaustiveness remains a later audit concern.
+
+### Recommended next slice
+
+Coordinator review of the normal migration and generated visitor shape, then migrate `GUIConfig` if the macro output and
+metadata-spec shape are accepted. Static BPM should remain later because its computed methods still need an explicit split
+design.
+
+## Coordinator Review: Attribute Macro For NormalDistributionConfig
+
+### Status
+
+Verified.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: included in the coordinator checkpoint commit with the metadata-spec and normal distribution slices.
+
+### Review result
+
+The implementation satisfies the slice brief. `NormalDistributionConfig` remains an ordinary Rust struct, normal
+distribution metadata is field-local, `DefaultNormalDistributionParameters` exposes `ParameterSpec<T>` values, and
+`NormalDistributionParameters<Config>` remains the config-bound catalog.
+
+The generated `NormalDistributionParameterVisitor<Config>` preserves struct field order:
+
+1. `std_dev`
+2. `factor`
+3. `cutoff`
+4. `resolution`
+
+Plugin normal distribution parameters remain manually enumerated under the static parameter group, so this slice did not
+broaden runtime behavior or host parameter IDs.
+
+### Fresh verification
+
+Run from `rust/` unless noted:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 2 tests.
+- `cargo test -p bpm_detection_core`: passed, 4 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- From repo root, `git diff --check`: passed.
+
+### Remaining risks
+
+- GUI config still has the hand-written `DefaultGUIParameters = GUIParameters<()>` fake-config alias.
+- Static BPM still has the hand-written fake-config alias and computed accessor methods.
+- Generated visitors still have default methods, so visitor exhaustiveness remains a later audit concern.
+
+### Recommended next slice
+
+Apply the attribute macro to `GUIConfig` only. Keep the current GUI/display runtime update behavior unchanged, including
+the existing desktop/wasm/plugin propagation paths.
+
+## Slice Brief: Attribute Macro For GUIConfig
+
+### Objective
+
+Apply the existing generic `#[parameter_group(...)]` macro to `GUIConfig` only.
+
+Use ordinary Rust struct fields plus small `#[parameter(...)]` metadata as the source of truth, and generate the GUI
+config accessor trait, concrete accessor impl, metadata spec catalog, config-bound parameter catalog, default impl,
+validation, and traversal.
+
+### Non-goals
+
+- Do not migrate `StaticBPMDetectionConfig`.
+- Do not change GUI/display runtime update semantics in desktop, wasm, or plugin code.
+- Do not change interpolation behavior.
+- Do not change serde schemas, public config fields, labels, ranges, defaults, units, steps, or logarithmic flags.
+- Do not refactor the settings panel layout or plugin GUI/display host parameters beyond what is required to preserve
+  current API compatibility.
+- Do not replace or tighten the visitor pattern globally.
+- Do not add new lint exceptions.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially the metadata-spec and normal-distribution coordinator reviews.
+- `docs/audits/parameter-flow/handoff.md`, especially the dynamic, metadata-spec, and normal-distribution back-handoffs.
+- `docs/parameter-flow-audit.md`, especially the GUI/display inventory and update-path notes.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/gui/Cargo.toml`
+- `rust/crates/gui/src/config.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/gui/src/add_slider.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- The `gui` crate may need a dependency on `parameter_macros`; do not introduce dependencies on plugin, desktop, wasm, or
+  MIDI crates.
+- Desktop, wasm, and plugin runtime propagation for GUI/display parameters must remain unchanged.
+- Plugin GUI/display host parameter IDs must remain `interpolation_duration` and `interpolation_curve`.
+- GUI/display parameters are still semantically display/interpolation settings, not dynamic BPM scoring settings.
+
+### Expected behavioral change
+
+None intended.
+
+This is a structural refactor of GUI/display parameter declarations only.
+
+### Expected structural change
+
+- Annotate `GUIConfig` with `#[parameter_group(...)]`.
+- Move GUI labels, ranges, units, steps, logarithmic flags, and defaults into field-level `#[parameter(...)]` metadata.
+- Remove the hand-written GUI accessor trait, fake `impl GUIConfigAccessor for ()`, concrete accessor impl, default alias,
+  parameter catalog, default impl, and validation impl, replacing them with generated equivalents.
+- Add or update GUI inventory/traversal tests if the macro now generates a visitor for the group.
+
+### Acceptance criteria
+
+- `GUIConfig` remains an ordinary Rust struct with real fields.
+- `DefaultGUIParameters::*` exposes `ParameterSpec<T>`, not `Parameter<(), T>`.
+- There is no `impl GUIConfigAccessor for ()`.
+- `GUIParameters<Config>` remains available as the config-bound catalog.
+- Existing GUI labels, units, ranges, steps, logarithmic flags, defaults, serde field names, and plugin host parameter IDs
+  are preserved.
+- Desktop, wasm, and plugin GUI/display update routing is not changed.
+- Static BPM is not migrated in this slice.
+
+### Tests / checks
+
+- From `rust/`: `cargo test -p parameter_macros`
+- From `rust/`: `cargo test -p gui`
+- From `rust/`: `cargo test -p midi-bpm-detector-plugin`
+- From `rust/`: `cargo test -p desktop`
+- From `rust/`: `cargo test -p wasm --target wasm32-unknown-unknown` if the local wasm target is installed; otherwise
+  record the setup blocker in the back-handoff.
+- From `rust/`:
+  `cargo clippy -p parameter_macros -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`
+- From `rust/`: `cargo +nightly fmt --all -- --check`
+- From repo root: `git diff --check`
+
+### Risks / open questions
+
+- `GUIConfig` lives outside core, so this slice will prove whether the macro API is usable from another crate without
+  leaking core assumptions.
+- The settings panel currently lists GUI parameters manually. Keep any visitor adoption narrow and do not redesign the UI
+  in this slice.
+- Wasm target availability may vary locally; record the exact blocker if that check cannot run.
+
+### Back-handoff requirements
+
+Update `docs/audits/parameter-flow/handoff.md` with:
+
+- status: complete / partial / blocked;
+- branch and commit if applicable;
+- files changed;
+- summary of the generated GUI API shape;
+- tests/checks run and results;
+- deviations from this brief;
+- remaining risks;
+- recommended next slice.
+
+## Prompt For Fresh Implementer Chat: Attribute Macro For GUIConfig
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Attribute Macro For GUIConfig" from docs/audits/parameter-flow/handoff.md.
+
+Apply the existing generic #[parameter_group(...)] macro to GUIConfig only. Preserve serde schemas, public config fields,
+labels, ranges, defaults, units, steps, logarithmic flags, plugin host parameter IDs, interpolation behavior, and current
+desktop/wasm/plugin GUI-display update routing. Do not migrate StaticBPMDetectionConfig. Update
+docs/audits/parameter-flow/handoff.md with a back-handoff.
+```

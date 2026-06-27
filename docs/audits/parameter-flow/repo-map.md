@@ -7,7 +7,7 @@ except where plugin host parameters cross into the tempo bridge.
 ## Current Branch And Working Tree
 
 - Branch observed during coordination: `codex/parameter-flow-audit`, tracking `upstream/main`.
-- The branch now includes the completed dynamic-config-only `Attribute Parameter Group Macro Prototype`.
+- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, and normal distribution.
 - Audit docs live in:
   - `docs/parameter-flow-audit.md`
   - `docs/parameter-audit-handoff.md`
@@ -19,11 +19,13 @@ except where plugin host parameters cross into the tempo bridge.
   - Defines `Parameter<Config, ValueType>`, `Asf64`, and `OnOff<T>`.
   - `Parameter` stores label, unit, range, step, logarithmic flag, default, getter, and setter.
   - `OnOff<T>` serializes a logical value as `{ enabled, value }`.
+  - `ParameterSpec<ValueType>` is the metadata-only shape used by generated default catalogs.
 
 - `rust/crates/parameter_macros`
   - Defines the generic `#[parameter_group(...)]` proc macro.
   - Generates the dynamic config accessor trait, `Parameter` constants, default impl, validation, visitor trait, and
     traversal from ordinary struct fields plus small `#[parameter(...)]` metadata.
+  - Generated default catalogs use `ParameterSpec<T>` and do not need fake `Config = ()` accessors.
   - Must stay free of egui, nih-plug, desktop, wasm, and plugin dependencies.
 
 - `rust/crates/bpm_detection_core`
@@ -31,15 +33,15 @@ except where plugin host parameters cross into the tempo bridge.
     - `StaticBPMDetectionConfig`
     - `DynamicBPMDetectionConfig`
     - `NormalDistributionConfig`
-  - Current dynamic config has the fullest mechanical pattern:
+  - Dynamic config and normal distribution now use the generated parameter-group pattern:
     - config struct;
     - accessor trait;
-    - accessor impl for `()`;
     - accessor impl for the concrete config;
-    - parameter constants;
-    - dynamic visitor trait;
-    - validation through visitor traversal.
-  - Static and normal distribution configs have accessor traits and parameter constants, but no shared visitor traversal.
+    - metadata spec constants;
+    - config-bound parameter constants;
+    - visitor trait;
+    - validation through generated traversal.
+  - Static BPM remains hand-written because its accessor trait includes computed methods.
 
 - `rust/crates/gui`
   - Owns `GUIConfig`, `GUIConfigAccessor`, `GUIParameters`, and reusable egui parameter controls.
@@ -109,6 +111,7 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
 - GUI/display:
   - `interpolation_duration`
   - `interpolation_curve`
+  - Next planned macro migration target.
 - Static BPM model:
   - `bpm_center`
   - `bpm_range`
@@ -118,6 +121,7 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
   - `factor`
   - `cutoff`
   - `resolution`
+  - Macro migration complete.
 - Dynamic scoring:
   - `beats_lookback`
   - `normal_distribution_weight`
@@ -151,9 +155,12 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
 
 Run Cargo commands from `rust/`.
 
-Narrow checks for the first macro proof:
+Narrow checks for the dynamic macro and metadata-spec slices:
 
 ```sh
+cargo test -p parameter
+cargo test -p parameter_macros
+cargo test -p bpm_detection_core parameter_inventory_tests
 cargo test -p bpm_detection_core
 cargo test -p gui
 cargo test -p midi-bpm-detector-plugin

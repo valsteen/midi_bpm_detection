@@ -7,9 +7,8 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DefaultDynamicBPMDetectionParameters, DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor,
-    DynamicBPMDetectionParameters, NormalDistributionConfig, NormalDistributionParameters, StaticBPMDetectionConfig,
-    StaticBPMDetectionParameters,
+    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor, DynamicBPMDetectionParameters,
+    NormalDistributionConfig, NormalDistributionParameters, StaticBPMDetectionConfig, StaticBPMDetectionParameters,
 };
 use gui::{GUIConfig, GUIParameters};
 use nih_plug::{
@@ -115,14 +114,14 @@ impl PluginDynamicParams {
     pub(crate) fn add_remote_controls(&self, page: &mut impl RemoteControlsPage) {
         let mut visitor = DynamicRemoteControlParams { params: self, page };
 
-        DefaultDynamicBPMDetectionParameters::visit(&mut visitor);
+        DynamicConfigParameters::visit(&mut visitor);
     }
 
     pub(crate) fn read_dynamic_config(&self) -> DynamicBPMDetectionConfig {
         let mut config = DynamicBPMDetectionConfig::default();
         let mut visitor = DynamicHostConfigReader { params: self, config: &mut config };
 
-        DefaultDynamicBPMDetectionParameters::visit(&mut visitor);
+        DynamicConfigParameters::visit(&mut visitor);
 
         config
     }
@@ -139,48 +138,50 @@ impl<Page: RemoteControlsPage> DynamicRemoteControlParams<'_, '_, Page> {
     }
 }
 
-impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<()> for DynamicRemoteControlParams<'_, '_, Page> {
-    fn beats_lookback(&mut self, _parameter: Parameter<(), u8>) {
+impl<Page: RemoteControlsPage> DynamicBPMDetectionParameterVisitor<DynamicBPMDetectionConfig>
+    for DynamicRemoteControlParams<'_, '_, Page>
+{
+    fn beats_lookback(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, u8>) {
         self.page.add_param(&self.params.beats_lookback);
     }
 
-    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn normal_distribution_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.normal_distribution_weight);
     }
 
-    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn time_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.time_distance_weight);
     }
 
-    fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn velocity_current_note_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.velocity_current_note_weight);
     }
 
-    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn velocity_note_from_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.velocity_note_from_weight);
     }
 
-    fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn in_beat_range_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.in_beat_range_weight);
     }
 
-    fn multiplier_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn multiplier_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.multiplier_weight);
     }
 
-    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn subdivision_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.subdivision_weight);
     }
 
-    fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn octave_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.octave_distance_weight);
     }
 
-    fn pitch_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn pitch_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.pitch_distance_weight);
     }
 
-    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         self.add_plugin_on_off_param(&self.params.high_tempo_bias_weight);
     }
 }
@@ -196,57 +197,57 @@ impl DynamicHostConfigReader<'_, '_> {
     }
 }
 
-impl DynamicBPMDetectionParameterVisitor<()> for DynamicHostConfigReader<'_, '_> {
-    fn beats_lookback(&mut self, _parameter: Parameter<(), u8>) {
+impl DynamicBPMDetectionParameterVisitor<DynamicBPMDetectionConfig> for DynamicHostConfigReader<'_, '_> {
+    fn beats_lookback(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, u8>) {
         self.config.beats_lookback = self.params.beats_lookback.unmodulated_plain_value() as u8;
     }
 
-    fn normal_distribution_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn normal_distribution_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(
             &self.params.normal_distribution_weight,
             &mut self.config.normal_distribution_weight,
         );
     }
 
-    fn time_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn time_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.time_distance_weight, &mut self.config.time_distance_weight);
     }
 
-    fn velocity_current_note_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn velocity_current_note_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(
             &self.params.velocity_current_note_weight,
             &mut self.config.velocity_current_note_weight,
         );
     }
 
-    fn velocity_note_from_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn velocity_note_from_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(
             &self.params.velocity_note_from_weight,
             &mut self.config.velocity_note_from_weight,
         );
     }
 
-    fn in_beat_range_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn in_beat_range_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.in_beat_range_weight, &mut self.config.in_beat_range_weight);
     }
 
-    fn multiplier_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn multiplier_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.multiplier_weight, &mut self.config.multiplier_weight);
     }
 
-    fn subdivision_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn subdivision_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.subdivision_weight, &mut self.config.subdivision_weight);
     }
 
-    fn octave_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn octave_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.octave_distance_weight, &mut self.config.octave_distance_weight);
     }
 
-    fn pitch_distance_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn pitch_distance_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.pitch_distance_weight, &mut self.config.pitch_distance_weight);
     }
 
-    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<(), OnOff<f32>>) {
+    fn high_tempo_bias_weight(&mut self, _parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
         Self::read_plugin_on_off_param(&self.params.high_tempo_bias_weight, &mut self.config.high_tempo_bias_weight);
     }
 }

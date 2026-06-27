@@ -6,7 +6,7 @@ Use this file to restart the parameter-flow audit from a fresh Codex context.
 
 Branch: `codex/parameter-flow-audit`, tracking `upstream/main`.
 
-The branch now contains the completed `Attribute Parameter Group Macro Prototype` slice:
+The branch now contains the completed parameter macro slices:
 
 - `docs/audits/parameter-flow/`
 - `docs/parameter-audit-handoff.md`
@@ -14,7 +14,13 @@ The branch now contains the completed `Attribute Parameter Group Macro Prototype
 - `rust/crates/parameter_macros/`
 - dynamic parameter-group macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 
-The untracked `boilerplate.diff` file is local scratch from the rejected macro proof and is not part of this checkpoint.
+The branch is two commits ahead of `upstream/main` at the last committed checkpoint:
+
+- `431d0d3 Add dynamic parameter group macro prototype`
+- `a5fc659 Improve parameter macro diagnostics`
+
+The latest coordinator checkpoint also contains the completed, verified metadata-spec and normal-distribution macro
+slices.
 
 ## What The Audit Is About
 
@@ -70,7 +76,7 @@ pub struct DynamicBPMDetectionConfig {
 }
 ```
 
-## Next Slice To Execute
+## Completed Slice
 
 The completed slice is documented in:
 
@@ -107,6 +113,60 @@ Dynamic visitor order must remain:
 9. `octave_distance_weight`
 10. `pitch_distance_weight`
 11. `high_tempo_bias_weight`
+
+## Completed Follow-Up Slice
+
+The completed follow-up slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `Metadata-Only Dynamic Parameter Specs`
+
+Completed scope:
+
+- add `parameter::ParameterSpec<ValueType>`;
+- make `DefaultDynamicBPMDetectionParameters` expose specs instead of `Parameter<(), T>`;
+- remove the generated `DynamicBPMDetectionConfigAccessor for ()` bridge;
+- preserve `DynamicBPMDetectionParameters<Config>` as the config-bound parameter catalog;
+- leave static BPM, normal distribution, and GUI config hand-written.
+
+## Completed Normal Distribution Slice
+
+The completed normal distribution slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `Attribute Macro For NormalDistributionConfig`
+
+Completed scope:
+
+- apply the generic `#[parameter_group(...)]` macro to `NormalDistributionConfig`;
+- make `DefaultNormalDistributionParameters` expose specs instead of `Parameter<(), T>`;
+- remove the hand-written `NormalDistributionConfigAccessor for ()` bridge;
+- preserve `NormalDistributionParameters<Config>` as the config-bound parameter catalog;
+- leave GUI config and static BPM config hand-written.
+
+## Next Slice To Execute
+
+The active next slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `Attribute Macro For GUIConfig`
+
+Scope:
+
+- apply the existing generic `#[parameter_group(...)]` macro to `GUIConfig` only;
+- keep GUI config as ordinary Rust fields with small metadata attributes;
+- preserve GUI labels, ranges, defaults, units, steps, logarithmic flags, serde field names, plugin host parameter IDs,
+  interpolation behavior, and current update routing;
+- do not migrate `StaticBPMDetectionConfig` yet.
 
 ## What To Read First In A Fresh Chat
 
@@ -160,10 +220,10 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-We are continuing the parameter-flow audit from a fresh context. The current accepted direction is a generic attribute
-proc macro over ordinary Rust config structs, with DynamicBPMDetectionConfig as the first prototype. Do not revisit the
-rejected dynamic-specific macro_rules DSL except as historical context. First confirm the current branch/working tree,
-then either prepare the bounded implementer prompt for the "Attribute Parameter Group Macro Prototype" slice or continue
+We are continuing the parameter-flow audit from a fresh context. The dynamic attribute macro prototype, metadata-spec
+split, and NormalDistributionConfig migration are implemented; GUIConfig is the next remaining plain group. Do not revisit
+the rejected dynamic-specific macro_rules DSL except as historical context. First confirm the current branch/working tree, then either
+prepare the bounded implementer prompt for the "Attribute Macro For GUIConfig" slice or continue
 coordinator review if the docs have drifted.
 ```
 
@@ -181,11 +241,10 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Execute only the slice named "Attribute Parameter Group Macro Prototype" from docs/audits/parameter-flow/handoff.md.
+Execute only the slice named "Attribute Macro For GUIConfig" from docs/audits/parameter-flow/handoff.md.
 
-Implement a generic attribute proc-macro prototype and apply it only to DynamicBPMDetectionConfig. Do not migrate static
-BPM, normal distribution, or GUI config. Do not change runtime sync behavior, serde schemas, public names, labels,
-ranges, defaults, units, steps, logarithmic flags, or visitor order. The previous dynamic-specific macro_rules proof was
-rejected; do not repeat that shape. Keep the config struct as ordinary Rust with small field metadata attributes, and
-update docs/audits/parameter-flow/handoff.md with a back-handoff.
+Apply the existing generic #[parameter_group(...)] macro to GUIConfig only. Preserve serde schemas, public config fields,
+labels, ranges, defaults, units, steps, logarithmic flags, plugin host parameter IDs, interpolation behavior, and current
+desktop/wasm/plugin GUI-display update routing. Do not migrate StaticBPMDetectionConfig. Update
+docs/audits/parameter-flow/handoff.md with a back-handoff.
 ```
