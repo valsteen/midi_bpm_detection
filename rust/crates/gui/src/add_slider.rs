@@ -1,11 +1,14 @@
-use std::fmt::Debug;
-
-use bpm_detection_core::parameters::{DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor};
+use bpm_detection_core::parameters::{
+    DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor, StaticBPMDetectionConfigAccessor,
+    StaticBPMDetectionParameterVisitor,
+};
 use eframe::{
     egui,
     egui::{Slider, SliderClamping},
 };
 use parameter::{Asf64, OnOff, Parameter};
+
+use crate::config::{GUIConfigAccessor, GUIParameterVisitor};
 
 pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
     ui: &mut egui::Ui,
@@ -29,14 +32,14 @@ pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
 pub fn add_slider_default<GuiValueType, Config, ParameterValueType>(
     ui: &mut egui::Ui,
     parameter: &Parameter<Config, ParameterValueType>,
-    mut get_set_as_f64: impl FnMut(Option<GuiValueType>) -> GuiValueType,
+    mut get_set_as_f64: impl FnMut(Option<GuiValueType>) -> f64,
 ) where
-    GuiValueType: Debug + Asf64,
+    GuiValueType: Asf64,
 {
     ui.label(parameter.label);
 
     add_slider::<GuiValueType, Config, ParameterValueType>(ui, true, parameter, move |value_opt: Option<f64>| {
-        get_set_as_f64(value_opt.map(GuiValueType::new_from)).as_f64()
+        get_set_as_f64(value_opt.map(GuiValueType::new_from))
     });
 }
 
@@ -54,15 +57,16 @@ impl<'a, Config> SlideAdder<'a, Config> {
 impl<Config> SlideAdder<'_, Config> {
     pub fn add<ParameterValueType>(&mut self, parameter: &Parameter<Config, ParameterValueType>)
     where
-        ParameterValueType: Copy + Asf64 + Debug,
+        ParameterValueType: Asf64,
     {
         let Self { ui, config } = self;
 
-        add_slider_default(ui, parameter, move |value_opt| match value_opt {
-            None => (parameter.get)(config),
+        add_slider_default(ui, parameter, move |value_opt: Option<ParameterValueType>| match value_opt {
+            None => (parameter.get)(config).as_f64(),
             Some(new_value) => {
+                let value = new_value.as_f64();
                 (parameter.set)(config, new_value);
-                new_value
+                value
             }
         });
     }
@@ -153,13 +157,27 @@ impl<Config: DynamicBPMDetectionConfigAccessor> DynamicBPMDetectionParameterVisi
     }
 }
 
+impl<Config: GUIConfigAccessor> GUIParameterVisitor<Config> for SlideAdder<'_, Config> {
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<Config, ValueType>) {
+        self.add(&parameter);
+    }
+}
+
+impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameterVisitor<Config> for SlideAdder<'_, Config> {
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<Config, ValueType>) {
+        self.add(&parameter);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bpm_detection_core::parameters::{
         DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
+        StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor, StaticBPMDetectionParameterVisitor,
     };
 
     use super::*;
+    use crate::config::{GUIConfig, GUIConfigAccessor, GUIParameterVisitor};
 
     fn assert_dynamic_parameter_visitor<Config>()
     where
@@ -168,8 +186,32 @@ mod tests {
     {
     }
 
+    fn assert_gui_parameter_visitor<Config>()
+    where
+        Config: GUIConfigAccessor,
+        for<'a> SlideAdder<'a, Config>: GUIParameterVisitor<Config>,
+    {
+    }
+
+    fn assert_static_parameter_visitor<Config>()
+    where
+        Config: StaticBPMDetectionConfigAccessor,
+        for<'a> SlideAdder<'a, Config>: StaticBPMDetectionParameterVisitor<Config>,
+    {
+    }
+
     #[test]
     fn slide_adder_can_render_dynamic_parameter_visitor() {
         assert_dynamic_parameter_visitor::<DynamicBPMDetectionConfig>();
+    }
+
+    #[test]
+    fn slide_adder_can_render_gui_parameter_visitor() {
+        assert_gui_parameter_visitor::<GUIConfig>();
+    }
+
+    #[test]
+    fn slide_adder_can_render_static_parameter_visitor() {
+        assert_static_parameter_visitor::<StaticBPMDetectionConfig>();
     }
 }

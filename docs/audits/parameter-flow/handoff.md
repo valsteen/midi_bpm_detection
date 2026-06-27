@@ -13,9 +13,9 @@ is a generic attribute proc-macro API that keeps config structs as ordinary Rust
 items. The dynamic-config-only prototype and first diagnostics follow-up are now committed.
 
 The dynamic metadata-spec split, `NormalDistributionConfig` macro migration, `GUIConfig` macro migration, static BPM
-computed-method split, and `StaticBPMDetectionConfig` macro migration are now implemented and verified. All typed
-parameter groups now use the generic attribute macro. The next recommended slice is a narrow GUI mapping cleanup that
-adopts generated visitors only where generated traversal order already matches current settings-panel order.
+computed-method split, `StaticBPMDetectionConfig` macro migration, and GUI settings visitor adoption are now implemented
+and verified. All typed parameter groups now use the generic attribute macro. The next recommended slice is an audit of
+remaining visitor consumers and manual parameter lists before adding any further abstraction.
 
 ## Durable Context To Read First
 
@@ -1932,6 +1932,8 @@ is `std_dev`, `factor`, `cutoff`, `resolution`, while current GUI settings order
 
 ## Slice Brief: GUI Settings Visitor Adoption For Matching Groups
 
+This slice is complete. The brief is retained as historical context for the back-handoff below.
+
 ### Objective
 
 Use generated parameter visitors in the GUI settings panel for the groups whose generated traversal order already matches
@@ -2037,7 +2039,7 @@ Record:
 - any deviations from this brief;
 - recommended next slice.
 
-## Prompt For Fresh Bounded Implementer
+## Historical Prompt For GUI Settings Visitor Implementer
 
 ```text
 [$bounded-implementer] Use the bounded implementer flow for one repository slice.
@@ -2059,4 +2061,275 @@ manual GUI/display and static settings-panel `slide_adder.add(...)` calls with `
 `StaticBPMDetectionParameters::visit(...)`. Preserve current settings-panel order. Leave normal-distribution settings
 manual because their current UI order differs from generated field order. Do not change plugin remote controls or runtime
 synchronization. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
+```
+
+## Back-Handoff: GUI Settings Visitor Adoption For Matching Groups
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: none.
+
+### Files changed
+
+- `rust/crates/gui/src/add_slider.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Adopted generated parameter visitors in the shared egui settings panel for the groups whose generated traversal order
+already matches the current UI order.
+
+Added `SlideAdder` visitor implementations for:
+
+- `GUIParameterVisitor<Config>`
+- `StaticBPMDetectionParameterVisitor<Config>`
+
+Both impls use the generated visitor trait's generic `parameter(...)` fallback to call `SlideAdder::add(...)` once per
+visited plain slider parameter, instead of repeating one method body per field.
+
+`BPMDetectionGUI::settings_panel` now uses:
+
+- `GUIParameters::visit(&mut slide_adder)`
+- `StaticBPMDetectionParameters::visit(&mut slide_adder)`
+
+The exact settings-panel order after the change is preserved:
+
+1. runtime-specific `desktop_controls`;
+2. GUI/display generated traversal: `INTERPOLATION_DURATION`, `INTERPOLATION_CURVE`;
+3. static BPM generated traversal: `BPM_CENTER`, `BPM_RANGE`, `SAMPLE_RATE`;
+4. normal distribution manual order: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
+5. dynamic generated traversal;
+6. `Send tempo`.
+
+### Behavioral changes
+
+None intended. The settings panel renders the same controls in the same order and continues to write through the same
+typed `Parameter` getter/setter paths.
+
+### Structural changes
+
+- `SlideAdder` now supports the generated GUI/display and static BPM visitor traits in addition to the existing dynamic
+  visitor trait.
+- Plain slider rendering was relaxed to require only `Asf64`, allowing visitor impls whose generic fallback receives
+  `Parameter<Config, ValueType>` with the same bound as the generated trait.
+- The matching manual GUI/display and static parameter lists in `config_ui.rs` were replaced with generated traversal
+  calls.
+- Focused compile-time trait assertion tests were added for GUI/display and static visitor support.
+
+### Affected boundaries / integration points
+
+- Shared `gui` crate settings-panel rendering now depends on the generated visitor APIs for GUI/display and static BPM
+  groups.
+- `bpm_detection_core` static generated visitor API is consumed by `gui`.
+- Plugin remote controls, plugin parameter construction, runtime synchronization, config schemas, labels, ranges,
+  defaults, units, steps, logarithmic flags, and host parameter IDs were not changed.
+
+### Tests / checks
+
+All requested checks passed.
+
+- From `rust/`: `cargo +nightly fmt --all -- --check`
+- From `rust/`: `cargo test -p gui`
+- From `rust/`: `cargo test -p bpm_detection_core parameter_inventory_tests`
+- From `rust/`: `cargo test -p bpm_detection_core`
+- From `rust/`: `cargo test -p midi-bpm-detector-plugin`
+- From `rust/`: `cargo clippy -p gui -p bpm_detection_core -p midi-bpm-detector-plugin --all-targets -- -D warnings`
+- From repo root: `git diff --check`
+
+### Decisions made
+
+- Kept normal distribution manual because generated traversal order is `STD_DEV`, `FACTOR`, `CUTOFF`, `RESOLUTION`,
+  which does not match the current settings-panel order.
+- Used the generated visitor trait's generic fallback for GUI/display and static BPM, because every parameter in those
+  groups renders through the same plain slider path.
+- Added compile-time trait assertions in `add_slider.rs` rather than UI snapshot tests because this slice only changes
+  traversal source, not widget behavior.
+
+### Deviations from brief
+
+None.
+
+### Remaining risks
+
+- This slice does not reduce plugin remote-control or plugin parameter-construction manual lists.
+- The generated visitor traits still have their existing default-method behavior; visitor exhaustiveness was explicitly
+  out of scope.
+
+### Recommended next slice
+
+Have the audit coordinator decide whether the next bounded slice should target plugin remote-control/static parameter
+manual ordering or host parameter construction/readback reuse, keeping normal-distribution order differences explicit.
+
+## Coordinator Review: GUI Settings Visitor Adoption For Matching Groups
+
+Review status: accepted.
+
+The slice matches the brief:
+
+- `BPMDetectionGUI::settings_panel` now uses generated traversal for GUI/display and static BPM groups.
+- The visible settings-panel order is preserved:
+  1. runtime-specific `desktop_controls`;
+  2. GUI/display generated traversal: `INTERPOLATION_DURATION`, `INTERPOLATION_CURVE`;
+  3. static BPM generated traversal: `BPM_CENTER`, `BPM_RANGE`, `SAMPLE_RATE`;
+  4. normal distribution manual order: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
+  5. dynamic generated traversal;
+  6. `Send tempo`.
+- Normal-distribution settings remain manual because generated traversal order differs from current UI order.
+- Plugin remote controls, plugin parameter construction, runtime synchronization, config schemas, labels, ranges,
+  defaults, units, steps, logarithmic flags, and host parameter IDs were not changed.
+
+Visitor consumer decision:
+
+- The generated visitor traits already have a generic `parameter<ValueType: Asf64>(...)` fallback.
+- Field-specific visitor methods delegate to that generic fallback by default.
+- `SlideAdder` now uses that generic fallback for GUI/display and static BPM groups, where every visited parameter uses
+  the same plain slider path.
+- `SlideAdder` keeps explicit dynamic field methods because `beats_lookback` uses a plain slider while `OnOff<f32>`
+  fields use `add_on_off`.
+- This is the preferred DX shape before considering another macro: use the generated fallback for homogeneous consumers,
+  and explicit field overrides for heterogeneous consumers.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p gui`: passed, 4 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 8 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p gui -p bpm_detection_core -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- From repo root, `git diff --check`: passed.
+
+Coordinator judgment: the visitor fallback handles the exact homogeneous shape raised in review without another macro.
+Do not add a visitor-impl macro yet. First audit the remaining visitor consumers and manual parameter lists so future
+cleanup can distinguish truly homogeneous consumers from order-sensitive lists and host-handle mappings.
+
+## Slice Brief: Visitor Consumer Homogeneity Audit
+
+### Objective
+
+Inventory the remaining visitor implementations and manual parameter lists across GUI and plugin code, then classify each
+consumer by the smallest clear abstraction that fits it.
+
+Use these classifications:
+
+- homogeneous generic-fallback consumer;
+- heterogeneous explicit-field visitor;
+- order-sensitive manual list;
+- future helper candidate;
+- leave-alone bespoke runtime/host mapping.
+
+### Non-goals
+
+- Do not add a new macro.
+- Do not change runtime behavior.
+- Do not change settings-panel order, plugin remote-control order, plugin host parameter IDs, config schemas, labels,
+  ranges, defaults, units, steps, or logarithmic flags.
+- Do not replace normal-distribution manual ordering in this slice.
+- Do not change visitor exhaustiveness/default-method policy.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially the GUI settings visitor review and visitor consumer decision.
+- `docs/audits/parameter-flow/repo-map.md`, especially GUI/plugin ordering notes.
+- `docs/parameter-flow-audit.md`, especially the typed parameter inventory and flow trace.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/gui/src/add_slider.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- GUI settings-panel ordering is user-visible and must stay explicit.
+- Plugin remote-control page ordering is host-visible and must stay explicit.
+- Plugin host parameter construction maps generated parameter metadata to concrete `nih-plug` parameter handles.
+- Dynamic visitor consumers are not all homogeneous: some fields are plain numeric parameters, while many are
+  `OnOff<f32>`.
+- Normal-distribution generated traversal order differs from current GUI and plugin ordering.
+
+### Expected behavioral change
+
+None. This is an audit/documentation slice.
+
+### Expected structural change
+
+- Update durable audit docs with a table or concise inventory of visitor consumers/manual parameter lists.
+- Identify which, if any, remaining consumers are safe candidates for generated visitor traversal or generic fallback.
+- Recommend the next bounded implementation slice with explicit non-goals and checks.
+
+### Acceptance criteria
+
+- The audit names each remaining visitor implementation and manual parameter list relevant to GUI/plugin parameter flow.
+- Normal-distribution GUI/plugin ordering differences are recorded with exact current orders.
+- The docs explicitly say where not to add more abstraction yet.
+- The next recommended implementation slice is small and preserves ordering/runtime behavior.
+
+### Tests / checks
+
+From repo root:
+
+```sh
+git diff --check
+```
+
+Optional from `rust/` if code is inspected but not changed:
+
+```sh
+cargo test -p gui
+cargo test -p midi-bpm-detector-plugin
+```
+
+### Risks / open questions
+
+- A tempting macro over visitor impls could obscure field-to-host-handle mappings in plugin code.
+- A generated traversal could silently change host-visible or user-visible parameter order if ordering is not made
+  explicit first.
+
+### Back-handoff requirements
+
+Record:
+
+- files/docs changed;
+- visitor/manual-list inventory;
+- classification decisions;
+- recommended next implementation slice;
+- checks run.
+
+## Prompt For Fresh Bounded Implementer
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Visitor Consumer Homogeneity Audit" from docs/audits/parameter-flow/handoff.md.
+
+Inventory remaining visitor implementations and manual parameter lists across GUI and plugin code. Classify each as
+homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list, future helper candidate, or
+leave-alone bespoke runtime/host mapping. Do not add a new macro or change runtime behavior in this slice. Keep
+normal-distribution ordering differences explicit. Update docs/audits/parameter-flow/handoff.md with a back-handoff and
+next recommended implementation slice.
 ```

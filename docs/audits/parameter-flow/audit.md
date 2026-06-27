@@ -16,7 +16,7 @@ Current branch checkpoint:
 
 - Branch: `codex/parameter-flow-audit`.
 - The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, GUI migration, static
-  computed-method split, and static macro migration have been implemented.
+  computed-method split, static macro migration, and GUI settings visitor adoption have been implemented.
 - Audit docs now include bounded implementer back-handoffs for those slices.
 
 Assumptions from current coordination:
@@ -603,6 +603,53 @@ and host ordering. The first bounded cleanup should adopt generated visitors in 
 where generated traversal order already matches the current UI order: GUI/display and static BPM. Leave normal
 distribution manual for now because its current settings-panel order differs from generated field order.
 
+## Coordinator Review: GUI Settings Visitor Adoption
+
+Review checkpoint: `codex/parameter-flow-audit`, in the coordinator checkpoint after the GUI settings visitor adoption
+slice.
+
+The slice matches the brief:
+
+- `SlideAdder` now implements `GUIParameterVisitor<Config>` and `StaticBPMDetectionParameterVisitor<Config>`.
+- `BPMDetectionGUI::settings_panel` uses generated traversal for GUI/display and static BPM groups.
+- The current settings-panel order is preserved:
+  1. runtime-specific `desktop_controls`;
+  2. GUI/display: `INTERPOLATION_DURATION`, `INTERPOLATION_CURVE`;
+  3. static BPM: `BPM_CENTER`, `BPM_RANGE`, `SAMPLE_RATE`;
+  4. normal distribution manual order: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
+  5. dynamic generated traversal;
+  6. `Send tempo`.
+- Normal distribution stays manual because generated field order differs from current GUI order.
+- Plugin remote controls and runtime synchronization were not changed.
+
+Visitor consumer decision:
+
+- The generated visitor traits already provide a generic `parameter<ValueType: Asf64>(...)` fallback, and field-specific
+  methods delegate to that fallback by default.
+- For homogeneous consumers where every visited plain parameter performs the same operation, prefer implementing the
+  generic fallback once. This avoids another macro and keeps the implementation discoverable in ordinary Rust.
+- For heterogeneous consumers, keep explicit field methods. Current examples include dynamic `SlideAdder` rendering,
+  where `beats_lookback` uses the plain slider path while `OnOff<f32>` fields use `add_on_off`, and plugin visitors that
+  map generated parameter fields to distinct host parameter handles.
+- This is the current DX line: use trait defaults and ordinary impls before adding another macro. A future macro is only
+  justified if a repeated consumer pattern cannot be expressed clearly through the existing generic fallback plus
+  targeted field overrides.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p gui`: passed, 4 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 8 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p gui -p bpm_detection_core -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: this slice is accepted. Before replacing more visitor consumers, run a bounded audit of the
+remaining visitor implementations and manual parameter lists. The audit should classify each consumer as homogeneous
+generic-fallback, heterogeneous explicit-field, order-sensitive manual list, or a candidate for a future helper. Do not
+add another macro in that audit slice.
+
 ## Non-Goals For The Completed Macro Implementation Slice
 
 - Do not change host/GUI sync policy.
@@ -624,8 +671,9 @@ distribution manual for now because its current settings-panel order differs fro
 7. Apply the attribute macro to `StaticBPMDetectionConfig`.
 8. Adopt generated visitors in the GUI settings panel for groups whose generated order already matches the current UI
    order.
-9. Decide how to handle normal-distribution ordering before replacing its manual GUI/plugin lists with generated
+9. Audit remaining visitor consumers and manual parameter lists before more abstraction.
+10. Decide how to handle normal-distribution ordering before replacing its manual GUI/plugin lists with generated
    traversal.
-10. Revisit plugin host mapping surfaces once UI ordering is explicit.
-11. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
+11. Revisit plugin host mapping surfaces once UI ordering is explicit.
+12. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
    assignment, and parameter-like atomics.

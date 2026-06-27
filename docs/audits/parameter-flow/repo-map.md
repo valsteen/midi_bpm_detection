@@ -58,9 +58,13 @@ except where plugin host parameters cross into the tempo bridge.
     - config-bound parameter constants;
     - visitor trait;
     - validation through generated traversal.
-  - `BPMDetectionGUI::settings_panel` manually lists GUI/static/normal params, then uses the dynamic visitor for dynamic
-    scoring params.
-  - `SlideAdder` renders typed `Parameter` values and implements `DynamicBPMDetectionParameterVisitor`.
+  - `BPMDetectionGUI::settings_panel` uses generated traversal for GUI/display, static BPM, and dynamic scoring params.
+  - Normal-distribution settings remain manually listed because current UI order differs from generated field order.
+  - `SlideAdder` renders typed `Parameter` values and implements:
+    - `GUIParameterVisitor` through the generic `parameter(...)` fallback;
+    - `StaticBPMDetectionParameterVisitor` through the generic `parameter(...)` fallback;
+    - `DynamicBPMDetectionParameterVisitor` through explicit field methods because dynamic has both plain and `OnOff`
+      rendering paths.
 
 - `rust/crates/desktop`
   - Loads `DesktopConfig` from built-in TOML plus optional user config.
@@ -196,6 +200,8 @@ The wasm target may need local setup; if unavailable, the implementer should rec
   exhaustiveness in a later slice?
 - Should static, normal, and GUI groups eventually get visitors, or should the macro produce a simpler typed enumeration
   API that replaces visitors?
+- For visitor consumers, prefer the generated generic `parameter(...)` fallback when every visited parameter has the same
+  behavior. Keep explicit field methods when parameter types, host handles, or side effects differ.
 - Normal-distribution generated traversal order is `std_dev`, `factor`, `cutoff`, `resolution`, while current GUI order
   is `std_dev`, `resolution`, `cutoff`, `factor` and plugin remote-control order is `resolution`, `factor`, `cutoff`,
   `std_dev`. Decide order semantics before replacing those manual lists.

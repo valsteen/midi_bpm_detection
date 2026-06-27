@@ -31,8 +31,9 @@ Current branch checkpoint:
 - dynamic-config macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 
 The dynamic-config-only attribute proc-macro prototype, first diagnostics follow-up, metadata-only dynamic spec split,
-normal-distribution macro migration, GUI config migration, static BPM computed-method split, and static BPM macro
-migration are implemented and verified. All typed parameter groups now use the generic attribute macro.
+normal-distribution macro migration, GUI config migration, static BPM computed-method split, static BPM macro migration,
+and GUI settings visitor adoption are implemented and verified. All typed parameter groups now use the generic attribute
+macro.
 
 Current commits on `codex/parameter-flow-audit`:
 
@@ -87,9 +88,9 @@ Use `$repo-audit-coordinator`.
 Continue with:
 
 1. Use the canonical workspace under `docs/audits/parameter-flow/`.
-2. Read the coordinator review and `GUI Settings Visitor Adoption For Matching Groups` slice brief in
+2. Read the coordinator review and `Visitor Consumer Homogeneity Audit` slice brief in
    `docs/audits/parameter-flow/handoff.md`.
-3. Execute or hand off that GUI settings visitor adoption before changing normal-distribution or plugin ordering.
+3. Execute or hand off that audit before changing normal-distribution or plugin ordering.
 
 ## Prompt To Start The Next Audit-Coordinator Chat
 
@@ -103,8 +104,8 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "GUI Settings Visitor
-Adoption For Matching Groups" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
+We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "Visitor Consumer
+Homogeneity Audit" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
 implementer prompt or continue coordinator review if the docs have drifted.
 ```
 
@@ -120,7 +121,7 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-Execute only the "GUI Settings Visitor Adoption For Matching Groups" slice from docs/audits/parameter-flow/handoff.md.
-All typed parameter groups now use the generic attribute macro; do not repeat the rejected dynamic-specific
-`macro_rules!` proof, do not change normal-distribution ordering, and do not change plugin remote controls in this slice.
+Execute only the "Visitor Consumer Homogeneity Audit" slice from docs/audits/parameter-flow/handoff.md. All typed
+parameter groups now use the generic attribute macro; do not repeat the rejected dynamic-specific `macro_rules!` proof,
+do not add a new macro, and do not change runtime behavior in this slice.
 ```

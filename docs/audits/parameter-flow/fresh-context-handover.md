@@ -28,6 +28,8 @@ Reviewed implementation commits on this branch:
 - `887a0bc Prepare static parameter macro slice`
 
 The latest coordinator checkpoint also contains the completed, verified static macro migration, pending commit.
+The latest coordinator checkpoint also contains the completed, verified GUI settings visitor adoption slice, pending
+commit.
 
 Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
 
@@ -216,6 +218,24 @@ Completed scope:
 - keep `normal_distribution` as a nested config field outside the static parameter catalog;
 - keep `StaticBPMDetectionComputed` and inherent computed methods outside the generated parameter group.
 
+## Completed GUI Settings Visitor Slice
+
+The completed GUI settings visitor slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `GUI Settings Visitor Adoption For Matching Groups`
+
+Completed scope:
+
+- add `SlideAdder` visitor implementations for GUI/display and static BPM parameter groups;
+- use `GUIParameters::visit(...)` and `StaticBPMDetectionParameters::visit(...)` in the settings panel;
+- use the generated visitor trait's generic `parameter(...)` fallback for homogeneous plain slider rendering;
+- preserve current settings-panel order;
+- leave normal-distribution settings manual because generated traversal order differs from current UI order.
+
 ## Next Slice To Execute
 
 The active next slice is documented in:
@@ -224,16 +244,16 @@ The active next slice is documented in:
 
 Slice name:
 
-- `GUI Settings Visitor Adoption For Matching Groups`
+- `Visitor Consumer Homogeneity Audit`
 
 Scope:
 
-- add `SlideAdder` visitor impls for GUI/display and static BPM parameter groups;
-- replace the matching manual GUI/display and static settings-panel `slide_adder.add(...)` lists with generated
-  `GUIParameters::visit(...)` and `StaticBPMDetectionParameters::visit(...)`;
-- preserve the current settings-panel order;
-- leave normal-distribution settings manually ordered because current UI order differs from generated field order;
-- do not change plugin remote-control pages or runtime synchronization.
+- inventory remaining visitor implementations and manual parameter lists across GUI and plugin code;
+- classify each as homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list, or future
+  helper candidate;
+- do not add a new macro;
+- keep normal-distribution ordering differences explicit;
+- update durable audit docs with the next recommended implementation slice.
 
 ## What To Read First In A Fresh Chat
 
@@ -289,10 +309,11 @@ Read first:
 
 We are continuing the parameter-flow audit from a fresh context. The dynamic attribute macro prototype, metadata-spec
 split, NormalDistributionConfig migration, GUIConfig migration, Static BPM computed-method split, and
-StaticBPMDetectionConfig macro migration are implemented. All typed parameter groups now use the generic attribute macro.
-Do not revisit the rejected dynamic-specific macro_rules DSL except as historical context. First confirm the current
-branch and working tree, then either prepare the bounded implementer prompt for the "GUI Settings Visitor Adoption For
-Matching Groups" slice or continue coordinator review if the docs have drifted.
+StaticBPMDetectionConfig macro migration are implemented. GUI/display and static BPM settings-panel rendering now use
+generated visitors. All typed parameter groups now use the generic attribute macro. Do not revisit the rejected
+dynamic-specific macro_rules DSL except as historical context. First confirm the current branch and working tree, then
+either prepare the bounded implementer prompt for the "Visitor Consumer Homogeneity Audit" slice or continue coordinator
+review if the docs have drifted.
 ```
 
 ## Prompt For Fresh Implementer Chat
@@ -309,12 +330,11 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Execute only the slice named "GUI Settings Visitor Adoption For Matching Groups" from
+Execute only the slice named "Visitor Consumer Homogeneity Audit" from
 docs/audits/parameter-flow/handoff.md.
 
-Add `SlideAdder` visitor implementations for GUI/display and static BPM parameter groups, then replace the matching
-manual GUI/display and static settings-panel `slide_adder.add(...)` calls with `GUIParameters::visit(...)` and
-`StaticBPMDetectionParameters::visit(...)`. Preserve current settings-panel order. Leave normal-distribution settings
-manual because their current UI order differs from generated field order. Do not change plugin remote controls or runtime
-synchronization. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
+Inventory remaining visitor implementations and manual parameter lists across GUI and plugin code. Classify each as
+homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list, or future helper candidate. Do
+not add a new macro or change runtime behavior in this slice. Keep normal-distribution ordering differences explicit.
+Update docs/audits/parameter-flow/handoff.md with a back-handoff and next recommended implementation slice.
 ```

@@ -12,12 +12,9 @@ impl BPMDetectionGUI {
 
             let mut slide_adder = SlideAdder::new(ui, config);
 
-            slide_adder.add(&GUIParameters::INTERPOLATION_DURATION);
-            slide_adder.add(&GUIParameters::INTERPOLATION_CURVE);
+            GUIParameters::visit(&mut slide_adder);
 
-            slide_adder.add(&StaticBPMDetectionParameters::BPM_CENTER);
-            slide_adder.add(&StaticBPMDetectionParameters::BPM_RANGE);
-            slide_adder.add(&StaticBPMDetectionParameters::SAMPLE_RATE);
+            StaticBPMDetectionParameters::visit(&mut slide_adder);
 
             slide_adder.add(&NormalDistributionParameters::STD_DEV);
             slide_adder.add(&NormalDistributionParameters::RESOLUTION);
