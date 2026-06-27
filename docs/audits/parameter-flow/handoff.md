@@ -368,3 +368,107 @@ None intentional.
 
 Coordinator review of the generated API shape, diagnostics, rust-analyzer ergonomics, and diff readability before
 migrating `NormalDistributionConfig` or `GUIConfig`.
+
+## Back-Handoff: Parameter Group Macro Diagnostics DX
+
+### Status
+
+Complete for the first diagnostics slice.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Base commit for this follow-up: `431d0d3 Add dynamic parameter group macro prototype`.
+
+Commit: none.
+
+### Files changed
+
+- `rust/crates/parameter_macros/src/lib.rs`
+- `rust/crates/parameter_macros/tests/diagnostics.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Improved the `#[parameter_group]` parser diagnostics so group-level and field-level attribute errors use distinct
+terminology and better spans. Added local compile-fail-style tests that build small fixture crates offline and assert the
+important stderr fragments.
+
+### Behavioral changes
+
+No runtime behavior changes intended. Existing generated parameter API behavior is unchanged.
+
+Macro misuse diagnostics changed:
+
+- missing field-level `default` now reports ``missing required argument `default` in #[parameter(...)]``;
+- missing field-level required arguments now underline the full `#[parameter(...)]` attribute instead of only the
+  attribute path token;
+- unknown field-level keys now report ``unknown argument `<key>` in #[parameter(...)]``;
+- `ranges` now suggests `range`;
+- duplicate field-level keys now mention `#[parameter(...)]`;
+- unknown group-level keys now mention `#[parameter_group(...)]`.
+
+### Structural changes
+
+- Added `tests/diagnostics.rs` as a lightweight trybuild-style harness without adding a new external dependency.
+- The harness writes temporary fixture crates under `rust/target/parameter-macro-diagnostic-fixtures/`, runs
+  `cargo check --offline`, and checks stderr fragments.
+- `ParameterArgs` now stores the field-level `#[parameter(...)]` attribute so missing required arguments can use the full
+  attribute span.
+- Added macro crate documentation describing the generated public contract and the current `Parameters<()>` compatibility
+  bridge.
+
+### Affected boundaries / integration points
+
+- The public macro API is unchanged.
+- The generated public dynamic parameter API is unchanged.
+- Tests spawn nested Cargo checks, so future maintainers should keep fixture manifests isolated with an empty
+  `[workspace]` table and offline mode.
+
+### Tests / checks
+
+- Red run: `cargo test -p parameter_macros --test diagnostics` initially failed after reaching the macro diagnostics:
+  missing `default` pointed at `#[parameter_group(...)]`, unknown keys used generic wording, and duplicate field keys used
+  group wording.
+- Green run: `cargo test -p parameter_macros --test diagnostics` passed, 4 tests.
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 3 tests.
+- `cargo test -p gui`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo clippy -p parameter_macros -p bpm_detection_core --all-targets -- -D warnings`: passed.
+- `git diff --check`: passed.
+- Follow-up red run for underline width:
+  `cargo test -p parameter_macros --test diagnostics missing_default_reports_field_attribute_span` failed while the
+  missing-`default` underline still covered only one character.
+- Follow-up green run for underline width:
+  `cargo test -p parameter_macros --test diagnostics missing_default_reports_field_attribute_span` passed after switching
+  missing required field arguments to `syn::Error::new_spanned` over the full `Attribute`.
+
+### Decisions made
+
+- Did not add `trybuild` as a dependency in this slice; the custom harness avoids network/dependency churn while covering
+  the important stderr regressions.
+- Kept the `impl Accessor for ()` compatibility bridge for now. It is public but intended only for metadata constants;
+  replacing it cleanly likely needs a `ParameterSpec<T>` or similar split in the runtime `parameter` crate.
+- Did not implement bare boolean flags, integer-range syntax normalization, derive macro conversion, or convention-based
+  naming in this slice.
+
+### Deviations from brief
+
+This implements the high-priority diagnostic subset rather than every suggested compile-fail case. Semantic checks such
+as `range_start_greater_than_end`, `default_outside_range`, and `logarithmic_with_zero_or_negative_range` remain open
+because the current macro accepts arbitrary Rust expressions for those values.
+
+### Remaining risks
+
+- The diagnostic harness asserts stderr fragments rather than full snapshots.
+- Field-level semantic validation is still mostly deferred to generated Rust types and runtime config validation.
+- The `Parameters<()>` bridge can still panic if downstream code explicitly calls `Parameter::get` or `Parameter::set`
+  on the default metadata catalog.
+
+### Recommended next slice
+
+Either design the `ParameterSpec<T>` metadata-only split for default catalogs, or continue smaller macro-DX improvements
+with bare boolean flags and integer literal range syntax.

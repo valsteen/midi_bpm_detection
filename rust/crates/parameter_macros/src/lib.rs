@@ -1,4 +1,21 @@
 //! Procedural macros for typed parameter declarations.
+//!
+//! `#[parameter_group(...)]` keeps the annotated config struct as the source of
+//! truth and generates the mechanical companion API around it:
+//!
+//! - an accessor trait with one getter and setter per `#[parameter(...)]` field;
+//! - an accessor impl for the concrete config struct;
+//! - an accessor impl for `()`, used only by the default metadata catalog;
+//! - a `Default*Parameters = *Parameters<()>` alias;
+//! - a parameter catalog type with one `Parameter<Config, T>` associated const per field;
+//! - a visitor trait and source-order `visit` traversal;
+//! - `Default` and `validate` impls for the config struct.
+//!
+//! The generated `impl Accessor for ()` is a compatibility bridge for the
+//! existing metadata-only catalog shape. Runtime code should use a real config
+//! type when invoking `Parameter::get` or `Parameter::set`; a future
+//! `ParameterSpec<T>` split could remove the fake config type without changing
+//! config structs.
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -60,16 +77,25 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
 
         for arg in args {
             match (arg.name.to_string().as_str(), arg.value) {
-                ("accessor", GroupArgValue::Ident(value)) => assign_once(&mut parsed.accessor, value, arg.name)?,
-                ("parameters", GroupArgValue::Ident(value)) => assign_once(&mut parsed.parameters, value, arg.name)?,
+                ("accessor", GroupArgValue::Ident(value)) => {
+                    assign_group_arg_once(&mut parsed.accessor, value, arg.name)?;
+                }
+                ("parameters", GroupArgValue::Ident(value)) => {
+                    assign_group_arg_once(&mut parsed.parameters, value, arg.name)?;
+                }
                 ("default_parameters", GroupArgValue::Ident(value)) => {
-                    assign_once(&mut parsed.default_parameters, value, arg.name)?;
+                    assign_group_arg_once(&mut parsed.default_parameters, value, arg.name)?;
                 }
-                ("visitor", GroupArgValue::Ident(value)) => assign_once(&mut parsed.visitor, value, arg.name)?,
+                ("visitor", GroupArgValue::Ident(value)) => {
+                    assign_group_arg_once(&mut parsed.visitor, value, arg.name)?;
+                }
                 ("parameter_crate", GroupArgValue::Path(value)) => {
-                    assign_once(&mut parsed.parameter_crate, value, arg.name)?;
+                    assign_group_arg_once(&mut parsed.parameter_crate, value, arg.name)?;
                 }
-                _ => return Err(syn::Error::new_spanned(arg.name, "unsupported parameter_group argument")),
+                _ => {
+                    let message = format!("unknown argument `{}` in #[parameter_group(...)]", arg.name);
+                    return Err(syn::Error::new_spanned(arg.name, message));
+                }
             }
         }
 
@@ -77,9 +103,10 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
     }
 }
 
-fn assign_once<T>(slot: &mut Option<T>, value: T, name: Ident) -> Result<()> {
+fn assign_group_arg_once<T>(slot: &mut Option<T>, value: T, name: Ident) -> Result<()> {
     if slot.replace(value).is_some() {
-        return Err(syn::Error::new_spanned(name, "duplicate parameter_group argument"));
+        let message = format!("duplicate argument `{name}` in #[parameter_group(...)]");
+        return Err(syn::Error::new_spanned(name, message));
     }
 
     Ok(())
@@ -99,8 +126,8 @@ struct ParameterField {
     default: Expr,
 }
 
-#[derive(Default)]
 struct ParameterArgs {
+    attribute: Attribute,
     label: Option<Expr>,
     unit: Option<Expr>,
     range: Option<Expr>,
@@ -112,44 +139,59 @@ struct ParameterArgs {
 }
 
 impl ParameterArgs {
+    fn new(attribute: Attribute) -> Self {
+        Self {
+            attribute,
+            label: None,
+            unit: None,
+            range: None,
+            step: None,
+            logarithmic: None,
+            default: None,
+            const_name: None,
+            setter: None,
+        }
+    }
+
     fn parse(attrs: &[Attribute]) -> Result<Option<Self>> {
         let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("parameter")) else {
             return Ok(None);
         };
 
         let args = attr.parse_args_with(Punctuated::<ParameterArg, Token![,]>::parse_terminated)?;
-        let mut parsed = Self::default();
+        let mut parsed = Self::new(attr.clone());
 
         for arg in args {
             match arg {
                 ParameterArg::Expr { name, value } if name == "label" => {
                     validate_string_literal(&value, "label")?;
-                    assign_once(&mut parsed.label, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.label, value, name)?;
                 }
                 ParameterArg::Expr { name, value } if name == "unit" => {
                     validate_string_literal(&value, "unit")?;
-                    assign_once(&mut parsed.unit, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.unit, value, name)?;
                 }
                 ParameterArg::Expr { name, value } if name == "range" => {
-                    assign_once(&mut parsed.range, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.range, value, name)?;
                 }
                 ParameterArg::Expr { name, value } if name == "step" => {
-                    assign_once(&mut parsed.step, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.step, value, name)?;
                 }
                 ParameterArg::Expr { name, value } if name == "logarithmic" => {
-                    assign_once(&mut parsed.logarithmic, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.logarithmic, value, name)?;
                 }
                 ParameterArg::Expr { name, value } if name == "default" => {
-                    assign_once(&mut parsed.default, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.default, value, name)?;
                 }
                 ParameterArg::Ident { name, value } if name == "const_name" => {
-                    assign_once(&mut parsed.const_name, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.const_name, value, name)?;
                 }
                 ParameterArg::Ident { name, value } if name == "setter" => {
-                    assign_once(&mut parsed.setter, value, name)?;
+                    assign_parameter_arg_once(&mut parsed.setter, value, name)?;
                 }
-                ParameterArg::Expr { name, .. } | ParameterArg::Ident { name, .. } => {
-                    return Err(syn::Error::new_spanned(name, "unsupported parameter attribute argument"));
+                ParameterArg::Expr { name, .. } | ParameterArg::Ident { name, .. } | ParameterArg::Flag { name } => {
+                    let message = unknown_parameter_arg_message(&name);
+                    return Err(syn::Error::new_spanned(name, message));
                 }
             }
         }
@@ -161,11 +203,16 @@ impl ParameterArgs {
 enum ParameterArg {
     Expr { name: Ident, value: Expr },
     Ident { name: Ident, value: Ident },
+    Flag { name: Ident },
 }
 
 impl Parse for ParameterArg {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let name: Ident = input.parse()?;
+        if !input.peek(Token![=]) {
+            return Ok(Self::Flag { name });
+        }
+
         input.parse::<Token![=]>()?;
 
         if name == "const_name" || name == "setter" {
@@ -173,6 +220,23 @@ impl Parse for ParameterArg {
         } else {
             Ok(Self::Expr { name, value: input.parse()? })
         }
+    }
+}
+
+fn assign_parameter_arg_once<T>(slot: &mut Option<T>, value: T, name: Ident) -> Result<()> {
+    if slot.replace(value).is_some() {
+        let message = format!("duplicate argument `{name}` in #[parameter(...)]");
+        return Err(syn::Error::new_spanned(name, message));
+    }
+
+    Ok(())
+}
+
+fn unknown_parameter_arg_message(name: &Ident) -> String {
+    if name == "ranges" {
+        "unknown argument `ranges` in #[parameter(...)]\nhelp: did you mean `range`?".to_string()
+    } else {
+        format!("unknown argument `{name}` in #[parameter(...)]")
     }
 }
 
@@ -460,6 +524,7 @@ fn build_parameter_field(field: &syn::Field, args: ParameterArgs) -> Result<Para
         field.ident.clone().ok_or_else(|| syn::Error::new_spanned(field, "parameter field must be named"))?;
     let const_name = args.const_name.unwrap_or_else(|| screaming_snake_ident(&field_name));
     let setter = args.setter.unwrap_or_else(|| format_ident!("set_{}", field_name));
+    let attribute = args.attribute.clone();
 
     Ok(ParameterField {
         accessor: field_name.clone(),
@@ -467,12 +532,18 @@ fn build_parameter_field(field: &syn::Field, args: ParameterArgs) -> Result<Para
         ty: field.ty.clone(),
         setter,
         const_name,
-        label: required(args.label, "label")?,
+        label: required_parameter_arg(args.label, "label", &attribute)?,
         unit: args.unit,
-        range: required(args.range, "range")?,
+        range: required_parameter_arg(args.range, "range", &attribute)?,
         step: args.step.unwrap_or_else(|| syn::parse_quote!(0.0)),
         logarithmic: args.logarithmic.unwrap_or_else(|| syn::parse_quote!(false)),
-        default: required(args.default, "default")?,
+        default: required_parameter_arg(args.default, "default", &attribute)?,
+    })
+}
+
+fn required_parameter_arg<T>(value: Option<T>, name: &str, attribute: &Attribute) -> Result<T> {
+    value.ok_or_else(|| {
+        syn::Error::new_spanned(attribute, format!("missing required argument `{name}` in #[parameter(...)]"))
     })
 }
 
