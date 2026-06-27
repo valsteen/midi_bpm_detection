@@ -1,106 +1,56 @@
-use std::{fmt::Debug, marker::PhantomData, time::Duration};
+use std::time::Duration;
 
-use parameter::Parameter;
+use parameter_macros::parameter_group;
 use serde::{Deserialize, Serialize};
 
+#[parameter_group(
+    accessor = GUIConfigAccessor,
+    parameters = GUIParameters,
+    default_parameters = DefaultGUIParameters,
+    visitor = GUIParameterVisitor
+)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GUIConfig {
+    #[parameter(label = "Interpolation duration", unit = "s", range = 0.050..=1.0, default = Duration::from_millis(500))]
     pub interpolation_duration: Duration,
 
     // since we only keep interpolating value, the interpolation will seem to 'accelerate' towards the end
     // of the interval a factor of 1 will preserve this behaviour. factor < 1 will make the movement 'slower',
     // factor > 1 will accelerate it
+    #[parameter(label = "Interpolation curve", range = 0.1..=2.0, default = 0.7)]
     pub interpolation_curve: f32,
 }
 
-pub trait GUIConfigAccessor {
-    fn interpolation_duration(&self) -> Duration;
-    fn interpolation_curve(&self) -> f32;
+#[cfg(test)]
+mod parameter_inventory_tests {
+    use parameter::{Parameter, ParameterSpec};
 
-    fn set_interpolation_duration(&mut self, val: Duration);
-    fn set_interpolation_curve(&mut self, val: f32);
-}
+    use super::*;
 
-impl GUIConfigAccessor for () {
-    fn interpolation_duration(&self) -> Duration {
-        unimplemented!()
-    }
+    struct GUIParameterLabels(Vec<&'static str>);
 
-    fn interpolation_curve(&self) -> f32 {
-        unimplemented!()
-    }
+    impl GUIParameterVisitor<GUIConfig> for GUIParameterLabels {
+        fn interpolation_duration(&mut self, parameter: Parameter<GUIConfig, Duration>) {
+            self.0.push(parameter.label);
+        }
 
-    fn set_interpolation_duration(&mut self, _: Duration) {
-        unimplemented!()
-    }
-
-    fn set_interpolation_curve(&mut self, _: f32) {
-        unimplemented!()
-    }
-}
-
-impl GUIConfigAccessor for GUIConfig {
-    fn interpolation_duration(&self) -> Duration {
-        self.interpolation_duration
-    }
-
-    fn interpolation_curve(&self) -> f32 {
-        self.interpolation_curve
-    }
-
-    fn set_interpolation_duration(&mut self, val: Duration) {
-        self.interpolation_duration = val;
-    }
-
-    fn set_interpolation_curve(&mut self, val: f32) {
-        self.interpolation_curve = val;
-    }
-}
-
-pub type DefaultGUIParameters = GUIParameters<()>;
-
-impl GUIConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        GUIParameters::<Self>::INTERPOLATION_DURATION.validate_config_value(self)?;
-        GUIParameters::<Self>::INTERPOLATION_CURVE.validate_config_value(self)?;
-
-        Ok(())
-    }
-}
-
-impl Default for GUIConfig {
-    fn default() -> Self {
-        Self {
-            interpolation_duration: DefaultGUIParameters::INTERPOLATION_DURATION.default,
-            interpolation_curve: DefaultGUIParameters::INTERPOLATION_CURVE.default,
+        fn interpolation_curve(&mut self, parameter: Parameter<GUIConfig, f32>) {
+            self.0.push(parameter.label);
         }
     }
-}
 
-pub struct GUIParameters<Config> {
-    phantom: PhantomData<Config>,
-}
+    #[test]
+    fn gui_parameter_specs_and_visitor_preserve_inventory() {
+        assert_parameter_spec(&DefaultGUIParameters::INTERPOLATION_DURATION);
+        assert_parameter_spec(&DefaultGUIParameters::INTERPOLATION_CURVE);
 
-impl<Config: GUIConfigAccessor> GUIParameters<Config> {
-    pub const INTERPOLATION_CURVE: Parameter<Config, f32> = Parameter::new(
-        "Interpolation curve",
-        None,
-        0.1..=2.0,
-        0.0,
-        false,
-        0.7,
-        Config::interpolation_curve,
-        Config::set_interpolation_curve,
-    );
-    pub const INTERPOLATION_DURATION: Parameter<Config, Duration> = Parameter::new(
-        "Interpolation duration",
-        Some("s"),
-        0.050..=1.0,
-        0.0,
-        false,
-        Duration::from_millis(500),
-        Config::interpolation_duration,
-        Config::set_interpolation_duration,
-    );
+        let mut labels = GUIParameterLabels(Vec::new());
+
+        GUIParameters::visit(&mut labels);
+
+        assert_eq!(labels.0, ["Interpolation duration", "Interpolation curve"]);
+    }
+
+    fn assert_parameter_spec<ValueType>(_: &ParameterSpec<ValueType>) {}
 }

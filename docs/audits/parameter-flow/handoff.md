@@ -12,9 +12,10 @@ The first dynamic-config-only `macro_rules!` proof was rejected and scratched fr
 is a generic attribute proc-macro API that keeps config structs as ordinary Rust and generates mechanical companion
 items. The dynamic-config-only prototype and first diagnostics follow-up are now committed.
 
-The dynamic metadata-spec split and `NormalDistributionConfig` macro migration are now implemented and verified. The
-next recommended slice is to apply the existing attribute macro to `GUIConfig` only. Keep `StaticBPMDetectionConfig` out
-of that slice.
+The dynamic metadata-spec split, `NormalDistributionConfig` macro migration, and `GUIConfig` macro migration are now
+implemented and verified. All plain typed parameter groups now use the attribute macro. The next recommended slice is to
+split static BPM computed methods away from the static parameter field accessor contract. Keep
+`StaticBPMDetectionConfig` out of the macro in that split slice.
 
 ## Durable Context To Read First
 
@@ -1214,4 +1215,270 @@ Apply the existing generic #[parameter_group(...)] macro to GUIConfig only. Pres
 labels, ranges, defaults, units, steps, logarithmic flags, plugin host parameter IDs, interpolation behavior, and current
 desktop/wasm/plugin GUI-display update routing. Do not migrate StaticBPMDetectionConfig. Update
 docs/audits/parameter-flow/handoff.md with a back-handoff.
+```
+
+## Back-Handoff: Attribute Macro For GUIConfig
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: none at implementer handoff time.
+
+### Files changed
+
+- `rust/Cargo.lock`
+- `rust/crates/gui/Cargo.toml`
+- `rust/crates/gui/src/config.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Applied the existing generic `#[parameter_group(...)]` macro to `GUIConfig` only. The GUI config remains an ordinary Rust
+struct with real public fields, serde derives, `deny_unknown_fields`, and the existing interpolation field comments.
+Field-level `#[parameter(...)]` metadata now owns the existing GUI labels, ranges, defaults, units, steps, and
+logarithmic flags.
+
+The generated public GUI API now matches the current macro shape:
+
+- `GUIConfigAccessor`
+- `impl GUIConfigAccessor for GUIConfig`
+- `DefaultGUIParameters` with `ParameterSpec<T>` associated constants
+- `GUIParameters<Config>` with config-bound `Parameter<Config, T>` constants
+- `GUIParameterVisitor<Config>`
+- `GUIParameters::<Config>::visit`
+- `GUIConfig::default`
+- `GUIConfig::validate`
+
+### Behavioral changes
+
+None intended.
+
+GUI config fields, serde field names, validation ranges, labels, defaults, units, steps, logarithmic flags, plugin host
+parameter IDs, interpolation behavior, settings-panel ordering, and desktop/wasm/plugin GUI-display update routing are
+preserved.
+
+### Structural changes
+
+- Added `parameter_macros` as a local dependency of the `gui` crate.
+- Removed the hand-written GUI accessor trait, fake `impl GUIConfigAccessor for ()`, concrete accessor impl,
+  `DefaultGUIParameters = GUIParameters<()>` alias, parameter catalog, default impl, and validation impl from source.
+- Replaced them with macro-generated equivalents from the annotated `GUIConfig`.
+- Added a GUI inventory test asserting that `DefaultGUIParameters::*` are `ParameterSpec<T>` values and that generated GUI
+  traversal preserves field-source order.
+
+### Affected boundaries / integration points
+
+- `gui` now depends on the local `parameter_macros` proc-macro crate.
+- Desktop, wasm, and plugin runtime wrappers continue to implement the same `GUIConfigAccessor` methods.
+- Plugin GUI/display host parameters still use IDs `interpolation_duration` and `interpolation_curve`.
+- No plugin, desktop, wasm, MIDI, or `nih-plug` dependencies were added to `gui`, `parameter`, or `parameter_macros`.
+- Static BPM remains hand-written and was not touched.
+
+### Tests / checks
+
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo clippy -p parameter_macros -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- From repo root, `git diff --check`: passed.
+
+### Decisions made
+
+- Named the generated visitor `GUIParameterVisitor` and kept current GUI call sites manually enumerated, because the
+  brief only required the declaration/source-of-truth migration.
+- Used the GUI struct field order for generated `visit`: `interpolation_duration`, then `interpolation_curve`.
+- Kept settings-panel ordering unchanged by leaving `config_ui.rs` untouched.
+
+### Deviations from brief
+
+None intentional.
+
+### Remaining risks
+
+- GUI now has a generated visitor, but current GUI/plugin call sites do not use it yet.
+- Static BPM still has the hand-written fake-config alias and computed accessor methods.
+- Generated visitor methods still have default implementations, so visitor exhaustiveness remains a later audit concern.
+
+### Recommended next slice
+
+Coordinator review of the GUI migration and cross-crate macro dependency shape, then design the static BPM computed-method
+split before applying the macro to `StaticBPMDetectionConfig`.
+
+## Coordinator Review: Attribute Macro For GUIConfig
+
+Review status: accepted.
+
+The GUI migration matches the brief:
+
+- `GUIConfig` remains an ordinary Rust struct with real public fields, serde derives, `deny_unknown_fields`, and the
+  existing interpolation comments.
+- GUI parameter metadata now lives in field-level `#[parameter(...)]` attributes.
+- `DefaultGUIParameters` is now a generated `ParameterSpec<T>` metadata catalog rather than a
+  `GUIParameters<()>` alias.
+- The fake `impl GUIConfigAccessor for ()` bridge is gone.
+- `GUIParameters<Config>` remains the config-bound parameter catalog.
+- Desktop, wasm, and plugin runtime wrappers continue to implement `GUIConfigAccessor`.
+- Plugin GUI/display host parameter IDs remain `interpolation_duration` and `interpolation_curve`.
+- GUI/display update routing remains unchanged.
+- `StaticBPMDetectionConfig` remains hand-written.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo clippy -p parameter_macros -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- From repo root, `git diff --check`: passed.
+
+Coordinator judgment: all plain typed parameter groups now use the generic attribute macro. Static BPM remains the final
+typed group outside the macro path because its accessor trait mixes parameter field access with computed methods:
+`index_to_bpm`, `highest_bpm`, and `lowest_bpm`. Split that method family out before applying the macro to
+`StaticBPMDetectionConfig`.
+
+## Slice Brief: Static BPM Computed-Method Split
+
+### Objective
+
+Make `StaticBPMDetectionConfigAccessor` macro-ready by removing non-field computed methods from its contract.
+
+After this slice, `StaticBPMDetectionConfigAccessor` should represent only the static parameter fields that map to typed
+parameters:
+
+- `bpm_center`
+- `bpm_range`
+- `sample_rate`
+- their setters
+
+Move `index_to_bpm`, `highest_bpm`, and `lowest_bpm` behind a separate computed-method trait or equivalent extension
+boundary so GUI histogram code and runtime wrapper code can keep calling those methods without every wrapper manually
+implementing them.
+
+Do not apply `#[parameter_group(...)]` to `StaticBPMDetectionConfig` in this slice.
+
+### Non-goals
+
+- Do not migrate `StaticBPMDetectionConfig` to the attribute macro yet.
+- Do not change static BPM formulas, validation behavior, labels, ranges, defaults, units, steps, logarithmic flags, serde
+  field names, plugin host parameter IDs, GUI histogram rendering, or runtime update routing.
+- Do not change `NormalDistributionConfig` ownership inside `StaticBPMDetectionConfig`.
+- Do not broaden this into plugin host mapping cleanup, GUI/display update routing, dynamic task overload cleanup, or
+  parameter-like atomic state.
+- Do not reintroduce a group-specific `macro_rules!` parameter DSL.
+- Do not add new lint exceptions.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially the GUI coordinator review and recommended slice sequence.
+- `docs/audits/parameter-flow/repo-map.md`, especially the static BPM and GUI call-site notes.
+- `docs/parameter-flow-audit.md`, especially the typed parameter inventory and invariant audit.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/application_parameters.rs`
+- `rust/crates/gui/src/app.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/desktop/src/live_parameters.rs`
+- `rust/crates/wasm/src/lib.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `docs/audits/parameter-flow/handoff.md` for the required back-handoff
+
+### Relevant boundaries / integration points
+
+- `StaticBPMDetectionParameters<Config>` should remain the config-bound static parameter catalog.
+- If this slice replaces `DefaultStaticBPMDetectionParameters = StaticBPMDetectionParameters<()>`, keep the replacement
+  narrow by using `ParameterSpec<T>` and preserve existing default metadata exactly.
+- GUI plotting currently calls `index_to_bpm`, `lowest_bpm`, and `highest_bpm` through the shared application-parameter
+  bound.
+- Desktop, wasm, and plugin wrappers currently implement static field accessors and computed methods by delegating to
+  their nested `StaticBPMDetectionConfig`.
+- Plugin host parameter construction reads static field parameters from `StaticBPMDetectionParameters`.
+- `NormalDistributionConfig` is nested under static config but already uses the macro. Do not merge it into the static
+  field group.
+
+### Expected behavioral change
+
+None intended.
+
+This is a contract-shaping refactor only. The computed methods should return the same values for the same configs, and
+the GUI/plugin/desktop/wasm update flows should behave the same.
+
+### Expected structural change
+
+- Introduce a separate computed-method trait or extension boundary for `index_to_bpm`, `highest_bpm`, and `lowest_bpm`.
+- Keep `StaticBPMDetectionConfigAccessor` focused on the three static parameter fields and setters.
+- Remove the manual computed-method implementations from desktop, wasm, and plugin wrapper accessor impls if a blanket
+  extension trait makes them redundant.
+- Prefer replacing the remaining static fake-config default catalog with `ParameterSpec<T>` if it stays within this
+  narrow slice; otherwise document why that is deferred to the macro-migration slice.
+- Add or update focused tests proving static parameter defaults/specs and computed methods are preserved.
+
+### Acceptance criteria
+
+- `StaticBPMDetectionConfigAccessor` no longer requires `index_to_bpm`, `highest_bpm`, or `lowest_bpm`.
+- GUI histogram code and shared application parameters can still call the computed methods through an explicit trait
+  bound/import.
+- Desktop, wasm, and plugin static wrappers still compile and propagate static config changes as before.
+- Static parameter labels, ranges, defaults, units, steps, logarithmic flags, and plugin host parameter IDs are unchanged.
+- No `#[parameter_group(...)]` annotation is added to `StaticBPMDetectionConfig`.
+- No new runtime synchronization behavior is introduced.
+- The implementer back-handoff records whether the static fake-config alias was removed or intentionally deferred.
+
+### Suggested checks
+
+From `rust/`:
+
+```sh
+cargo +nightly fmt --all -- --check
+cargo test -p bpm_detection_core parameter_inventory_tests
+cargo test -p bpm_detection_core
+cargo test -p gui
+cargo test -p midi-bpm-detector-plugin
+cargo test -p desktop
+cargo test -p wasm --target wasm32-unknown-unknown
+cargo clippy -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings
+```
+
+From repo root:
+
+```sh
+git diff --check
+```
+
+## Prompt For Fresh Bounded Implementer
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Static BPM Computed-Method Split" from docs/audits/parameter-flow/handoff.md.
+
+Split `index_to_bpm`, `highest_bpm`, and `lowest_bpm` away from `StaticBPMDetectionConfigAccessor` so that accessor
+contract contains only the static parameter fields (`bpm_center`, `bpm_range`, `sample_rate`) and setters. Preserve all
+static parameter metadata, defaults, validation behavior, serde field names, plugin host parameter IDs, GUI histogram
+behavior, and desktop/wasm/plugin runtime update routing. Do not apply `#[parameter_group(...)]` to
+`StaticBPMDetectionConfig` yet. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
 ```

@@ -15,8 +15,9 @@ Durable repo state:
 Current branch checkpoint:
 
 - Branch: `codex/parameter-flow-audit`.
-- The `Attribute Parameter Group Macro Prototype` slice has been implemented on dynamic config only.
-- Audit docs now include a bounded implementer back-handoff for that prototype.
+- The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, and GUI migration have been
+  implemented.
+- Audit docs now include bounded implementer back-handoffs for those slices.
 
 Assumptions from current coordination:
 
@@ -475,6 +476,38 @@ Coordinator judgment: the normal distribution migration is accepted. The next bo
 macro pattern to `GUIConfig`, while keeping GUI/display runtime update semantics unchanged. Static BPM remains later
 because its accessor trait still carries computed methods.
 
+## Coordinator Review: GUIConfig Macro Migration
+
+Review checkpoint: `codex/parameter-flow-audit`, in the coordinator checkpoint that includes the GUI migration on top of
+the normal-distribution slice.
+
+The slice matches the brief:
+
+- `GUIConfig` remains an ordinary Rust struct with real public fields, serde derives, and `deny_unknown_fields`.
+- GUI metadata now lives in field-level `#[parameter(...)]` attributes.
+- `DefaultGUIParameters` is generated as a `ParameterSpec<T>` metadata catalog.
+- `GUIParameters<Config>` remains the config-bound parameter catalog.
+- The generated macro output removes the GUI fake `impl GUIConfigAccessor for ()`.
+- Desktop, wasm, and plugin runtime wrappers continue to implement `GUIConfigAccessor`.
+- Plugin GUI/display host parameter IDs remain `interpolation_duration` and `interpolation_curve`.
+- Static BPM was not migrated in this slice.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo clippy -p parameter_macros -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: the GUI migration is accepted. All plain typed parameter groups now use the attribute macro. Static
+BPM remains intentionally hand-written because its accessor trait mixes field accessors with computed methods
+(`index_to_bpm`, `highest_bpm`, and `lowest_bpm`). The next bounded slice should split those computed methods from the
+field accessor contract before applying the macro to `StaticBPMDetectionConfig`.
+
 ## Non-Goals For The Completed Macro Implementation Slice
 
 - Do not change host/GUI sync policy.
@@ -492,7 +525,8 @@ because its accessor trait still carries computed methods.
 3. Split generated dynamic default catalogs away from the `Parameters<()>` fake-config bridge.
 4. Apply the attribute macro to `NormalDistributionConfig`.
 5. Apply the attribute macro to `GUIConfig`.
-6. Design the static BPM computed-method split, then apply the pattern to static BPM config.
-7. Revisit egui/plugin host mapping surfaces once all typed groups are homogeneous.
-8. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
+6. Split static BPM computed methods from the static parameter field accessor contract.
+7. Apply the attribute macro to `StaticBPMDetectionConfig`.
+8. Revisit egui/plugin host mapping surfaces once all typed groups are homogeneous.
+9. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
    assignment, and parameter-like atomics.

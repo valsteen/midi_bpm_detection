@@ -1994,6 +1994,7 @@ dependencies = [
  "log",
  "num-traits",
  "parameter",
+ "parameter_macros",
  "serde",
  "sync",
  "wasm-bindgen-futures",

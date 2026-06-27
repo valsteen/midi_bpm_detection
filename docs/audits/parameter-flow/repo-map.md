@@ -7,7 +7,7 @@ except where plugin host parameters cross into the tempo bridge.
 ## Current Branch And Working Tree
 
 - Branch observed during coordination: `codex/parameter-flow-audit`, tracking `upstream/main`.
-- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, and normal distribution.
+- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, normal distribution, and GUI.
 - Audit docs live in:
   - `docs/parameter-flow-audit.md`
   - `docs/parameter-audit-handoff.md`
@@ -45,6 +45,14 @@ except where plugin host parameters cross into the tempo bridge.
 
 - `rust/crates/gui`
   - Owns `GUIConfig`, `GUIConfigAccessor`, `GUIParameters`, and reusable egui parameter controls.
+  - GUI config now uses the generated parameter-group pattern:
+    - config struct;
+    - accessor trait;
+    - accessor impl for the concrete config;
+    - metadata spec constants;
+    - config-bound parameter constants;
+    - visitor trait;
+    - validation through generated traversal.
   - `BPMDetectionGUI::settings_panel` manually lists GUI/static/normal params, then uses the dynamic visitor for dynamic
     scoring params.
   - `SlideAdder` renders typed `Parameter` values and implements `DynamicBPMDetectionParameterVisitor`.
@@ -111,11 +119,12 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
 - GUI/display:
   - `interpolation_duration`
   - `interpolation_curve`
-  - Next planned macro migration target.
+  - Macro migration complete.
 - Static BPM model:
   - `bpm_center`
   - `bpm_range`
   - `sample_rate`
+  - Next planned refactor target: split computed methods from the field accessor contract before macro migration.
 - Normal distribution:
   - `std_dev`
   - `factor`
@@ -182,5 +191,7 @@ The wasm target may need local setup; if unavailable, the implementer should rec
   exhaustiveness in a later slice?
 - Should static, normal, and GUI groups eventually get visitors, or should the macro produce a simpler typed enumeration
   API that replaces visitors?
+- Should the static computed-method extension remain public after the static macro migration, or should GUI histogram
+  code call inherent/static helper methods directly?
 - Should output/runtime state such as `send_tempo` become part of a typed parameter catalog, or remain explicitly bespoke
   because of realtime/host differences?
