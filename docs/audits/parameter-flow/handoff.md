@@ -12,10 +12,10 @@ The first dynamic-config-only `macro_rules!` proof was rejected and scratched fr
 is a generic attribute proc-macro API that keeps config structs as ordinary Rust and generates mechanical companion
 items. The dynamic-config-only prototype and first diagnostics follow-up are now committed.
 
-The dynamic metadata-spec split, `NormalDistributionConfig` macro migration, and `GUIConfig` macro migration are now
-implemented and verified. All plain typed parameter groups now use the attribute macro. The next recommended slice is to
-split static BPM computed methods away from the static parameter field accessor contract. Keep
-`StaticBPMDetectionConfig` out of the macro in that split slice.
+The dynamic metadata-spec split, `NormalDistributionConfig` macro migration, `GUIConfig` macro migration, and static BPM
+computed-method split are now implemented and verified. Static BPM is macro-ready: field access is separated from
+computed helpers, and the default static catalog uses `ParameterSpec<T>`. The next recommended slice is to apply the
+existing attribute macro to `StaticBPMDetectionConfig`.
 
 ## Durable Context To Read First
 
@@ -1348,6 +1348,8 @@ typed group outside the macro path because its accessor trait mixes parameter fi
 
 ## Slice Brief: Static BPM Computed-Method Split
 
+This slice is complete. The brief is retained as historical context for the back-handoff below.
+
 ### Objective
 
 Make `StaticBPMDetectionConfigAccessor` macro-ready by removing non-field computed methods from its contract.
@@ -1460,7 +1462,7 @@ From repo root:
 git diff --check
 ```
 
-## Prompt For Fresh Bounded Implementer
+## Historical Prompt For Static Split Implementer
 
 ```text
 [$bounded-implementer] Use the bounded implementer flow for one repository slice.
@@ -1569,3 +1571,203 @@ None.
 
 Coordinator review of the static computed-method split and public API shape, then apply the existing
 `#[parameter_group(...)]` macro pattern to `StaticBPMDetectionConfig` if the split is accepted.
+
+## Coordinator Review: Static BPM Computed-Method Split
+
+Review status: accepted.
+
+Review checkpoint: `codex/parameter-flow-audit` at `bdab497 Stabilize parameter macro diagnostic tests`.
+
+The static split matches the brief:
+
+- `StaticBPMDetectionConfigAccessor` contains only `bpm_center`, `bpm_range`, `sample_rate`, and their setters.
+- `StaticBPMDetectionComputed` is the explicit computed-method extension for `index_to_bpm`, `highest_bpm`, and
+  `lowest_bpm`.
+- `StaticBPMDetectionConfig` keeps inherent computed methods by delegating through the computed extension.
+- Desktop, wasm, and plugin wrapper impls no longer hand-write computed-method delegations.
+- `DefaultStaticBPMDetectionParameters` is now a concrete `ParameterSpec<T>` metadata catalog.
+- The static fake `impl StaticBPMDetectionConfigAccessor for ()` bridge is gone.
+- `StaticBPMDetectionConfig` remains hand-written and is not yet annotated with `#[parameter_group(...)]`.
+- The CI follow-up commit only disables compiler color output for macro diagnostic fixture matching.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 4 tests.
+- `cargo test -p bpm_detection_core`: passed, 6 tests.
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo clippy -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- From repo root, `git diff --check`: passed.
+
+GitHub PR state during review:
+
+- Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
+- CI observed green for `extension`, `format`, `native (aarch64-apple-darwin)`,
+  `native (x86_64-unknown-linux-gnu)`, and `wasm`.
+- `native (x86_64-apple-darwin)` was still in progress at the latest coordinator check.
+
+Coordinator judgment: the split is accepted. Static BPM is now structurally aligned with the generated groups. The next
+bounded slice should apply the existing `#[parameter_group(...)]` macro to `StaticBPMDetectionConfig`, while keeping
+`StaticBPMDetectionComputed`, the inherent computed methods, and nested `NormalDistributionConfig` behavior intact.
+
+## Slice Brief: Attribute Macro For StaticBPMDetectionConfig
+
+### Objective
+
+Apply the existing generic `#[parameter_group(...)]` macro to `StaticBPMDetectionConfig`.
+
+The generated static parameter group should cover only the real static BPM parameter fields:
+
+- `bpm_center`
+- `bpm_range`
+- `sample_rate`
+
+Keep `normal_distribution: NormalDistributionConfig` as a nested config field outside the generated static parameter
+field group. Keep `StaticBPMDetectionComputed` and the inherent computed methods (`index_to_bpm`, `highest_bpm`,
+`lowest_bpm`) as explicit non-generated behavior.
+
+### Non-goals
+
+- Do not include `normal_distribution` in `StaticBPMDetectionParameters`.
+- Do not change static BPM formulas, validation behavior, labels, ranges, defaults, units, steps, logarithmic flags, serde
+  field names, plugin host parameter IDs, GUI histogram rendering, or runtime update routing.
+- Do not change the already generated `NormalDistributionConfig`, dynamic config, or GUI config macro shapes.
+- Do not broaden this into GUI/plugin host mapping cleanup, GUI/display update routing, dynamic task overload cleanup, or
+  parameter-like atomic state.
+- Do not reintroduce a group-specific `macro_rules!` parameter DSL.
+- Do not add new lint exceptions.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/audit.md`, especially the static split coordinator review and recommended slice sequence.
+- `docs/audits/parameter-flow/repo-map.md`, especially the static BPM, normal distribution, GUI, and plugin notes.
+- `docs/parameter-flow-audit.md`, especially the typed parameter inventory and invariant audit.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- Static parameter inventory tests in `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `rust/crates/desktop/src/live_parameters.rs`
+- `rust/crates/wasm/src/lib.rs`
+- `docs/audits/parameter-flow/handoff.md` for the required back-handoff
+
+### Relevant boundaries / integration points
+
+- `bpm_detection_core` already depends on `parameter_macros`; no new cross-crate macro dependency is expected.
+- `StaticBPMDetectionConfigAccessor` is now a pure field accessor contract and should be generated by the macro.
+- `StaticBPMDetectionComputed` depends on the static field accessor contract and should continue to work with the
+  generated accessor trait.
+- `DefaultStaticBPMDetectionParameters` should remain a `ParameterSpec<T>` metadata catalog.
+- `StaticBPMDetectionParameters<Config>` should remain the config-bound static parameter catalog consumed by GUI and
+  plugin code.
+- Plugin host parameter IDs for static fields are owned in plugin code and must remain unchanged:
+  `bpm_center`, `bpm_range`, and `sample_rate`.
+- `NormalDistributionConfig` is nested under static config but is already its own generated parameter group.
+
+### Expected behavioral change
+
+None intended.
+
+This is the final declaration/source-of-truth migration for typed parameter groups. The macro-generated static code should
+be behaviorally equivalent to the current hand-written static field accessor/catalog/default/validation machinery.
+
+### Expected structural change
+
+- Annotate `StaticBPMDetectionConfig` with `#[parameter_group(...)]`.
+- Move static field metadata for `bpm_center`, `bpm_range`, and `sample_rate` into field-level `#[parameter(...)]`
+  attributes.
+- Remove hand-written static field accessor trait/impl, static parameter catalog, default metadata catalog, `Default`
+  impl, and validation for those fields where the macro now generates equivalents.
+- Keep or re-add the manual validation step for nested `normal_distribution.validate()`.
+- Keep `StaticBPMDetectionComputed` and inherent computed methods outside the macro-generated area.
+- Keep existing tests or add focused tests proving static specs, computed methods, and nested normal-distribution
+  validation are preserved.
+
+### Acceptance criteria
+
+- `StaticBPMDetectionConfig` remains an ordinary Rust struct with real fields.
+- `normal_distribution` remains a normal nested config field and is not a `Parameter` in `StaticBPMDetectionParameters`.
+- `StaticBPMDetectionConfigAccessor`, `DefaultStaticBPMDetectionParameters`,
+  `StaticBPMDetectionParameters<Config>`, and a static visitor type remain available under stable public names chosen in
+  the group attribute.
+- Static parameter labels, ranges, defaults, units, steps, logarithmic flags, and plugin host parameter IDs are unchanged.
+- `StaticBPMDetectionComputed` and inherent computed methods still return the same values for representative configs.
+- `StaticBPMDetectionConfig::validate()` still validates both static fields and nested normal distribution settings.
+- No runtime synchronization behavior is introduced or changed.
+
+### Tests / checks
+
+From `rust/`:
+
+```sh
+cargo +nightly fmt --all -- --check
+cargo test -p parameter_macros
+cargo test -p bpm_detection_core parameter_inventory_tests
+cargo test -p bpm_detection_core
+cargo test -p gui
+cargo test -p midi-bpm-detector-plugin
+cargo test -p desktop
+cargo test -p wasm --target wasm32-unknown-unknown
+cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings
+```
+
+From repo root:
+
+```sh
+git diff --check
+```
+
+### Risks / open questions
+
+- The macro currently treats every annotated parameter field as part of generated defaulting and validation, while static
+  config also has a nested non-parameter field. The implementer must preserve `normal_distribution` defaulting and
+  validation explicitly if the macro-generated default/validate impls only cover annotated fields.
+- Generated visitor defaults are still no-op methods, so visitor exhaustiveness remains a later audit concern.
+- Downstream code outside this repo may notice the generated static visitor type if exported, but no in-repo callers
+  should depend on a hand-written static visitor today.
+
+### Back-handoff requirements
+
+Record:
+
+- files changed;
+- generated public static API names;
+- whether nested `normal_distribution` defaulting and validation stayed manual or required macro support;
+- how static field metadata was proven unchanged;
+- tests/checks run with pass/fail status;
+- any deviations from this brief;
+- recommended next slice after static macro migration.
+
+## Prompt For Fresh Bounded Implementer
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Attribute Macro For StaticBPMDetectionConfig" from
+docs/audits/parameter-flow/handoff.md.
+
+Apply the existing generic #[parameter_group(...)] macro to StaticBPMDetectionConfig. Include only the static BPM
+parameter fields (`bpm_center`, `bpm_range`, `sample_rate`) in the generated parameter group. Keep
+`normal_distribution` as a nested config field outside StaticBPMDetectionParameters, and preserve
+StaticBPMDetectionComputed, inherent computed methods, static labels/ranges/defaults, serde fields, plugin host parameter
+IDs, GUI histogram behavior, and desktop/wasm/plugin runtime update routing. Update
+docs/audits/parameter-flow/handoff.md with a back-handoff.
+```

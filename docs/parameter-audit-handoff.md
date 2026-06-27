@@ -31,13 +31,17 @@ Current branch checkpoint:
 - dynamic-config macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 
 The dynamic-config-only attribute proc-macro prototype, first diagnostics follow-up, metadata-only dynamic spec split,
-normal-distribution macro migration, and GUI config migration are implemented and verified. Static BPM remains
-hand-written.
+normal-distribution macro migration, GUI config migration, and static BPM computed-method split are implemented and
+verified. Static BPM remains hand-written and macro-ready.
 
 Current commits on `codex/parameter-flow-audit`:
 
 - `431d0d3 Add dynamic parameter group macro prototype`
 - `a5fc659 Improve parameter macro diagnostics`
+- `d3dfead Split parameter specs and migrate normal distribution`
+- `83bae5a Migrate GUI parameters to parameter group macro`
+- `3078c83 Split static BPM computed methods`
+- `bdab497 Stabilize parameter macro diagnostic tests`
 
 ## Key Findings So Far
 
@@ -82,9 +86,9 @@ Use `$repo-audit-coordinator`.
 Continue with:
 
 1. Use the canonical workspace under `docs/audits/parameter-flow/`.
-2. Read the coordinator review and `Static BPM Computed-Method Split` slice brief in
+2. Read the coordinator review and `Attribute Macro For StaticBPMDetectionConfig` slice brief in
    `docs/audits/parameter-flow/handoff.md`.
-3. Execute or hand off that split before applying the macro to `StaticBPMDetectionConfig`.
+3. Execute or hand off that macro migration before revisiting GUI/plugin mapping surfaces.
 
 ## Prompt To Start The Next Audit-Coordinator Chat
 
@@ -98,8 +102,8 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "Static BPM
-Computed-Method Split" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
+We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "Attribute Macro For
+StaticBPMDetectionConfig" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
 implementer prompt or continue coordinator review if the docs have drifted.
 ```
 
@@ -115,7 +119,7 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-Execute only the "Static BPM Computed-Method Split" slice from docs/audits/parameter-flow/handoff.md. The dynamic-config,
-metadata-spec, normal-distribution, and GUI macro slices already exist; do not repeat the rejected dynamic-specific
-`macro_rules!` proof, and do not apply the parameter-group macro to static BPM in this slice.
+Execute only the "Attribute Macro For StaticBPMDetectionConfig" slice from docs/audits/parameter-flow/handoff.md. The
+dynamic-config, metadata-spec, normal-distribution, GUI, and static computed-method split slices already exist; do not
+repeat the rejected dynamic-specific `macro_rules!` proof.
 ```

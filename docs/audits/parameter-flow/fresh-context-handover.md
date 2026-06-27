@@ -4,7 +4,7 @@ Use this file to restart the parameter-flow audit from a fresh Codex context.
 
 ## Current Branch And Working Tree
 
-Branch: `codex/parameter-flow-audit`, tracking `upstream/main`.
+Branch: `codex/parameter-flow-audit`, tracking `upstream/codex/parameter-flow-audit`.
 
 The branch now contains the completed parameter macro slices:
 
@@ -14,14 +14,18 @@ The branch now contains the completed parameter macro slices:
 - `rust/crates/parameter_macros/`
 - dynamic and normal-distribution parameter-group macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 - GUI parameter-group macro wiring in `rust/crates/gui/src/config.rs`
+- static BPM computed-method split in `rust/crates/bpm_detection_core/src/parameters.rs`
 
-The branch is three commits ahead of `upstream/main` at the last committed checkpoint:
+Reviewed implementation commits on this branch:
 
 - `431d0d3 Add dynamic parameter group macro prototype`
 - `a5fc659 Improve parameter macro diagnostics`
 - `d3dfead Split parameter specs and migrate normal distribution`
+- `83bae5a Migrate GUI parameters to parameter group macro`
+- `3078c83 Split static BPM computed methods`
+- `bdab497 Stabilize parameter macro diagnostic tests`
 
-The latest coordinator checkpoint also contains the completed, verified GUI macro slice, pending commit.
+Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
 
 ## What The Audit Is About
 
@@ -169,6 +173,26 @@ Completed scope:
 - preserve `GUIParameters<Config>` as the config-bound parameter catalog;
 - leave static BPM config hand-written.
 
+## Completed Static Computed-Method Split
+
+The completed static split is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `Static BPM Computed-Method Split`
+
+Completed scope:
+
+- split `StaticBPMDetectionConfigAccessor` so it contains only `bpm_center`, `bpm_range`, `sample_rate`, and their
+  setters;
+- add `StaticBPMDetectionComputed` as the explicit computed-method extension for `index_to_bpm`, `highest_bpm`, and
+  `lowest_bpm`;
+- remove the static fake `StaticBPMDetectionConfigAccessor for ()` bridge;
+- make `DefaultStaticBPMDetectionParameters` expose `ParameterSpec<T>` metadata specs;
+- leave `StaticBPMDetectionConfig` hand-written and not annotated with `#[parameter_group(...)]`.
+
 ## Next Slice To Execute
 
 The active next slice is documented in:
@@ -177,18 +201,15 @@ The active next slice is documented in:
 
 Slice name:
 
-- `Static BPM Computed-Method Split`
+- `Attribute Macro For StaticBPMDetectionConfig`
 
 Scope:
 
-- split `StaticBPMDetectionConfigAccessor` so the parameter-field accessor contract contains only `bpm_center`,
-  `bpm_range`, `sample_rate`, and their setters;
-- move `index_to_bpm`, `highest_bpm`, and `lowest_bpm` behind a separate computed-method trait or equivalent extension
-  boundary;
-- remove the remaining static fake-config/default-catalog dependency on `StaticBPMDetectionParameters<()>` if it can stay
-  narrow by using `ParameterSpec<T>` for `DefaultStaticBPMDetectionParameters`;
-- preserve current public behavior and call sites;
-- do not apply `#[parameter_group(...)]` to `StaticBPMDetectionConfig` yet.
+- apply the existing generic `#[parameter_group(...)]` macro to `StaticBPMDetectionConfig`;
+- include only the static BPM parameter fields: `bpm_center`, `bpm_range`, and `sample_rate`;
+- keep `normal_distribution` as a nested config field outside the static parameter field group;
+- preserve `StaticBPMDetectionComputed`, inherent computed methods, static labels/ranges/defaults, serde fields, plugin
+  host parameter IDs, GUI histogram behavior, and runtime update routing.
 
 ## What To Read First In A Fresh Chat
 
@@ -243,10 +264,10 @@ Read first:
 - docs/development.md
 
 We are continuing the parameter-flow audit from a fresh context. The dynamic attribute macro prototype, metadata-spec
-split, NormalDistributionConfig migration, and GUIConfig migration are implemented. Static BPM is the only typed parameter
-group left outside the macro path because its accessor trait mixes parameter field access with computed methods. Do not
-revisit the rejected dynamic-specific macro_rules DSL except as historical context. First confirm the current branch and
-working tree, then either prepare the bounded implementer prompt for the "Static BPM Computed-Method Split" slice or continue
+split, NormalDistributionConfig migration, GUIConfig migration, and Static BPM computed-method split are implemented.
+StaticBPMDetectionConfig is the only typed parameter group left outside the macro path. Do not revisit the rejected
+dynamic-specific macro_rules DSL except as historical context. First confirm the current branch and working tree, then
+either prepare the bounded implementer prompt for the "Attribute Macro For StaticBPMDetectionConfig" slice or continue
 coordinator review if the docs have drifted.
 ```
 
@@ -264,11 +285,12 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Execute only the slice named "Static BPM Computed-Method Split" from docs/audits/parameter-flow/handoff.md.
+Execute only the slice named "Attribute Macro For StaticBPMDetectionConfig" from
+docs/audits/parameter-flow/handoff.md.
 
-Split the static BPM computed methods (`index_to_bpm`, `highest_bpm`, `lowest_bpm`) away from the parameter field
-accessor contract so `StaticBPMDetectionConfigAccessor` can become macro-ready in the following slice. Preserve behavior,
-validation, labels, ranges, defaults, serde fields, plugin host parameter IDs, GUI histogram behavior, and runtime update
-paths. Do not apply #[parameter_group(...)] to StaticBPMDetectionConfig yet. Update
-docs/audits/parameter-flow/handoff.md with a back-handoff.
+Apply the existing generic #[parameter_group(...)] macro to StaticBPMDetectionConfig. Include only the static BPM
+parameter fields (`bpm_center`, `bpm_range`, `sample_rate`) in the generated parameter group, keep
+`normal_distribution` nested but outside the generated static field group, and preserve StaticBPMDetectionComputed,
+inherent computed methods, labels, ranges, defaults, serde fields, plugin host parameter IDs, GUI histogram behavior, and
+desktop/wasm/plugin runtime update routing. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
 ```

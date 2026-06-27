@@ -15,8 +15,8 @@ Durable repo state:
 Current branch checkpoint:
 
 - Branch: `codex/parameter-flow-audit`.
-- The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, and GUI migration have been
-  implemented.
+- The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, GUI migration, and static
+  computed-method split have been implemented.
 - Audit docs now include bounded implementer back-handoffs for those slices.
 
 Assumptions from current coordination:
@@ -507,6 +507,54 @@ Coordinator judgment: the GUI migration is accepted. All plain typed parameter g
 BPM remains intentionally hand-written because its accessor trait mixes field accessors with computed methods
 (`index_to_bpm`, `highest_bpm`, and `lowest_bpm`). The next bounded slice should split those computed methods from the
 field accessor contract before applying the macro to `StaticBPMDetectionConfig`.
+
+## Coordinator Review: Static BPM Computed-Method Split
+
+Review checkpoint: `codex/parameter-flow-audit` at `bdab497 Stabilize parameter macro diagnostic tests`, six commits
+ahead of `upstream/main`.
+
+Completed slice commits:
+
+- `3078c83 Split static BPM computed methods`
+- `bdab497 Stabilize parameter macro diagnostic tests`
+
+The static split matches the brief:
+
+- `StaticBPMDetectionConfigAccessor` now contains only `bpm_center`, `bpm_range`, `sample_rate`, and their setters.
+- `StaticBPMDetectionComputed` is the explicit computed-method extension for `index_to_bpm`, `highest_bpm`, and
+  `lowest_bpm`.
+- `StaticBPMDetectionConfig` keeps inherent computed methods by delegating through the computed extension.
+- Desktop, wasm, and plugin wrapper impls no longer hand-write computed-method delegations.
+- `DefaultStaticBPMDetectionParameters` is now a concrete `ParameterSpec<T>` metadata catalog.
+- The static fake `impl StaticBPMDetectionConfigAccessor for ()` bridge is gone.
+- `StaticBPMDetectionConfig` is still hand-written and has not been annotated with `#[parameter_group(...)]`.
+- The diagnostic test CI fix only disables compiler color output for fixture matching.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 6 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 4 tests.
+- `cargo test -p bpm_detection_core`: passed, 6 tests.
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo clippy -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- `git diff --check`: passed.
+
+GitHub PR state during review:
+
+- Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
+- CI observed green for `extension`, `format`, `native (aarch64-apple-darwin)`,
+  `native (x86_64-unknown-linux-gnu)`, and `wasm`.
+- `native (x86_64-apple-darwin)` was still in progress at the latest coordinator check.
+
+Coordinator judgment: the split is accepted. Static BPM is now structurally aligned with the generated groups: field
+accessors are separate from computed helper behavior, and the default metadata catalog no longer needs fake config
+accessors. The next bounded slice should apply the existing `#[parameter_group(...)]` macro to
+`StaticBPMDetectionConfig` while preserving the manually kept computed-method extension and the nested
+`NormalDistributionConfig`.
 
 ## Non-Goals For The Completed Macro Implementation Slice
 

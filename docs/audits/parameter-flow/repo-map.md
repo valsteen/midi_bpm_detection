@@ -6,8 +6,9 @@ except where plugin host parameters cross into the tempo bridge.
 
 ## Current Branch And Working Tree
 
-- Branch observed during coordination: `codex/parameter-flow-audit`, tracking `upstream/main`.
-- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, normal distribution, and GUI.
+- Branch observed during coordination: `codex/parameter-flow-audit`, tracking `upstream/codex/parameter-flow-audit`.
+- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, normal distribution, and GUI,
+  plus the static BPM computed-method split.
 - Audit docs live in:
   - `docs/parameter-flow-audit.md`
   - `docs/parameter-audit-handoff.md`
@@ -41,7 +42,7 @@ except where plugin host parameters cross into the tempo bridge.
     - config-bound parameter constants;
     - visitor trait;
     - validation through generated traversal.
-  - Static BPM remains hand-written because its accessor trait includes computed methods.
+  - Static BPM remains hand-written, but its computed methods are now split out behind `StaticBPMDetectionComputed`.
 
 - `rust/crates/gui`
   - Owns `GUIConfig`, `GUIConfigAccessor`, `GUIParameters`, and reusable egui parameter controls.
@@ -124,7 +125,7 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
   - `bpm_center`
   - `bpm_range`
   - `sample_rate`
-  - Next planned refactor target: split computed methods from the field accessor contract before macro migration.
+  - Computed-method split complete; next planned refactor target is macro migration.
 - Normal distribution:
   - `std_dev`
   - `factor`
@@ -192,6 +193,6 @@ The wasm target may need local setup; if unavailable, the implementer should rec
 - Should static, normal, and GUI groups eventually get visitors, or should the macro produce a simpler typed enumeration
   API that replaces visitors?
 - Should the static computed-method extension remain public after the static macro migration, or should GUI histogram
-  code call inherent/static helper methods directly?
+  code eventually call inherent/static helper methods directly?
 - Should output/runtime state such as `send_tempo` become part of a typed parameter catalog, or remain explicitly bespoke
   because of realtime/host differences?
