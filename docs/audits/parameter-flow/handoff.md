@@ -1482,3 +1482,90 @@ static parameter metadata, defaults, validation behavior, serde field names, plu
 behavior, and desktop/wasm/plugin runtime update routing. Do not apply `#[parameter_group(...)]` to
 `StaticBPMDetectionConfig` yet. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
 ```
+
+## Back-Handoff: Static BPM Computed-Method Split
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+Branch: `codex/parameter-flow-audit`.
+
+Commit: none; changes are currently uncommitted.
+
+### Files changed
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/application_parameters.rs`
+- `rust/crates/desktop/src/live_parameters.rs`
+- `rust/crates/wasm/src/lib.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Split the static BPM computed methods from `StaticBPMDetectionConfigAccessor`. The accessor trait now contains only
+`bpm_center`, `bpm_range`, `sample_rate`, and their setters. Added `StaticBPMDetectionComputed` as the explicit computed
+method extension boundary for `index_to_bpm`, `highest_bpm`, and `lowest_bpm`, with a blanket implementation for static
+field accessors.
+
+### Behavioral changes
+
+No intended runtime behavior changes. Static BPM formulas, validation, serde field names, plugin host parameter IDs, GUI
+histogram behavior, and desktop/wasm/plugin update routing are preserved.
+
+### Structural changes
+
+- Added `StaticBPMDetectionComputed`.
+- Made `BPMDetectionConfig` require `StaticBPMDetectionComputed` so GUI histogram callers still access computed methods
+  through an explicit bound.
+- Removed manual computed-method delegations from desktop, wasm, and plugin static wrapper accessor impls.
+- Replaced `DefaultStaticBPMDetectionParameters = StaticBPMDetectionParameters<()>` with a concrete
+  `DefaultStaticBPMDetectionParameters` metadata catalog using `ParameterSpec<T>`.
+- Removed the fake `impl StaticBPMDetectionConfigAccessor for ()` bridge.
+- Added focused static parameter inventory and computed-method extension tests.
+
+### Affected boundaries / integration points
+
+- `bpm_detection_core` public parameter contracts changed by splitting static field access from computed methods.
+- Shared `gui::BPMDetectionConfig` now carries the explicit computed-method bound used by histogram rendering.
+- Desktop, wasm, and plugin static wrapper implementations still own field mutation and propagation behavior.
+- Plugin host parameter construction still reads static field parameters from
+  `StaticBPMDetectionParameters<StaticBPMDetectionConfig>`.
+
+### Tests / checks
+
+- From `rust/`, `cargo +nightly fmt --all -- --check`: passed.
+- From `rust/`, `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 4 tests.
+- From `rust/`, `cargo test -p bpm_detection_core`: passed, 6 tests.
+- From `rust/`, `cargo test -p gui`: passed, 2 tests.
+- From `rust/`, `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- From `rust/`, `cargo test -p desktop`: passed, 13 tests.
+- From `rust/`, `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- From `rust/`,
+  `cargo clippy -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+- From repo root, `git diff --check`: passed.
+
+### Decisions made
+
+- Removed the static fake-config alias and `()` accessor bridge in this slice because the `ParameterSpec<T>` replacement
+  stayed narrow and matched the already accepted generated default-catalog shape.
+- Kept `StaticBPMDetectionConfig` hand-written and did not add `#[parameter_group(...)]`.
+- Kept the computed extension trait focused on only `index_to_bpm`, `highest_bpm`, and `lowest_bpm`.
+
+### Deviations from brief
+
+None.
+
+### Remaining risks
+
+- External downstream code that directly used the artificial `StaticBPMDetectionParameters<()>` shape will no longer
+  compile. No in-repo callers depended on it, and the public default catalog remains available as metadata specs.
+- Static BPM still remains hand-written; macro migration is intentionally left for the next slice.
+
+### Recommended next slice
+
+Coordinator review of the static computed-method split and public API shape, then apply the existing
+`#[parameter_group(...)]` macro pattern to `StaticBPMDetectionConfig` if the split is accepted.

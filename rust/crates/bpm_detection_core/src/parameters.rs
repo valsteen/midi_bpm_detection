@@ -2,7 +2,7 @@ use std::{marker::PhantomData, time::Duration as StdDuration};
 
 use chrono::Duration;
 use derivative::Derivative;
-use parameter::{Asf64, OnOff, Parameter};
+use parameter::{Asf64, OnOff, Parameter, ParameterSpec};
 use parameter_macros::parameter_group;
 use serde::{Deserialize, Serialize};
 
@@ -29,74 +29,39 @@ impl StaticBPMDetectionConfig {
 
         Ok(())
     }
-
-    #[inline]
-    #[must_use]
-    pub fn index_to_bpm(&self, index: usize) -> f32 {
-        beat_duration_to_bpm(self.index_to_duration(index))
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn highest_bpm(&self) -> f32 {
-        self.lowest_bpm() + Into::<f32>::into(self.bpm_range)
-    }
-
-    #[must_use]
-    pub fn lowest_bpm(&self) -> f32 {
-        (self.bpm_center - Into::<f32>::into(self.bpm_range / 2)).max(1.0)
-    }
 }
+
 pub trait StaticBPMDetectionConfigAccessor {
     fn bpm_center(&self) -> f32;
     fn bpm_range(&self) -> u16;
     fn sample_rate(&self) -> u16;
-    fn index_to_bpm(&self, index: usize) -> f32;
-    fn highest_bpm(&self) -> f32;
-    fn lowest_bpm(&self) -> f32;
 
     fn set_bpm_center(&mut self, val: f32);
     fn set_bpm_range(&mut self, val: u16);
     fn set_sample_rate(&mut self, val: u16);
 }
 
-impl StaticBPMDetectionConfigAccessor for () {
-    fn bpm_center(&self) -> f32 {
-        unimplemented!()
+pub trait StaticBPMDetectionComputed: StaticBPMDetectionConfigAccessor {
+    #[inline]
+    #[must_use]
+    fn index_to_bpm(&self, index: usize) -> f32 {
+        let duration = sample_to_duration(self.sample_rate(), index) + bpm_to_beat_duration(self.highest_bpm());
+        beat_duration_to_bpm(duration)
     }
 
-    fn bpm_range(&self) -> u16 {
-        unimplemented!()
-    }
-
-    fn sample_rate(&self) -> u16 {
-        unimplemented!()
-    }
-
-    fn index_to_bpm(&self, _: usize) -> f32 {
-        unimplemented!()
-    }
-
+    #[inline]
+    #[must_use]
     fn highest_bpm(&self) -> f32 {
-        unimplemented!()
+        self.lowest_bpm() + Into::<f32>::into(self.bpm_range())
     }
 
+    #[must_use]
     fn lowest_bpm(&self) -> f32 {
-        unimplemented!()
-    }
-
-    fn set_bpm_center(&mut self, _: f32) {
-        unimplemented!()
-    }
-
-    fn set_bpm_range(&mut self, _: u16) {
-        unimplemented!()
-    }
-
-    fn set_sample_rate(&mut self, _: u16) {
-        unimplemented!()
+        (self.bpm_center() - Into::<f32>::into(self.bpm_range() / 2)).max(1.0)
     }
 }
+
+impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionComputed for Config {}
 
 impl StaticBPMDetectionConfigAccessor for StaticBPMDetectionConfig {
     fn bpm_center(&self) -> f32 {
@@ -109,18 +74,6 @@ impl StaticBPMDetectionConfigAccessor for StaticBPMDetectionConfig {
 
     fn sample_rate(&self) -> u16 {
         self.sample_rate
-    }
-
-    fn index_to_bpm(&self, index: usize) -> f32 {
-        Self::index_to_bpm(self, index)
-    }
-
-    fn highest_bpm(&self) -> f32 {
-        Self::highest_bpm(self)
-    }
-
-    fn lowest_bpm(&self) -> f32 {
-        Self::lowest_bpm(self)
     }
 
     fn set_bpm_center(&mut self, val: f32) {
@@ -136,7 +89,33 @@ impl StaticBPMDetectionConfigAccessor for StaticBPMDetectionConfig {
     }
 }
 
-pub type DefaultStaticBPMDetectionParameters = StaticBPMDetectionParameters<()>;
+impl StaticBPMDetectionConfig {
+    #[inline]
+    #[must_use]
+    pub fn index_to_bpm(&self, index: usize) -> f32 {
+        StaticBPMDetectionComputed::index_to_bpm(self, index)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn highest_bpm(&self) -> f32 {
+        StaticBPMDetectionComputed::highest_bpm(self)
+    }
+
+    #[must_use]
+    pub fn lowest_bpm(&self) -> f32 {
+        StaticBPMDetectionComputed::lowest_bpm(self)
+    }
+}
+
+pub struct DefaultStaticBPMDetectionParameters;
+
+impl DefaultStaticBPMDetectionParameters {
+    pub const BPM_CENTER: ParameterSpec<f32> = ParameterSpec::new("BPM center", None, 1.0..=150.0, 0.01, false, 90.0);
+    pub const BPM_RANGE: ParameterSpec<u16> = ParameterSpec::new("BPM range", None, 1.0..=100.0, 1.0, false, 40);
+    pub const SAMPLE_RATE: ParameterSpec<u16> =
+        ParameterSpec::new("BPM sample rate", Some("samples/second"), 1.0..=1_0000., 1.0, true, 450);
+}
 
 impl Default for StaticBPMDetectionConfig {
     fn default() -> Self {
@@ -378,6 +357,46 @@ mod parameter_inventory_tests {
         }
     }
 
+    struct StaticConfigWrapper {
+        config: StaticBPMDetectionConfig,
+    }
+
+    struct ExpectedStaticParameterSpec<ValueType> {
+        label: &'static str,
+        unit: Option<&'static str>,
+        range_start: f64,
+        range_end: f64,
+        step: f64,
+        logarithmic: bool,
+        default: ValueType,
+    }
+
+    impl StaticBPMDetectionConfigAccessor for StaticConfigWrapper {
+        fn bpm_center(&self) -> f32 {
+            self.config.bpm_center
+        }
+
+        fn bpm_range(&self) -> u16 {
+            self.config.bpm_range
+        }
+
+        fn sample_rate(&self) -> u16 {
+            self.config.sample_rate
+        }
+
+        fn set_bpm_center(&mut self, val: f32) {
+            self.config.bpm_center = val;
+        }
+
+        fn set_bpm_range(&mut self, val: u16) {
+            self.config.bpm_range = val;
+        }
+
+        fn set_sample_rate(&mut self, val: u16) {
+            self.config.sample_rate = val;
+        }
+    }
+
     #[test]
     fn dynamic_parameter_visitor_lists_every_dynamic_parameter() {
         let mut labels = DynamicParameterLabels(Vec::new());
@@ -403,6 +422,62 @@ mod parameter_inventory_tests {
     }
 
     #[test]
+    fn static_parameter_specs_preserve_inventory() {
+        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::BPM_CENTER);
+        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::BPM_RANGE);
+        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::SAMPLE_RATE);
+
+        assert_static_parameter_spec(
+            &DefaultStaticBPMDetectionParameters::BPM_CENTER,
+            &ExpectedStaticParameterSpec {
+                label: "BPM center",
+                unit: None,
+                range_start: 1.0,
+                range_end: 150.0,
+                step: 0.01,
+                logarithmic: false,
+                default: 90.0,
+            },
+        );
+        assert_static_parameter_spec(
+            &DefaultStaticBPMDetectionParameters::BPM_RANGE,
+            &ExpectedStaticParameterSpec {
+                label: "BPM range",
+                unit: None,
+                range_start: 1.0,
+                range_end: 100.0,
+                step: 1.0,
+                logarithmic: false,
+                default: 40,
+            },
+        );
+        assert_static_parameter_spec(
+            &DefaultStaticBPMDetectionParameters::SAMPLE_RATE,
+            &ExpectedStaticParameterSpec {
+                label: "BPM sample rate",
+                unit: Some("samples/second"),
+                range_start: 1.0,
+                range_end: 1_0000.0,
+                step: 1.0,
+                logarithmic: true,
+                default: 450,
+            },
+        );
+    }
+
+    #[test]
+    fn static_computed_methods_work_through_accessor_extension() {
+        let config =
+            StaticBPMDetectionConfig { bpm_center: 90.0, bpm_range: 40, sample_rate: 450, ..Default::default() };
+        let wrapper = StaticConfigWrapper { config: config.clone() };
+
+        assert_f32_eq(wrapper.lowest_bpm(), config.lowest_bpm());
+        assert_f32_eq(wrapper.highest_bpm(), config.highest_bpm());
+        assert_f32_eq(wrapper.index_to_bpm(0), config.index_to_bpm(0));
+        assert_f32_eq(wrapper.index_to_bpm(17), config.index_to_bpm(17));
+    }
+
+    #[test]
     fn normal_distribution_parameter_specs_and_visitor_preserve_inventory() {
         assert_parameter_spec(&DefaultNormalDistributionParameters::STD_DEV);
         assert_parameter_spec(&DefaultNormalDistributionParameters::FACTOR);
@@ -420,4 +495,25 @@ mod parameter_inventory_tests {
     }
 
     fn assert_parameter_spec<ValueType>(_: &ParameterSpec<ValueType>) {}
+
+    fn assert_static_parameter_spec<ValueType: Asf64>(
+        spec: &ParameterSpec<ValueType>,
+        expected: &ExpectedStaticParameterSpec<ValueType>,
+    ) {
+        assert_eq!(spec.label, expected.label);
+        assert_eq!(spec.unit, expected.unit);
+        assert_f64_eq(*spec.range.start(), expected.range_start);
+        assert_f64_eq(*spec.range.end(), expected.range_end);
+        assert_f64_eq(spec.step, expected.step);
+        assert_eq!(spec.logarithmic, expected.logarithmic);
+        assert_f64_eq(spec.default.as_f64(), expected.default.as_f64());
+    }
+
+    fn assert_f32_eq(actual: f32, expected: f32) {
+        assert!((actual - expected).abs() <= f32::EPSILON);
+    }
+
+    fn assert_f64_eq(actual: f64, expected: f64) {
+        assert!((actual - expected).abs() <= f64::EPSILON);
+    }
 }

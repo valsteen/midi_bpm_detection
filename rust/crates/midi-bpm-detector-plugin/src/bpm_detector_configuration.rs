@@ -333,18 +333,6 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
         self.base_config.config.static_bpm_detection_config.sample_rate
     }
 
-    fn index_to_bpm(&self, index: usize) -> f32 {
-        self.base_config.config.static_bpm_detection_config.index_to_bpm(index)
-    }
-
-    fn highest_bpm(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.highest_bpm()
-    }
-
-    fn lowest_bpm(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.lowest_bpm()
-    }
-
     fn set_bpm_center(&mut self, val: f32) {
         self.base_config.config.static_bpm_detection_config.bpm_center = val;
         apply_float_param(&self.base_config.params.static_params.bpm_center, val, self.param_setter);
