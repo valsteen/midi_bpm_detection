@@ -11,7 +11,6 @@
 //! - `Default` and `validate` impls for the config struct.
 
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     Attribute, Expr, Fields, Ident, ItemStruct, Lit, Path, Result, Token,
@@ -244,7 +243,7 @@ fn expand_parameter_group(
     args: Punctuated<GroupArg, Token![,]>,
     mut input: ItemStruct,
 ) -> Result<proc_macro2::TokenStream> {
-    let group = ParsedGroup::new(args)?;
+    let group = ParsedGroup::new(args, &input.ident)?;
 
     let fields = parse_parameter_fields(&mut input)?;
     if fields.parameter_fields.is_empty() {
@@ -252,10 +251,14 @@ fn expand_parameter_group(
     }
 
     let struct_ident = &input.ident;
-    let accessor_impl = expand_accessor_impl(&group.accessor, struct_ident, &fields.parameter_fields);
-    let default_parameters_impl =
-        expand_default_parameters_impl(&group.default_parameters, &group.parameter_crate, &fields.parameter_fields);
-    let default_impl = expand_default_impl(struct_ident, &group.parameters, &group.default_parameters, &fields);
+    let accessor_impl = expand_accessor_impl(&group, struct_ident, &fields.parameter_fields);
+    let default_parameters_impl = expand_parameter_specs_impl(
+        &group.parameter_specs,
+        &group.default_parameters_alias,
+        &group.parameter_crate,
+        &fields.parameter_fields,
+    );
+    let default_impl = expand_default_impl(struct_ident, &group.parameters, &group.parameter_specs, &fields);
     let visitor_trait =
         expand_visitor_trait(&group.accessor, &group.visitor, &group.parameter_crate, &fields.parameter_fields);
     let parameters_impl = expand_parameters_impl(
@@ -289,26 +292,42 @@ fn expand_parameter_group(
 struct ParsedGroup {
     accessor: Ident,
     parameters: Ident,
-    default_parameters: Ident,
+    parameter_specs: Ident,
+    default_parameters_alias: Ident,
     visitor: Ident,
     parameter_crate: Path,
+    method_prefix: Ident,
 }
 
 impl ParsedGroup {
-    fn new(args: Punctuated<GroupArg, Token![,]>) -> Result<Self> {
+    fn new(args: Punctuated<GroupArg, Token![,]>, struct_ident: &Ident) -> Result<Self> {
         let args = GroupArgs::try_from(args)?;
+        let base_name = parameter_group_base_name(struct_ident);
 
         Ok(Self {
-            accessor: required(args.accessor, "accessor")?,
-            parameters: required(args.parameters, "parameters")?,
-            default_parameters: required(args.default_parameters, "default_parameters")?,
-            visitor: required(args.visitor, "visitor")?,
+            accessor: args.accessor.unwrap_or_else(|| format_ident!("{struct_ident}Accessor")),
+            parameters: args.parameters.unwrap_or_else(|| format_ident!("{base_name}Parameters")),
+            parameter_specs: format_ident!("{base_name}ParameterSpecs"),
+            default_parameters_alias: args
+                .default_parameters
+                .unwrap_or_else(|| format_ident!("Default{base_name}Parameters")),
+            visitor: args.visitor.unwrap_or_else(|| format_ident!("{base_name}ParameterVisitor")),
             parameter_crate: args.parameter_crate.unwrap_or_else(|| syn::parse_quote!(parameter)),
+            method_prefix: format_ident!("{}", snake_case(&base_name)),
         })
     }
 }
 
-fn expand_accessor_impl(accessor: &Ident, struct_ident: &Ident, fields: &[ParameterField]) -> proc_macro2::TokenStream {
+fn expand_accessor_impl(
+    group: &ParsedGroup,
+    struct_ident: &Ident,
+    fields: &[ParameterField],
+) -> proc_macro2::TokenStream {
+    let accessor = &group.accessor;
+    let parameters = &group.parameters;
+    let parameter_specs = &group.parameter_specs;
+    let parameter_method = format_ident!("{}_parameters", group.method_prefix);
+    let parameter_specs_method = format_ident!("{}_parameter_specs", group.method_prefix);
     let getter_signatures = fields.iter().map(|field| {
         let field_name = &field.field;
         let ty = &field.ty;
@@ -343,6 +362,22 @@ fn expand_accessor_impl(accessor: &Ident, struct_ident: &Ident, fields: &[Parame
         pub trait #accessor {
             #(#getter_signatures)*
             #(#setter_signatures)*
+
+            #[must_use]
+            fn #parameter_method() -> #parameters<Self>
+            where
+                Self: Sized,
+            {
+                #parameters::new()
+            }
+
+            #[must_use]
+            fn #parameter_specs_method() -> #parameter_specs
+            where
+                Self: Sized,
+            {
+                #parameter_specs
+            }
         }
 
         impl #accessor for #struct_ident {
@@ -352,8 +387,9 @@ fn expand_accessor_impl(accessor: &Ident, struct_ident: &Ident, fields: &[Parame
     }
 }
 
-fn expand_default_parameters_impl(
-    default_parameters: &Ident,
+fn expand_parameter_specs_impl(
+    parameter_specs: &Ident,
+    default_parameters_alias: &Ident,
     parameter_crate: &Path,
     fields: &[ParameterField],
 ) -> proc_macro2::TokenStream {
@@ -377,26 +413,40 @@ fn expand_default_parameters_impl(
             );
         }
     });
+    let methods = fields.iter().map(|field| {
+        let field_name = &field.field;
+        let const_name = &field.const_name;
+        let ty = &field.ty;
+        quote! {
+            #[must_use]
+            pub fn #field_name(&self) -> #parameter_crate::ParameterSpec<#ty> {
+                Self::#const_name
+            }
+        }
+    });
 
     quote! {
-        pub struct #default_parameters;
+        pub struct #parameter_specs;
 
-        impl #default_parameters {
+        impl #parameter_specs {
             #(#consts)*
+            #(#methods)*
         }
+
+        pub type #default_parameters_alias = #parameter_specs;
     }
 }
 
 fn expand_default_impl(
     struct_ident: &Ident,
     parameters: &Ident,
-    default_parameters: &Ident,
+    parameter_specs: &Ident,
     fields: &ParsedFields,
 ) -> proc_macro2::TokenStream {
     let default_parameter_fields = fields.parameter_fields.iter().map(|field| {
         let field_name = &field.field;
         let const_name = &field.const_name;
-        quote! { #field_name: #default_parameters::#const_name.default }
+        quote! { #field_name: #parameter_specs::#const_name.default }
     });
     let default_unannotated_fields = fields.unannotated_fields.iter().map(|field_name| {
         quote! { #field_name: ::std::default::Default::default() }
@@ -411,6 +461,19 @@ fn expand_default_impl(
 
     quote! {
         impl #struct_ident {
+            pub const PARAMETERS: #parameters<Self> = #parameters::new();
+            pub const PARAMETER_SPECS: #parameter_specs = #parameter_specs;
+
+            #[must_use]
+            pub const fn parameters() -> #parameters<Self> {
+                Self::PARAMETERS
+            }
+
+            #[must_use]
+            pub const fn parameter_specs() -> #parameter_specs {
+                Self::PARAMETER_SPECS
+            }
+
             pub fn validate(&self) -> Result<(), String> {
                 #(#validate_fields)*
                 #(#validate_unannotated_fields)*
@@ -489,6 +552,17 @@ fn expand_parameters_impl(
             );
         }
     });
+    let methods = fields.iter().map(|field| {
+        let field_name = &field.field;
+        let const_name = &field.const_name;
+        let ty = &field.ty;
+        quote! {
+            #[must_use]
+            pub fn #field_name(&self) -> #parameter_crate::Parameter<Config, #ty> {
+                Self::#const_name
+            }
+        }
+    });
     let visit_calls = fields.iter().map(|field| {
         let field_name = &field.field;
         let const_name = &field.const_name;
@@ -497,10 +571,24 @@ fn expand_parameters_impl(
 
     quote! {
         impl<Config: #accessor> #parameters<Config> {
-            #(#consts)*
+            #[must_use]
+            pub const fn new() -> Self {
+                Self {
+                    phantom: ::std::marker::PhantomData,
+                }
+            }
 
-            pub fn visit(visitor: &mut impl #visitor<Config>) {
+            #(#consts)*
+            #(#methods)*
+
+            pub fn visit(&self, visitor: &mut impl #visitor<Config>) {
                 #(#visit_calls)*
+            }
+        }
+
+        impl<Config: #accessor> ::std::default::Default for #parameters<Config> {
+            fn default() -> Self {
+                Self::new()
             }
         }
     }
@@ -512,10 +600,6 @@ fn expand_unit(field: &ParameterField) -> proc_macro2::TokenStream {
     } else {
         quote! { None }
     }
-}
-
-fn required<T>(value: Option<T>, name: &str) -> Result<T> {
-    value.ok_or_else(|| syn::Error::new(Span::call_site(), format!("missing parameter_group argument `{name}`")))
 }
 
 struct ParsedFields {
@@ -591,4 +675,27 @@ fn screaming_snake_ident(field_name: &Ident) -> Ident {
     }
 
     Ident::new(&out, field_name.span())
+}
+
+fn parameter_group_base_name(struct_ident: &Ident) -> String {
+    let struct_name = struct_ident.to_string();
+    struct_name.strip_suffix("Config").unwrap_or(&struct_name).to_owned()
+}
+
+fn snake_case(name: &str) -> String {
+    let chars = name.chars().collect::<Vec<_>>();
+    let mut out = String::new();
+
+    for (index, ch) in chars.iter().copied().enumerate() {
+        if ch.is_uppercase() && index > 0 {
+            let previous = chars[index - 1];
+            let next = chars.get(index + 1).copied();
+            if previous.is_lowercase() || previous.is_ascii_digit() || next.is_some_and(char::is_lowercase) {
+                out.push('_');
+            }
+        }
+        out.push(ch.to_ascii_lowercase());
+    }
+
+    out
 }

@@ -1,9 +1,6 @@
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionParameters, NormalDistributionParameters, StaticBPMDetectionParameters,
-};
 use eframe::{egui, egui::Ui};
 
-use crate::{BPMDetectionConfig, add_slider::SlideAdder, app::BPMDetectionGUI, config::GUIParameters};
+use crate::{BPMDetectionConfig, add_slider::SlideAdder, app::BPMDetectionGUI};
 
 impl BPMDetectionGUI {
     pub(crate) fn settings_panel<Config: BPMDetectionConfig>(ui: &mut Ui, config: &mut Config) {
@@ -12,13 +9,13 @@ impl BPMDetectionGUI {
 
             let mut slide_adder = SlideAdder::new(ui, config);
 
-            GUIParameters::visit(&mut slide_adder);
+            Config::gui_parameters().visit(&mut slide_adder);
 
-            StaticBPMDetectionParameters::visit(&mut slide_adder);
+            Config::static_bpm_detection_parameters().visit(&mut slide_adder);
 
-            NormalDistributionParameters::visit(&mut slide_adder);
+            Config::normal_distribution_parameters().visit(&mut slide_adder);
 
-            DynamicBPMDetectionParameters::visit(&mut slide_adder);
+            Config::dynamic_bpm_detection_parameters().visit(&mut slide_adder);
 
             let mut send_tempo_enabled = config.get_send_tempo();
             if ui.toggle_value(&mut send_tempo_enabled, "Send tempo").changed() {

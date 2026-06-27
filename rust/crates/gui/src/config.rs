@@ -3,12 +3,7 @@ use std::time::Duration;
 use parameter_macros::parameter_group;
 use serde::{Deserialize, Serialize};
 
-#[parameter_group(
-    accessor = GUIConfigAccessor,
-    parameters = GUIParameters,
-    default_parameters = DefaultGUIParameters,
-    visitor = GUIParameterVisitor
-)]
+#[parameter_group]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GUIConfig {
@@ -42,12 +37,14 @@ mod parameter_inventory_tests {
 
     #[test]
     fn gui_parameter_specs_and_visitor_preserve_inventory() {
-        assert_parameter_spec(&DefaultGUIParameters::INTERPOLATION_DURATION);
-        assert_parameter_spec(&DefaultGUIParameters::INTERPOLATION_CURVE);
+        let parameter_specs = GUIConfig::PARAMETER_SPECS;
+
+        assert_parameter_spec(&parameter_specs.interpolation_duration());
+        assert_parameter_spec(&parameter_specs.interpolation_curve());
 
         let mut labels = GUIParameterLabels(Vec::new());
 
-        GUIParameters::visit(&mut labels);
+        GUIConfig::PARAMETERS.visit(&mut labels);
 
         assert_eq!(labels.0, ["Interpolation duration", "Interpolation curve"]);
     }

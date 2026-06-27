@@ -35,7 +35,7 @@ mod config;
 mod config_ui;
 mod gui_remote;
 
-pub use config::{DefaultGUIParameters, GUIConfig, GUIParameters};
+pub use config::{DefaultGUIParameters, GUIConfig, GUIParameterSpecs, GUIParameters};
 
 #[must_use]
 pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {

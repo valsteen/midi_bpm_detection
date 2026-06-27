@@ -8,12 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::DurationOps;
 
-#[parameter_group(
-    accessor = StaticBPMDetectionConfigAccessor,
-    parameters = StaticBPMDetectionParameters,
-    default_parameters = DefaultStaticBPMDetectionParameters,
-    visitor = StaticBPMDetectionParameterVisitor
-)]
+#[parameter_group]
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -77,12 +72,7 @@ impl StaticBPMDetectionConfig {
     }
 }
 
-#[parameter_group(
-    accessor = DynamicBPMDetectionConfigAccessor,
-    parameters = DynamicBPMDetectionParameters,
-    default_parameters = DefaultDynamicBPMDetectionParameters,
-    visitor = DynamicBPMDetectionParameterVisitor
-)]
+#[parameter_group]
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -174,12 +164,11 @@ pub fn bpm_to_midi_clock_interval(bpm: f32) -> Duration {
 
 #[must_use]
 pub fn max_histogram_data_buffer_size() -> usize {
-    let lowest_bpm = (DefaultStaticBPMDetectionParameters::BPM_CENTER.range.start()
-        - (DefaultStaticBPMDetectionParameters::BPM_RANGE.range.end() / 2.0))
-        .max(1.0);
-    let highest_bpm = (DefaultStaticBPMDetectionParameters::BPM_CENTER.range.end()
-        + (DefaultStaticBPMDetectionParameters::BPM_RANGE.range.end() / 2.0))
-        .max(1.0);
+    let parameter_specs = StaticBPMDetectionConfig::PARAMETER_SPECS;
+    let lowest_bpm =
+        (parameter_specs.bpm_center().range.start() - (parameter_specs.bpm_range().range.end() / 2.0)).max(1.0);
+    let highest_bpm =
+        (parameter_specs.bpm_center().range.end() + (parameter_specs.bpm_range().range.end() / 2.0)).max(1.0);
 
     bpm_to_beat_duration(lowest_bpm)
         .checked_sub(&bpm_to_beat_duration(highest_bpm))
@@ -187,12 +176,7 @@ pub fn max_histogram_data_buffer_size() -> usize {
         .expect("programming error, bpm_lower_bound > bpm_upper_bound")
 }
 
-#[parameter_group(
-    accessor = NormalDistributionConfigAccessor,
-    parameters = NormalDistributionParameters,
-    default_parameters = DefaultNormalDistributionParameters,
-    visitor = NormalDistributionParameterVisitor
-)]
+#[parameter_group]
 #[derive(Clone, Debug, Serialize, Deserialize, Derivative)]
 #[derivative(PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -365,7 +349,7 @@ mod parameter_inventory_tests {
     fn dynamic_parameter_visitor_lists_every_dynamic_parameter() {
         let mut labels = DynamicParameterLabels(Vec::new());
 
-        DynamicBPMDetectionParameters::visit(&mut labels);
+        DynamicBPMDetectionConfig::PARAMETERS.visit(&mut labels);
 
         assert_eq!(
             labels.0,
@@ -387,12 +371,14 @@ mod parameter_inventory_tests {
 
     #[test]
     fn static_parameter_specs_preserve_inventory() {
-        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::BPM_CENTER);
-        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::BPM_RANGE);
-        assert_parameter_spec(&DefaultStaticBPMDetectionParameters::SAMPLE_RATE);
+        let parameter_specs = StaticBPMDetectionConfig::PARAMETER_SPECS;
+
+        assert_parameter_spec(&parameter_specs.bpm_center());
+        assert_parameter_spec(&parameter_specs.bpm_range());
+        assert_parameter_spec(&parameter_specs.sample_rate());
 
         assert_static_parameter_spec(
-            &DefaultStaticBPMDetectionParameters::BPM_CENTER,
+            &parameter_specs.bpm_center(),
             &ExpectedStaticParameterSpec {
                 label: "BPM center",
                 unit: None,
@@ -404,7 +390,7 @@ mod parameter_inventory_tests {
             },
         );
         assert_static_parameter_spec(
-            &DefaultStaticBPMDetectionParameters::BPM_RANGE,
+            &parameter_specs.bpm_range(),
             &ExpectedStaticParameterSpec {
                 label: "BPM range",
                 unit: None,
@@ -416,7 +402,7 @@ mod parameter_inventory_tests {
             },
         );
         assert_static_parameter_spec(
-            &DefaultStaticBPMDetectionParameters::SAMPLE_RATE,
+            &parameter_specs.sample_rate(),
             &ExpectedStaticParameterSpec {
                 label: "BPM sample rate",
                 unit: Some("samples/second"),
@@ -433,7 +419,7 @@ mod parameter_inventory_tests {
     fn static_parameter_visitor_lists_static_parameter_fields_only() {
         let mut labels = StaticParameterLabels(Vec::new());
 
-        StaticBPMDetectionParameters::visit(&mut labels);
+        StaticBPMDetectionConfig::PARAMETERS.visit(&mut labels);
 
         assert_eq!(labels.0, ["BPM center", "BPM range", "BPM sample rate"]);
     }
@@ -460,14 +446,16 @@ mod parameter_inventory_tests {
 
     #[test]
     fn normal_distribution_parameter_specs_and_visitor_preserve_inventory() {
-        assert_parameter_spec(&DefaultNormalDistributionParameters::STD_DEV);
-        assert_parameter_spec(&DefaultNormalDistributionParameters::FACTOR);
-        assert_parameter_spec(&DefaultNormalDistributionParameters::CUTOFF);
-        assert_parameter_spec(&DefaultNormalDistributionParameters::RESOLUTION);
+        let parameter_specs = NormalDistributionConfig::PARAMETER_SPECS;
+
+        assert_parameter_spec(&parameter_specs.std_dev());
+        assert_parameter_spec(&parameter_specs.resolution());
+        assert_parameter_spec(&parameter_specs.cutoff());
+        assert_parameter_spec(&parameter_specs.factor());
 
         let mut labels = NormalDistributionParameterLabels(Vec::new());
 
-        NormalDistributionParameters::visit(&mut labels);
+        NormalDistributionConfig::PARAMETERS.visit(&mut labels);
 
         assert_eq!(
             labels.0,
@@ -479,7 +467,7 @@ mod parameter_inventory_tests {
     fn normal_distribution_generated_traversal_matches_settings_order() {
         let mut fields = NormalDistributionParameterFields(Vec::new());
 
-        NormalDistributionParameters::visit(&mut fields);
+        NormalDistributionConfig::PARAMETERS.visit(&mut fields);
 
         assert_eq!(fields.0, ["std_dev", "resolution", "cutoff", "factor"]);
     }
