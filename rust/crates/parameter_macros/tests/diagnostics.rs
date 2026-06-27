@@ -102,6 +102,8 @@ fn assert_compile_error(case_name: &str, source: &str, expected_stderr: &[&str])
 
     let output = Command::new(env!("CARGO"))
         .arg("check")
+        .arg("--color")
+        .arg("never")
         .arg("--quiet")
         .arg("--offline")
         .arg("--manifest-path")
