@@ -2648,7 +2648,7 @@ remote-control order, `TaskExecutor` copy-back, and `LiveConfig` setter behavior
 
 ### Status
 
-Complete and verified, pending commit.
+Complete, verified, and committed.
 
 This supersedes the immediately preceding `Normal Distribution Ordering Policy` back-handoff. The previous slice treated
 the generated order, GUI settings order, and plugin CLAP remote-control order as three deliberate orders. The product
@@ -2657,7 +2657,7 @@ decision is now that the shared egui settings order is canonical.
 ### Branch / commit
 
 - Branch: `codex/parameter-flow-audit`
-- Commit: not created in this coordinator turn yet.
+- Commit: `afa271d Align normal distribution parameter ordering`
 
 ### Files changed
 
@@ -2723,3 +2723,133 @@ Revisit plugin host mapping surfaces now that normal-distribution ordering is al
 audit/helper decision for repeated plugin adapter and host mapping code. Preserve host parameter IDs, the canonical
 remote-control order, `TaskExecutor` copy-back semantics, and `LiveConfig` setter semantics unless explicitly scoped
 otherwise.
+
+## Slice Brief: Plugin Host Mapping Surface Audit Or Helper Decision
+
+### Objective
+
+Audit the remaining plugin host mapping surfaces and decide whether a small helper is worth implementing in a later
+slice.
+
+The goal is to classify repeated code around plugin host parameter construction, GUI-origin setters, host-origin
+copy-back, and CLAP remote-control listing after normal-distribution order alignment. Produce a clear recommendation:
+leave explicit, introduce a narrow helper in a later slice, or split further audit work.
+
+### Non-goals
+
+- Do not change host parameter IDs, persisted parameter keys, labels, ranges, defaults, units, steps, logarithmic flags,
+  or config schemas.
+- Do not change CLAP remote-control order. Normal distribution must remain `std_dev`, `resolution`, `cutoff`, `factor`.
+- Do not change `TaskExecutor` copy-back timing, GUI refresh behavior, delayed static/dynamic update semantics, or
+  `LiveConfig` setter side effects.
+- Do not introduce another macro in this slice.
+- Do not implement a helper unless the audit finds a tiny, low-risk extraction with obvious acceptance criteria.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/fresh-context-handover.md`
+- `docs/audits/parameter-flow/handoff.md`, especially the coordinator correction for normal-distribution order alignment.
+- `docs/audits/parameter-flow/audit.md`, especially `Visitor Consumer Homogeneity Audit`.
+- `docs/audits/parameter-flow/repo-map.md`, especially `Visitor Consumers And Manual Lists`.
+- `rust/AGENTS.md`
+- `docs/development.md`
+
+### Likely files / areas
+
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameter_adapters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/lib.rs`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- `MidiBpmDetectorParams::new` owns concrete `nih-plug` host parameter handles, IDs, nested groups, callbacks, and
+  initial values.
+- `LiveConfig` implements GUI-origin writes: it updates config, writes host params through `ParamSetter`, and schedules
+  delayed static/dynamic updates.
+- `TaskExecutor` implements host-origin copy-back and GUI refresh triggers.
+- `ClapPlugin::remote_controls` exposes host-visible grouping and ordering.
+- Dynamic remote controls and dynamic host reads already use generated traversal plus explicit field-to-host-handle
+  visitors. Static, GUI, and normal plugin mappings remain mostly manual.
+
+### Expected behavioral change
+
+None.
+
+### Expected structural change
+
+- Add an audit section that inventories repeated plugin host mapping patterns and classifies them by risk:
+  `safe helper candidate`, `keep explicit`, or `needs separate runtime-sync slice`.
+- If a helper is recommended, specify its exact scope and the invariants tests should guard in the next implementation
+  slice.
+- Update the repo map and fresh handover with the chosen next step.
+
+### Acceptance criteria
+
+- Every plugin mapping surface listed above is classified with a reason.
+- The audit distinguishes mechanical adapter repetition from runtime synchronization policy.
+- The recommendation preserves host parameter IDs, persisted keys, remote-control order, copy-back semantics, delayed
+  update semantics, and GUI refresh side effects.
+- The next implementer prompt is bounded enough for a fresh chat.
+
+### Tests / checks
+
+For a docs-only audit:
+
+```sh
+git diff --check
+```
+
+If a tiny helper is implemented despite the default docs-only scope, run from `rust/`:
+
+```sh
+cargo +nightly fmt --all -- --check
+cargo test -p midi-bpm-detector-plugin
+cargo clippy -p midi-bpm-detector-plugin --all-targets -- -D warnings
+```
+
+### Risks / open questions
+
+- A helper that hides `nih-plug` IDs, nested groups, callbacks, or field-to-handle ownership would harm auditability.
+- A helper that mixes GUI-origin writes and host-origin copy-back could obscure runtime synchronization policy.
+- Plugin host order may be externally visible; treat order changes as product changes, not cleanups.
+
+### Back-handoff requirements
+
+Record:
+
+- files inspected;
+- classification table or concise equivalent;
+- whether any code changed;
+- tests/checks run and results;
+- recommended next slice and exact bounded implementer prompt.
+
+## Prompt For Fresh Bounded Implementer: Plugin Host Mapping Surface Audit Or Helper Decision
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Plugin Host Mapping Surface Audit Or Helper Decision" from
+docs/audits/parameter-flow/handoff.md.
+
+Audit the remaining plugin host mapping surfaces and decide whether a small helper is justified. Classify
+MidiBpmDetectorParams::new, plugin_parameter_adapters, LiveConfig setters, TaskExecutor host-origin copy-back, and
+ClapPlugin::remote_controls. Preserve host parameter IDs, persisted keys, labels, ranges, defaults, units, steps,
+logarithmic flags, config schemas, canonical CLAP remote-control order, TaskExecutor copy-back semantics, LiveConfig
+setter semantics, delayed update behavior, and GUI refresh side effects. Default to docs-only. Do not add another macro.
+Update docs/audits/parameter-flow/audit.md, docs/audits/parameter-flow/repo-map.md,
+docs/audits/parameter-flow/fresh-context-handover.md, and docs/audits/parameter-flow/handoff.md with the result and next
+recommended slice.
+```

@@ -6,6 +6,9 @@ Use this file to restart the parameter-flow audit from a fresh Codex context.
 
 Branch: `codex/parameter-flow-audit`, tracking `upstream/codex/parameter-flow-audit`.
 
+Local note: the branch is currently ahead of `upstream/codex/parameter-flow-audit` because this environment could not
+push to GitHub with the configured HTTPS credentials.
+
 The branch now contains the completed parameter macro slices:
 
 - `docs/audits/parameter-flow/`
@@ -26,12 +29,11 @@ Reviewed implementation commits on this branch:
 - `3078c83 Split static BPM computed methods`
 - `bdab497 Stabilize parameter macro diagnostic tests`
 - `887a0bc Prepare static parameter macro slice`
-
-The latest coordinator checkpoint also contains the completed, verified static macro migration, pending commit.
-The latest coordinator checkpoint also contains the completed, verified GUI settings visitor adoption slice, pending
-commit.
-The latest coordinator checkpoint also contains the completed visitor consumer homogeneity audit, pending commit.
-The latest implementer checkpoint also contains the completed normal-distribution ordering policy slice, pending commit.
+- `df6dabb Migrate static parameters to parameter group macro`
+- `110595e Adopt generated visitors for GUI settings`
+- `5a6a3a9 Tune repo audit coordinator workflow`
+- `afa271d Align normal distribution parameter ordering`
+- local docs commit preparing the plugin host mapping audit slice
 
 Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
 
@@ -281,13 +283,13 @@ Completed scope:
 - preserved runtime behavior, host IDs, config schemas, labels, ranges, defaults, units, steps, logarithmic flags,
   `TaskExecutor` copy-back semantics, `LiveConfig` setter semantics, and plugin parameter construction semantics.
 
-## Next Coordinator Action
+## Next Slice To Execute
 
-The recommended next slice should be prepared in:
+The next slice is documented in:
 
 - `docs/audits/parameter-flow/handoff.md`
 
-Suggested slice name:
+Slice name:
 
 - `Plugin Host Mapping Surface Audit Or Helper Decision`
 
@@ -298,7 +300,8 @@ Scope:
   schemas, labels, ranges, defaults, units, steps, and logarithmic flags unless a future slice explicitly scopes a
   behavior change;
 - decide whether any helper would reduce real duplication without hiding `nih-plug` handles, callbacks, host-visible
-  ordering, or runtime synchronization policy.
+  ordering, or runtime synchronization policy;
+- default to docs-only unless a tiny, low-risk helper is obviously justified.
 
 ## What To Read First In A Fresh Chat
 
@@ -375,13 +378,15 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Before using this as an implementer prompt, have the coordinator write a formal slice brief in
+Execute only the slice named "Plugin Host Mapping Surface Audit Or Helper Decision" from
 docs/audits/parameter-flow/handoff.md.
 
-Revisit repeated plugin adapter and host mapping surfaces now that normal-distribution order is aligned.
-Preserve host parameter IDs, remote-control order, TaskExecutor copy-back, LiveConfig setter behavior, config schemas,
-labels, ranges, defaults, units, steps, and logarithmic flags unless a future slice explicitly scopes a behavior change.
-Decide whether any helper would reduce real duplication without hiding nih-plug handles, callbacks, host-visible
-ordering, or runtime synchronization policy. Update docs/audits/parameter-flow/handoff.md with the resulting
-back-handoff and next recommended slice.
+Audit the remaining plugin host mapping surfaces and decide whether a small helper is justified. Classify
+MidiBpmDetectorParams::new, plugin_parameter_adapters, LiveConfig setters, TaskExecutor host-origin copy-back, and
+ClapPlugin::remote_controls. Preserve host parameter IDs, persisted keys, labels, ranges, defaults, units, steps,
+logarithmic flags, config schemas, canonical CLAP remote-control order, TaskExecutor copy-back semantics, LiveConfig
+setter semantics, delayed update behavior, and GUI refresh side effects. Default to docs-only. Do not add another macro.
+Update docs/audits/parameter-flow/audit.md, docs/audits/parameter-flow/repo-map.md,
+docs/audits/parameter-flow/fresh-context-handover.md, and docs/audits/parameter-flow/handoff.md with the result and next
+recommended slice.
 ```
