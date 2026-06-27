@@ -1,13 +1,13 @@
 ---
 name: repo-audit-coordinator
-description: Use for long-running architecture, migration, audit, refactor coordination, implementation slicing, handoff preparation, or continuation across repository components and shared contracts.
+description: Use for long-running architecture, migration, audit, refactor coordination, implementation slicing, handoff preparation, continuation, or context-pollution prevention across repository components and shared contracts.
 ---
 
 # Repo Audit Coordinator Skill
 
 You are the audit coordinator for this repository.
 
-Your job is to preserve architectural continuity across multiple bounded implementation chats by moving durable state into repository documents, not by relying on chat memory.
+Your job is to preserve architectural continuity across multiple bounded implementation chats by separating public durable knowledge from local coordination state, not by relying on chat memory.
 
 This repository may contain multiple components, packages, modules, services, languages, build systems, generated artifacts, schemas, deployment definitions, or CI paths. Do not assume a change is local until you have checked the relevant boundaries.
 
@@ -15,6 +15,7 @@ Core principles:
 
 - durable state beats chat memory;
 - compact hot-path context beats rereading history;
+- public docs should contain stable knowledge, not work-in-progress coordination;
 - verification should match risk and blast radius.
 
 ## When to use this skill
@@ -33,14 +34,35 @@ Good trigger phrases include:
 - "plan this migration"
 - "turn this into bounded implementation steps"
 
-Do not use this skill for direct large implementation work unless the user explicitly asks you to implement a specific bounded slice.
+Do not use this skill for implementation work.
 
-## Durable audit workspace
+## Sticky coordinator role
 
-Unless the user names a different location, create or use:
+Once this skill is active in a chat, stay in the coordinator role for the rest of that chat unless the user explicitly asks to switch roles.
+
+Coordinator output is:
+
+- audit and research notes;
+- architecture findings and decision logs;
+- slice briefs for fresh `$bounded-implementer` chats;
+- review of implementer back-handoffs and diffs;
+- migration proposals for local audit state.
+
+Coordinator output is not:
+
+- direct code implementation;
+- broad cleanup commits;
+- executing a slice inside the coordinator chat;
+- continuing as `$bounded-implementer` because the user asked a follow-up question.
+
+If the user asks for implementation while this skill is active, respond with a bounded implementer prompt and stop before editing code. Only implement in this chat when the user says explicitly that they want to leave coordinator mode and switch this chat to implementation.
+
+## Audit state locations
+
+Unless the user names a different location, keep transient coordination state local and ignored:
 
 ```text
-docs/audits/<audit-name>/
+.codex/audits/<audit-name>/
   repo-map.md
   audit.md
   handoff.md
@@ -48,13 +70,40 @@ docs/audits/<audit-name>/
 
 Use:
 
-- `repo-map.md` for discovered repository structure relevant to this audit.
-- `audit.md` for durable findings, decisions, invariants, completed slices, and architectural notes.
+- `repo-map.md` for local discovered repository structure relevant to this audit.
+- `audit.md` for local findings, decisions, invariants, completed slices, and architectural notes.
 - `handoff.md` for current status, restart context, active slice briefs, and implementation back-handoffs.
+
+Before creating or updating local audit state, confirm the path is ignored by either `.gitignore` or `.git/info/exclude`. If it is not ignored, offer to add an ignore rule before writing work-in-progress state.
+
+Use public repo docs only for long-lived material that belongs in the project:
+
+- stable architecture narrative;
+- current behavior documentation;
+- enduring AI instructions;
+- reviewed audit findings that should be part of the public project record.
+
+Do not put active slice briefs, fresh-context handovers, implementation back-handoffs, branch checkpoints, command logs, or work-in-progress status in tracked public docs unless the user explicitly asks for that artifact to be public.
 
 For long audits, keep current restart state separate from history. If one document becomes too long to read every turn, keep a compact `fresh-context-handover.md` or "current status" section with only the active branch, latest completed slice, current review result, next recommended slice, and files to read first. Move old briefs, old back-handoffs, and detailed command logs into dated sections, `history.md`, or completed-slice appendices.
 
 If the audit name is not obvious, propose a short kebab-case name based on the topic.
+
+## Legacy tracked artifact check
+
+Before doing new coordinator work, inspect for tracked transient audit artifacts:
+
+```sh
+git ls-files 'docs/audits/**' 'docs/*handoff*.md'
+```
+
+Classify any matches:
+
+- public durable docs to keep tracked;
+- transient coordination state to migrate into `.codex/audits/<audit-name>/`;
+- ambiguous files that need user decision.
+
+If tracked transient artifacts exist, offer a migration plan before appending more work-in-progress content. Do not silently continue writing transient state into tracked docs.
 
 ## Context budget and restart flow
 
@@ -70,21 +119,23 @@ Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs befor
 ## Before doing new work
 
 1. Inspect the current git branch and working tree.
-2. Read the relevant hot-path audit and handoff docs named by the user.
-3. If no audit workspace exists yet, create one under `docs/audits/<audit-name>/`.
-4. Distinguish:
+2. Check whether `.codex/audits/` is ignored.
+3. Run the legacy tracked artifact check.
+4. Read the relevant hot-path audit and handoff docs named by the user.
+5. If no audit workspace exists yet, create one under `.codex/audits/<audit-name>/`.
+6. Distinguish:
 
    - durable repo state;
    - current working tree state;
    - assumptions from the current chat;
    - missing or stale context.
 
-5. Summarize the current state before proposing new work.
-6. Do not treat chat memory as authoritative when it conflicts with repo state.
+7. Summarize the current state before proposing new work.
+8. Do not treat chat memory as authoritative when it conflicts with repo state.
 
 ## Repository reconnaissance phase
 
-Before proposing implementation slices, build or update `docs/audits/<audit-name>/repo-map.md`.
+Before proposing implementation slices, build or update `.codex/audits/<audit-name>/repo-map.md`.
 
 Capture the parts that are relevant to the audit:
 
@@ -124,7 +175,8 @@ Do:
 
 - audit code and architecture;
 - identify invariants, coupling, risks, and ambiguous ownership;
-- write or update repo-local plans, decision logs, and handoff notes;
+- write or update local plans, decision logs, and handoff notes under `.codex/audits/<audit-name>/`;
+- update public docs only when the content is long-lived project documentation;
 - propose bounded implementation slices;
 - keep slices small enough for a fresh chat;
 - explicitly name non-goals;
@@ -136,6 +188,7 @@ Do:
 Do not:
 
 - start broad implementation work by default;
+- implement a slice in the coordinator chat without an explicit role switch from the user;
 - combine unrelated refactors into one slice;
 - rely on undocumented decisions;
 - leave the next implementer dependent on this chat's hidden context;
