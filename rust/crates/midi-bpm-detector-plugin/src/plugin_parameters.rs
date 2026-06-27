@@ -72,12 +72,12 @@ pub struct PluginDynamicParams {
 pub struct NormalDistributionParams {
     #[id = "std_dev"]
     pub std_dev: FloatParam,
-    #[id = "factor"]
-    pub factor: FloatParam,
-    #[id = "cutoff"]
-    pub cutoff: FloatParam,
     #[id = "resolution"]
     pub resolution: FloatParam,
+    #[id = "cutoff"]
+    pub cutoff: FloatParam,
+    #[id = "factor"]
+    pub factor: FloatParam,
 }
 
 #[derive(Params)]
@@ -337,8 +337,8 @@ impl MidiBpmDetectorParams {
                         &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    factor: to_plugin_float_param(
-                        &NormalDistributionConfigParameters::FACTOR,
+                    resolution: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::RESOLUTION,
                         &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
@@ -347,8 +347,8 @@ impl MidiBpmDetectorParams {
                         &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),
-                    resolution: to_plugin_float_param(
-                        &NormalDistributionConfigParameters::RESOLUTION,
+                    factor: to_plugin_float_param(
+                        &NormalDistributionConfigParameters::FACTOR,
                         &config.static_bpm_detection_config.normal_distribution,
                         &update_static_changed_at_f32,
                     ),

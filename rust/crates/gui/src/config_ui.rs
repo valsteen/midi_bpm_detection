@@ -16,10 +16,7 @@ impl BPMDetectionGUI {
 
             StaticBPMDetectionParameters::visit(&mut slide_adder);
 
-            slide_adder.add(&NormalDistributionParameters::STD_DEV);
-            slide_adder.add(&NormalDistributionParameters::RESOLUTION);
-            slide_adder.add(&NormalDistributionParameters::CUTOFF);
-            slide_adder.add(&NormalDistributionParameters::FACTOR);
+            NormalDistributionParameters::visit(&mut slide_adder);
 
             DynamicBPMDetectionParameters::visit(&mut slide_adder);
 

@@ -1,6 +1,6 @@
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor, StaticBPMDetectionConfigAccessor,
-    StaticBPMDetectionParameterVisitor,
+    DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor, NormalDistributionConfigAccessor,
+    NormalDistributionParameterVisitor, StaticBPMDetectionConfigAccessor, StaticBPMDetectionParameterVisitor,
 };
 use eframe::{
     egui,
@@ -163,6 +163,12 @@ impl<Config: GUIConfigAccessor> GUIParameterVisitor<Config> for SlideAdder<'_, C
     }
 }
 
+impl<Config: NormalDistributionConfigAccessor> NormalDistributionParameterVisitor<Config> for SlideAdder<'_, Config> {
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<Config, ValueType>) {
+        self.add(&parameter);
+    }
+}
+
 impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameterVisitor<Config> for SlideAdder<'_, Config> {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<Config, ValueType>) {
         self.add(&parameter);
@@ -173,6 +179,7 @@ impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameterVisito
 mod tests {
     use bpm_detection_core::parameters::{
         DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
+        NormalDistributionConfig, NormalDistributionConfigAccessor, NormalDistributionParameterVisitor,
         StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor, StaticBPMDetectionParameterVisitor,
     };
 
@@ -193,6 +200,13 @@ mod tests {
     {
     }
 
+    fn assert_normal_distribution_parameter_visitor<Config>()
+    where
+        Config: NormalDistributionConfigAccessor,
+        for<'a> SlideAdder<'a, Config>: NormalDistributionParameterVisitor<Config>,
+    {
+    }
+
     fn assert_static_parameter_visitor<Config>()
     where
         Config: StaticBPMDetectionConfigAccessor,
@@ -208,6 +222,11 @@ mod tests {
     #[test]
     fn slide_adder_can_render_gui_parameter_visitor() {
         assert_gui_parameter_visitor::<GUIConfig>();
+    }
+
+    #[test]
+    fn slide_adder_can_render_normal_distribution_parameter_visitor() {
+        assert_normal_distribution_parameter_visitor::<NormalDistributionConfig>();
     }
 
     #[test]

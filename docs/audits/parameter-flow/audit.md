@@ -598,10 +598,8 @@ Fresh coordinator verification:
 - `git diff --check`: passed.
 
 Coordinator judgment: the static macro migration is accepted. All typed parameter groups now use the generic attribute
-macro. The next implementation work should start reducing remaining mapping surfaces, but should preserve current user
-and host ordering. The first bounded cleanup should adopt generated visitors in the GUI settings panel only for groups
-where generated traversal order already matches the current UI order: GUI/display and static BPM. Leave normal
-distribution manual for now because its current settings-panel order differs from generated field order.
+macro. The next implementation work should start reducing remaining mapping surfaces, while preserving intended user
+ordering unless explicitly scoped otherwise.
 
 ## Coordinator Review: GUI Settings Visitor Adoption
 
@@ -619,7 +617,7 @@ The slice matches the brief:
   4. normal distribution manual order: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
   5. dynamic generated traversal;
   6. `Send tempo`.
-- Normal distribution stays manual because generated field order differs from current GUI order.
+- Normal distribution stayed manual in this slice because generated field order differed from current GUI order.
 - Plugin remote controls and runtime synchronization were not changed.
 
 Visitor consumer decision:
@@ -634,6 +632,43 @@ Visitor consumer decision:
 - This is the current DX line: use trait defaults and ordinary impls before adding another macro. A future macro is only
   justified if a repeated consumer pattern cannot be expressed clearly through the existing generic fallback plus
   targeted field overrides.
+
+## Visitor Consumer Homogeneity Audit
+
+This audit classifies the remaining visitor implementations and manual parameter lists that participate in the shared
+GUI settings panel or plugin host/remote-control parameter flow. It does not change runtime behavior.
+
+| Surface | Current consumer/list | Current order, where relevant | Classification | Abstraction decision |
+| --- | --- | --- | --- | --- |
+| `rust/crates/gui/src/add_slider.rs` | `SlideAdder` implements `GUIParameterVisitor` through the generic `parameter(...)` fallback. | Generated GUI order: `interpolation_duration`, `interpolation_curve`. | homogeneous generic-fallback consumer | Already the right shape. No macro or explicit per-field methods are needed. |
+| `rust/crates/gui/src/add_slider.rs` | `SlideAdder` implements `StaticBPMDetectionParameterVisitor` through the generic `parameter(...)` fallback. | Generated static order: `bpm_center`, `bpm_range`, `sample_rate`. | homogeneous generic-fallback consumer | Already the right shape. Keep using generated traversal in the GUI settings panel. |
+| `rust/crates/gui/src/add_slider.rs` | `SlideAdder` implements `DynamicBPMDetectionParameterVisitor` with explicit field methods. | Generated dynamic order: `beats_lookback`, `normal_distribution_weight`, `time_distance_weight`, `velocity_current_note_weight`, `velocity_note_from_weight`, `in_beat_range_weight`, `multiplier_weight`, `subdivision_weight`, `octave_distance_weight`, `pitch_distance_weight`, `high_tempo_bias_weight`. | heterogeneous explicit-field visitor | Leave explicit for now: `beats_lookback` is a plain numeric slider, while the weight fields use `add_on_off(...)`. A helper for "plain plus many `OnOff<f32>` fields" could be considered later, but not before it proves clearer than the field methods. |
+| `rust/crates/gui/src/add_slider.rs` | `SlideAdder` implements `NormalDistributionParameterVisitor` through the generic `parameter(...)` fallback. | Generated normal order: `std_dev`, `resolution`, `cutoff`, `factor`. | homogeneous generic-fallback consumer | The GUI order is canonical, and generated traversal now matches it. No macro or explicit per-field methods are needed. |
+| `rust/crates/gui/src/config_ui.rs` | Shared settings panel uses generated visitors for GUI/display, static BPM, normal distribution, and dynamic scoring. | Settings order: runtime desktop controls, GUI/display generated traversal, static BPM generated traversal, normal distribution generated traversal, dynamic generated traversal, `Send tempo`. | generated traversal consumer | Normal distribution no longer needs a manual list now that generated traversal matches the canonical GUI order. |
+| `rust/crates/gui/src/config_ui.rs` | `Send tempo` is a plain toggle through `BPMDetectionConfig`. | After dynamic scoring controls. | leave-alone bespoke runtime/host mapping | Keep outside the typed parameter visitor for now because plugin and desktop own different runtime/output state. |
+| `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs` | `DynamicRemoteControlParams` implements `DynamicBPMDetectionParameterVisitor`. | Dynamic remote-control order follows generated dynamic order listed above. | heterogeneous explicit-field visitor | Keep explicit: each visitor method maps a generated field to a concrete `PluginDynamicParams` host handle. Generic fallback would not know which host handle to expose. |
+| `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs` | `DynamicHostConfigReader` implements `DynamicBPMDetectionParameterVisitor`. | Reads back generated dynamic order into `DynamicBPMDetectionConfig`. | heterogeneous explicit-field visitor | Keep explicit: it maps concrete host params back to config fields, with a different read path for `beats_lookback` and `PluginOnOffParam`. |
+| `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs` | `MidiBpmDetectorParams::new` manually constructs GUI, static, normal, dynamic, `send_tempo`, and `daw_port` host params. | Host param struct/list order: `send_tempo`; GUI `interpolation_duration`, `interpolation_curve`; static `bpm_center`, `bpm_range`, `sample_rate`; normal `std_dev`, `resolution`, `cutoff`, `factor`; dynamic order as listed above; `daw_port`. | leave-alone bespoke runtime/host mapping | Do not hide host parameter IDs, callbacks, nested groups, or `nih-plug` handle construction behind a generic visitor in this slice. A future helper can target repeated adapter calls only if IDs, callbacks, and field-to-handle visibility stay explicit. |
+| `rust/crates/midi-bpm-detector-plugin/src/lib.rs` | CLAP remote controls manually list `send_tempo`, static BPM, and normal distribution; dynamic delegates to `PluginDynamicParams::add_remote_controls()`. | Remote-control sections/pages: `Send tempo`; static page `bpm_center`, `bpm_range`, `sample_rate`; normal page `std_dev`, `resolution`, `cutoff`, `factor`; dynamic generated order. | host-visible manual list | The host-visible normal page is aligned to the canonical GUI order. Keep the manual list explicit unless a future helper preserves field-to-host-handle visibility. |
+| `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs` | Host-origin static/normal copy-back manually reads host params into `PluginConfig`; dynamic delegates to `read_dynamic_config()`; GUI/display and `send_tempo` are copied in the dynamic task. | Static copy-back order: `bpm_center`, `bpm_range`, `sample_rate`; normal copy-back order: `std_dev`, `resolution`, `cutoff`, `factor`. | leave-alone bespoke runtime/host mapping | Keep explicit until host/config synchronization is reviewed as its own slice. This code encodes update timing and GUI refresh side effects, not just parameter traversal. |
+| `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs` | `LiveConfig` accessor impls manually update local config, write matching host params through `ParamSetter`, and mark static/dynamic delayed updates. | Accessor order follows trait method declarations; runtime timing differs by group. | leave-alone bespoke runtime/host mapping | Do not abstract yet. The repeated setter shape is real, but it is tied to plugin GUI-origin synchronization policy and should be handled after host-visible ordering decisions. |
+| `rust/crates/gui/src/config.rs` and `rust/crates/bpm_detection_core/src/parameters.rs` | Test-only label visitors for GUI, static, normal, and dynamic parameter inventories. | Expected generated orders are asserted in tests. | future helper candidate | Keep as explicit guardrails for now. If generated visitor exhaustiveness/default-method policy changes later, update these tests with that slice. |
+
+Do not add more abstraction yet in two places:
+
+- plugin host parameter construction, because the field-to-`nih-plug` handle mapping, IDs, callbacks, and nested groups
+  need to remain easy to audit;
+- plugin host/config synchronization, because those lists also encode static/dynamic timing and GUI refresh side effects.
+
+Normal-distribution ordering policy after the alignment slice:
+
+- the canonical order is the shared egui settings order: `std_dev`, `resolution`, `cutoff`, `factor`;
+- generated traversal follows that order by declaring `NormalDistributionConfig` fields in that order;
+- shared GUI settings use `NormalDistributionParameters::visit(...)`;
+- plugin CLAP remote controls expose the same order.
+
+The earlier host-visible order `resolution`, `factor`, `cutoff`, `std_dev` was not preserved. It was superseded by the
+decision that the GUI settings order is canonical.
 
 Fresh coordinator verification:
 
@@ -672,8 +707,7 @@ add another macro in that audit slice.
 8. Adopt generated visitors in the GUI settings panel for groups whose generated order already matches the current UI
    order.
 9. Audit remaining visitor consumers and manual parameter lists before more abstraction.
-10. Decide how to handle normal-distribution ordering before replacing its manual GUI/plugin lists with generated
-   traversal.
-11. Revisit plugin host mapping surfaces once UI ordering is explicit.
+10. Align normal-distribution generated traversal and plugin remote controls to the canonical GUI settings order.
+11. Revisit plugin host mapping surfaces now that normal-distribution ordering is aligned.
 12. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
    assignment, and parameter-like atomics.

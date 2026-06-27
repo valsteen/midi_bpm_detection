@@ -58,10 +58,11 @@ except where plugin host parameters cross into the tempo bridge.
     - config-bound parameter constants;
     - visitor trait;
     - validation through generated traversal.
-  - `BPMDetectionGUI::settings_panel` uses generated traversal for GUI/display, static BPM, and dynamic scoring params.
-  - Normal-distribution settings remain manually listed because current UI order differs from generated field order.
+  - `BPMDetectionGUI::settings_panel` uses generated traversal for GUI/display, static BPM, normal distribution, and
+    dynamic scoring params.
   - `SlideAdder` renders typed `Parameter` values and implements:
     - `GUIParameterVisitor` through the generic `parameter(...)` fallback;
+    - `NormalDistributionParameterVisitor` through the generic `parameter(...)` fallback;
     - `StaticBPMDetectionParameterVisitor` through the generic `parameter(...)` fallback;
     - `DynamicBPMDetectionParameterVisitor` through explicit field methods because dynamic has both plain and `OnOff`
       rendering paths.
@@ -159,6 +160,43 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
   - desktop `midi.device_name`
   - plugin `daw_port`
 
+## Visitor Consumers And Manual Lists
+
+- Homogeneous generated visitor consumers:
+  - `rust/crates/gui/src/add_slider.rs`: `SlideAdder` uses the generated generic `parameter(...)` fallback for
+    `GUIParameterVisitor`, covering `interpolation_duration` then `interpolation_curve`.
+  - `rust/crates/gui/src/add_slider.rs`: `SlideAdder` uses the generated generic `parameter(...)` fallback for
+    `StaticBPMDetectionParameterVisitor`, covering `bpm_center`, `bpm_range`, then `sample_rate`.
+  - `rust/crates/gui/src/add_slider.rs`: `SlideAdder` uses the generated generic `parameter(...)` fallback for
+    `NormalDistributionParameterVisitor`, covering `std_dev`, `resolution`, `cutoff`, then `factor`.
+- Heterogeneous explicit-field visitor consumers:
+  - `rust/crates/gui/src/add_slider.rs`: `SlideAdder` keeps explicit dynamic visitor methods because
+    `beats_lookback` uses the plain slider path and the remaining dynamic weights use `add_on_off(...)`.
+  - `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`: `DynamicRemoteControlParams` keeps explicit
+    dynamic visitor methods because each field maps to a concrete `PluginDynamicParams` host handle.
+  - `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`: `DynamicHostConfigReader` keeps explicit dynamic
+    visitor methods because host params have different read paths for `IntParam` and `PluginOnOffParam`.
+- Order-sensitive manual lists:
+  - `rust/crates/gui/src/config_ui.rs`: settings panel order is desktop controls, GUI/display traversal, static traversal,
+    normal distribution traversal, dynamic traversal, then `Send tempo`.
+  - `rust/crates/midi-bpm-detector-plugin/src/lib.rs`: remote controls expose `Send tempo`, static order
+    `bpm_center`, `bpm_range`, `sample_rate`, normal order `std_dev`, `resolution`, `cutoff`, `factor`, then dynamic
+    generated traversal.
+  - Generated normal-distribution traversal order is `std_dev`, `resolution`, `cutoff`, `factor`, matching the canonical
+    GUI settings order.
+- Leave-alone bespoke runtime/host mappings:
+  - `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`: `MidiBpmDetectorParams::new` manually constructs
+    host params so IDs, callbacks, nested groups, and concrete `nih-plug` handles stay visible.
+  - `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs`: host-origin static/normal copy-back and GUI/display
+    dynamic-task copy-back encode update timing and GUI refresh behavior, not just traversal.
+  - `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`: `LiveConfig` setters write config, host
+    params, and delayed update markers together; treat that as synchronization policy until a dedicated slice reviews it.
+- Future helper candidates:
+  - repeated plugin adapter calls may justify a helper only after host-visible ordering and field-to-handle visibility are
+    preserved explicitly;
+  - test-only label visitors in `gui/src/config.rs` and `bpm_detection_core/src/parameters.rs` can be revisited if a later
+    slice changes visitor exhaustiveness/default-method policy.
+
 ## Boundaries To Preserve
 
 - Do not move egui/UI dependencies into `bpm_detection_core`, `bpm_detection_midi`, or lower-level algorithm crates.
@@ -202,9 +240,8 @@ The wasm target may need local setup; if unavailable, the implementer should rec
   API that replaces visitors?
 - For visitor consumers, prefer the generated generic `parameter(...)` fallback when every visited parameter has the same
   behavior. Keep explicit field methods when parameter types, host handles, or side effects differ.
-- Normal-distribution generated traversal order is `std_dev`, `factor`, `cutoff`, `resolution`, while current GUI order
-  is `std_dev`, `resolution`, `cutoff`, `factor` and plugin remote-control order is `resolution`, `factor`, `cutoff`,
-  `std_dev`. Decide order semantics before replacing those manual lists.
+- Normal-distribution generated traversal, GUI settings, plugin parameter construction, plugin copy-back, and plugin
+  CLAP remote controls now use `std_dev`, `resolution`, `cutoff`, `factor`. This is the canonical user-facing order.
 - Should the static computed-method extension remain public after the static macro migration, or should GUI histogram
   code eventually call inherent/static helper methods directly?
 - Should output/runtime state such as `send_tempo` become part of a typed parameter catalog, or remain explicitly bespoke

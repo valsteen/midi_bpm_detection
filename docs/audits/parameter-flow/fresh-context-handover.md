@@ -30,6 +30,8 @@ Reviewed implementation commits on this branch:
 The latest coordinator checkpoint also contains the completed, verified static macro migration, pending commit.
 The latest coordinator checkpoint also contains the completed, verified GUI settings visitor adoption slice, pending
 commit.
+The latest coordinator checkpoint also contains the completed visitor consumer homogeneity audit, pending commit.
+The latest implementer checkpoint also contains the completed normal-distribution ordering policy slice, pending commit.
 
 Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
 
@@ -234,26 +236,69 @@ Completed scope:
 - use `GUIParameters::visit(...)` and `StaticBPMDetectionParameters::visit(...)` in the settings panel;
 - use the generated visitor trait's generic `parameter(...)` fallback for homogeneous plain slider rendering;
 - preserve current settings-panel order;
-- leave normal-distribution settings manual because generated traversal order differs from current UI order.
+- leave normal-distribution settings manual in that slice because generated traversal order differed from current UI
+  order at the time.
 
-## Next Slice To Execute
+## Completed Visitor Consumer Homogeneity Audit
 
-The active next slice is documented in:
+The completed visitor consumer homogeneity audit is documented in:
 
 - `docs/audits/parameter-flow/handoff.md`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
 
 Slice name:
 
 - `Visitor Consumer Homogeneity Audit`
 
+Completed scope:
+
+- inventoried remaining visitor implementations and manual parameter lists across GUI and plugin code;
+- classified consumers as homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list,
+  future helper candidate, or leave-alone bespoke runtime/host mapping;
+- accepted `SlideAdder` GUI/static visitor impls as already-homogeneous generic-fallback consumers;
+- kept dynamic/plugin host-handle visitors explicit;
+- recorded normal-distribution order differences as the next policy issue to resolve.
+
+## Completed Normal Distribution Ordering Policy
+
+The completed normal-distribution ordering policy slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
+
+Slice name:
+
+- `Normal Distribution Ordering Policy`
+
+Completed scope:
+
+- chose the shared GUI settings order as canonical: `std_dev`, `resolution`, `cutoff`, `factor`;
+- aligned generated normal-distribution traversal to that order by reordering `NormalDistributionConfig` fields;
+- replaced the shared GUI settings manual normal-distribution list with `NormalDistributionParameters::visit(...)`;
+- aligned plugin CLAP remote-control order to `std_dev`, `resolution`, `cutoff`, `factor`;
+- preserved runtime behavior, host IDs, config schemas, labels, ranges, defaults, units, steps, logarithmic flags,
+  `TaskExecutor` copy-back semantics, `LiveConfig` setter semantics, and plugin parameter construction semantics.
+
+## Next Coordinator Action
+
+The recommended next slice should be prepared in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Suggested slice name:
+
+- `Plugin Host Mapping Surface Audit Or Helper Decision`
+
 Scope:
 
-- inventory remaining visitor implementations and manual parameter lists across GUI and plugin code;
-- classify each as homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list, or future
-  helper candidate;
-- do not add a new macro;
-- keep normal-distribution ordering differences explicit;
-- update durable audit docs with the next recommended implementation slice.
+- revisit repeated plugin adapter and host mapping surfaces now that normal-distribution order is aligned;
+- preserve host parameter IDs, remote-control order, `TaskExecutor` copy-back, `LiveConfig` setter behavior, config
+  schemas, labels, ranges, defaults, units, steps, and logarithmic flags unless a future slice explicitly scopes a
+  behavior change;
+- decide whether any helper would reduce real duplication without hiding `nih-plug` handles, callbacks, host-visible
+  ordering, or runtime synchronization policy.
 
 ## What To Read First In A Fresh Chat
 
@@ -310,13 +355,13 @@ Read first:
 We are continuing the parameter-flow audit from a fresh context. The dynamic attribute macro prototype, metadata-spec
 split, NormalDistributionConfig migration, GUIConfig migration, Static BPM computed-method split, and
 StaticBPMDetectionConfig macro migration are implemented. GUI/display and static BPM settings-panel rendering now use
-generated visitors. All typed parameter groups now use the generic attribute macro. Do not revisit the rejected
-dynamic-specific macro_rules DSL except as historical context. First confirm the current branch and working tree, then
-either prepare the bounded implementer prompt for the "Visitor Consumer Homogeneity Audit" slice or continue coordinator
-review if the docs have drifted.
+generated visitors. The visitor consumer homogeneity audit and normal-distribution ordering policy slice are complete.
+All typed parameter groups now use the generic attribute macro. Do not revisit the rejected dynamic-specific macro_rules
+DSL except as historical context. First confirm the current branch and working tree, then either prepare the bounded
+implementer prompt for the next plugin host mapping surface slice or continue coordinator review if the docs have drifted.
 ```
 
-## Prompt For Fresh Implementer Chat
+## Draft Prompt For Future Implementer Chat
 
 ```text
 [$bounded-implementer] Use the bounded implementer flow for one repository slice.
@@ -330,11 +375,13 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Execute only the slice named "Visitor Consumer Homogeneity Audit" from
+Before using this as an implementer prompt, have the coordinator write a formal slice brief in
 docs/audits/parameter-flow/handoff.md.
 
-Inventory remaining visitor implementations and manual parameter lists across GUI and plugin code. Classify each as
-homogeneous generic-fallback, heterogeneous explicit-field, order-sensitive manual list, or future helper candidate. Do
-not add a new macro or change runtime behavior in this slice. Keep normal-distribution ordering differences explicit.
-Update docs/audits/parameter-flow/handoff.md with a back-handoff and next recommended implementation slice.
+Revisit repeated plugin adapter and host mapping surfaces now that normal-distribution order is aligned.
+Preserve host parameter IDs, remote-control order, TaskExecutor copy-back, LiveConfig setter behavior, config schemas,
+labels, ranges, defaults, units, steps, and logarithmic flags unless a future slice explicitly scopes a behavior change.
+Decide whether any helper would reduce real duplication without hiding nih-plug handles, callbacks, host-visible
+ordering, or runtime synchronization policy. Update docs/audits/parameter-flow/handoff.md with the resulting
+back-handoff and next recommended slice.
 ```

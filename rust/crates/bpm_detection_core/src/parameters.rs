@@ -200,15 +200,15 @@ pub struct NormalDistributionConfig {
     #[parameter(label = "Standard deviation", range = 4.0..=40.0, default = 24.0)]
     #[derivative(PartialEq(compare_with = "f64::eq"))]
     pub std_dev: f64,
-    #[parameter(label = "factor", range = 0.0..=50.0, default = 40.0)]
-    #[derivative(PartialEq(compare_with = "f32::eq"))]
-    pub factor: f32,
-    #[parameter(label = "Normal distribution cutoff", unit = "ms", range = 1.0..=2000.0, logarithmic = true, default = 100.0)]
-    #[derivative(PartialEq(compare_with = "f32::eq"))]
-    pub cutoff: f32, // in millisecond
     #[parameter(label = "Normal distribution resolution", unit = "ms", range = 0.01..=1000.0, logarithmic = true, default = 0.6)]
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub resolution: f32, // 1 means one index = 1 millisecond
+    #[parameter(label = "Normal distribution cutoff", unit = "ms", range = 1.0..=2000.0, logarithmic = true, default = 100.0)]
+    #[derivative(PartialEq(compare_with = "f32::eq"))]
+    pub cutoff: f32, // in millisecond
+    #[parameter(label = "factor", range = 0.0..=50.0, default = 40.0)]
+    #[derivative(PartialEq(compare_with = "f32::eq"))]
+    pub factor: f32,
 }
 
 #[cfg(test)]
@@ -272,7 +272,7 @@ mod parameter_inventory_tests {
             self.0.push(parameter.label);
         }
 
-        fn factor(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
+        fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
             self.0.push(parameter.label);
         }
 
@@ -280,8 +280,28 @@ mod parameter_inventory_tests {
             self.0.push(parameter.label);
         }
 
-        fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
+        fn factor(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
             self.0.push(parameter.label);
+        }
+    }
+
+    struct NormalDistributionParameterFields(Vec<&'static str>);
+
+    impl NormalDistributionParameterVisitor<NormalDistributionConfig> for NormalDistributionParameterFields {
+        fn std_dev(&mut self, _parameter: Parameter<NormalDistributionConfig, f64>) {
+            self.0.push("std_dev");
+        }
+
+        fn resolution(&mut self, _parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push("resolution");
+        }
+
+        fn cutoff(&mut self, _parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push("cutoff");
+        }
+
+        fn factor(&mut self, _parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push("factor");
         }
     }
 
@@ -451,8 +471,17 @@ mod parameter_inventory_tests {
 
         assert_eq!(
             labels.0,
-            ["Standard deviation", "factor", "Normal distribution cutoff", "Normal distribution resolution",]
+            ["Standard deviation", "Normal distribution resolution", "Normal distribution cutoff", "factor",]
         );
+    }
+
+    #[test]
+    fn normal_distribution_generated_traversal_matches_settings_order() {
+        let mut fields = NormalDistributionParameterFields(Vec::new());
+
+        NormalDistributionParameters::visit(&mut fields);
+
+        assert_eq!(fields.0, ["std_dev", "resolution", "cutoff", "factor"]);
     }
 
     fn assert_parameter_spec<ValueType>(_: &ParameterSpec<ValueType>) {}

@@ -13,9 +13,12 @@ is a generic attribute proc-macro API that keeps config structs as ordinary Rust
 items. The dynamic-config-only prototype and first diagnostics follow-up are now committed.
 
 The dynamic metadata-spec split, `NormalDistributionConfig` macro migration, `GUIConfig` macro migration, static BPM
-computed-method split, `StaticBPMDetectionConfig` macro migration, and GUI settings visitor adoption are now implemented
-and verified. All typed parameter groups now use the generic attribute macro. The next recommended slice is an audit of
-remaining visitor consumers and manual parameter lists before adding any further abstraction.
+computed-method split, `StaticBPMDetectionConfig` macro migration, GUI settings visitor adoption, visitor consumer
+homogeneity audit, and normal-distribution order alignment are now implemented. All typed parameter groups now use the
+generic attribute macro. Normal-distribution generated traversal, egui settings, plugin parameter construction,
+host-origin copy-back, `LiveConfig` accessors, and CLAP remote controls now use the canonical GUI order:
+`std_dev`, `resolution`, `cutoff`, `factor`. The next recommended slice is a plugin host mapping surface audit/helper
+decision.
 
 ## Durable Context To Read First
 
@@ -2333,3 +2336,390 @@ leave-alone bespoke runtime/host mapping. Do not add a new macro or change runti
 normal-distribution ordering differences explicit. Update docs/audits/parameter-flow/handoff.md with a back-handoff and
 next recommended implementation slice.
 ```
+
+## Back-Handoff: Visitor Consumer Homogeneity Audit
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+- Branch: `codex/parameter-flow-audit`
+- Commit: not created in this implementation turn
+
+### Files changed
+
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Inventoried the remaining visitor implementations and manual parameter lists that affect shared GUI settings and plugin
+host/remote-control parameter flow. Classified each consumer/list as homogeneous generic fallback, heterogeneous
+explicit-field visitor, order-sensitive manual list, future helper candidate, or leave-alone bespoke runtime/host
+mapping.
+
+### Behavioral changes
+
+None. This was a documentation-only audit slice.
+
+### Structural changes
+
+- Added a `Visitor Consumer Homogeneity Audit` section to `docs/audits/parameter-flow/audit.md`.
+- Added a condensed `Visitor Consumers And Manual Lists` section to `docs/audits/parameter-flow/repo-map.md`.
+- Recorded this back-handoff in `docs/audits/parameter-flow/handoff.md`.
+
+### Affected boundaries / integration points
+
+- Shared egui settings order remains user-visible and intentionally unchanged.
+- Plugin CLAP remote-control order remains host-visible and intentionally unchanged.
+- Plugin host parameter construction remains explicit so `nih-plug` IDs, callbacks, nested groups, and field-to-handle
+  mappings stay auditable.
+- Plugin host/config synchronization remains explicit because it encodes static/dynamic timing and GUI refresh side
+  effects.
+
+### Tests / checks
+
+- `git diff --check`: passed from repo root.
+- Optional Cargo checks were not run because only audit docs changed.
+
+### Decisions made
+
+- Treat `SlideAdder` GUI and static visitor impls as already-homogeneous generic-fallback consumers.
+- Keep `SlideAdder` dynamic, plugin dynamic remote-control, and plugin dynamic host-config-reader visitor impls explicit
+  because their field behavior or host-handle mapping is heterogeneous.
+- Keep normal-distribution GUI and plugin remote-control lists manual until the project chooses ordering semantics.
+- Keep plugin host construction, GUI-origin setters, and host-origin copy-back as bespoke runtime/host mappings for now.
+
+### Deviations from brief
+
+None.
+
+### Remaining risks
+
+- The long audit table is documentation-only and may need future pruning if the coordinator wants a shorter public-facing
+  summary.
+- Normal-distribution order is still intentionally split: generated traversal is `std_dev`, `factor`, `cutoff`,
+  `resolution`; GUI settings are `std_dev`, `resolution`, `cutoff`, `factor`; plugin remote controls are `resolution`,
+  `factor`, `cutoff`, `std_dev`.
+- Plugin host/config synchronization still has manual lists and should not be treated as solved by this inventory.
+
+### Recommended next slice
+
+Make normal-distribution ordering policy explicit before replacing any normal-distribution manual lists. Keep the slice
+small: document or test the intended GUI order, plugin remote-control order, and generated traversal order without
+changing runtime behavior, host parameter IDs, remote-control order, `TaskExecutor` copy-back logic, or visitor
+macro/helper policy.
+
+## Slice Brief: Normal Distribution Ordering Policy
+
+### Objective
+
+Make the normal-distribution ordering policy explicit before any future slice replaces manual normal-distribution lists
+with generated traversal or helper APIs.
+
+Pin the three currently different orders as intentional current behavior:
+
+- generated `NormalDistributionParameters::visit` order: `std_dev`, `factor`, `cutoff`, `resolution`;
+- shared GUI settings-panel order: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
+- plugin remote-control order: `resolution`, `factor`, `cutoff`, `std_dev`.
+
+This slice should make future order-changing work noisy and reviewable, without changing behavior.
+
+### Non-goals
+
+- Do not change generated normal-distribution traversal order.
+- Do not change shared GUI settings-panel order.
+- Do not change plugin remote-control order.
+- Do not change plugin host parameter IDs, host parameter construction, runtime synchronization, config schemas, labels,
+  ranges, defaults, units, steps, or logarithmic flags.
+- Do not replace normal-distribution manual lists with generated traversal.
+- Do not add a visitor macro/helper.
+- Do not change `TaskExecutor` host-origin copy-back or `LiveConfig` GUI-origin setter logic.
+
+### Durable context to read first
+
+- `docs/audits/parameter-flow/fresh-context-handover.md`.
+- `docs/audits/parameter-flow/handoff.md`, especially the visitor consumer homogeneity back-handoff.
+- `docs/audits/parameter-flow/audit.md`, especially `Visitor Consumer Homogeneity Audit`.
+- `docs/audits/parameter-flow/repo-map.md`, especially `Visitor Consumers And Manual Lists`.
+- `docs/parameter-flow-audit.md`, especially the normal distribution typed parameter inventory and plugin remote-control
+  trace.
+- `rust/AGENTS.md`.
+- `docs/development.md`.
+
+### Likely files / areas
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/lib.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Relevant boundaries / integration points
+
+- `NormalDistributionParameters::visit` is generated from `NormalDistributionConfig` field declaration order and is used
+  by inventory tests.
+- The shared GUI settings panel has a user-visible manual order that differs from generated traversal.
+- Plugin CLAP remote controls are host-visible and have a separate manual order that differs from both generated
+  traversal and GUI settings order.
+- Plugin host parameter construction and runtime copy-back are separate mappings; they should stay explicit unless a
+  future synchronization slice targets them directly.
+
+### Expected behavioral change
+
+None. This is an order-policy guardrail slice.
+
+### Expected structural change
+
+- Add focused tests and/or documentation comments that pin the generated, GUI, and plugin remote-control
+  normal-distribution orders as intentional current behavior.
+- If adding tests, prefer narrow tests that exercise existing code paths without introducing UI or host behavior changes.
+- Update durable audit docs with the policy and the next recommended implementation slice.
+
+### Acceptance criteria
+
+- Generated normal-distribution traversal order is explicitly guarded as `std_dev`, `factor`, `cutoff`, `resolution`.
+- Shared GUI normal-distribution settings order is explicitly guarded or documented as `STD_DEV`, `RESOLUTION`, `CUTOFF`,
+  `FACTOR`.
+- Plugin remote-control normal-distribution order is explicitly guarded or documented as `resolution`, `factor`,
+  `cutoff`, `std_dev`.
+- Docs explain that these order differences are current behavior, not accidental omissions.
+- No runtime behavior, plugin host IDs, config schemas, labels, ranges, defaults, units, steps, or logarithmic flags are
+  changed.
+
+### Tests / checks
+
+From `rust/`, if code/tests change:
+
+```sh
+cargo +nightly fmt --all -- --check
+cargo test -p bpm_detection_core parameter_inventory_tests
+cargo test -p gui
+cargo test -p midi-bpm-detector-plugin
+```
+
+From repo root:
+
+```sh
+git diff --check
+```
+
+### Risks / open questions
+
+- Adding a GUI order test may require a small test-only seam around the settings-panel parameter sequence; keep that
+  seam narrow and do not turn it into a runtime abstraction unless it immediately pays for itself.
+- Plugin remote-control order is host-visible. Do not "normalize" it to generated order without explicit product
+  approval.
+- This slice should not answer whether the three orders should eventually converge. It should only preserve current
+  behavior and make the future decision explicit.
+
+### Back-handoff requirements
+
+Record:
+
+- files changed;
+- exact generated, GUI, and plugin remote-control normal-distribution orders after the slice;
+- tests/checks run and results;
+- whether any order was changed;
+- any test seam or documentation decision made;
+- recommended next slice.
+
+## Prompt For Fresh Bounded Implementer
+
+```text
+[$bounded-implementer] Use the bounded implementer flow for one repository slice.
+
+Read first:
+- docs/audits/parameter-flow/fresh-context-handover.md
+- docs/audits/parameter-flow/handoff.md
+- docs/audits/parameter-flow/audit.md
+- docs/audits/parameter-flow/repo-map.md
+- docs/parameter-flow-audit.md
+- rust/AGENTS.md
+- docs/development.md
+
+Execute only the slice named "Normal Distribution Ordering Policy" from
+docs/audits/parameter-flow/handoff.md.
+
+Make the normal-distribution ordering policy explicit before any generated traversal/helper adoption. Preserve current
+behavior: generated traversal order is std_dev, factor, cutoff, resolution; shared GUI settings order is STD_DEV,
+RESOLUTION, CUTOFF, FACTOR; plugin remote-control order is resolution, factor, cutoff, std_dev. Add focused tests and/or
+docs that make those differences intentional and reviewable. Do not change runtime behavior, plugin host IDs, config
+schemas, labels, ranges, defaults, units, steps, logarithmic flags, TaskExecutor copy-back, LiveConfig setters, plugin
+parameter construction, or remote-control ordering. Update docs/audits/parameter-flow/handoff.md with a back-handoff and
+next recommended slice.
+```
+
+## Back-Handoff: Normal Distribution Ordering Policy
+
+### Status
+
+Complete.
+
+### Branch / commit
+
+- Branch: `codex/parameter-flow-audit`
+- Commit: not created in this implementation turn
+
+### Files changed
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/lib.rs`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/fresh-context-handover.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Made the normal-distribution order split explicit and reviewable before any generated traversal/helper adoption. The
+slice pins the three current orders:
+
+- generated traversal: `std_dev`, `factor`, `cutoff`, `resolution`;
+- shared GUI settings: `STD_DEV`, `RESOLUTION`, `CUTOFF`, `FACTOR`;
+- plugin CLAP remote controls: `resolution`, `factor`, `cutoff`, `std_dev`.
+
+### Behavioral changes
+
+None intended. No runtime order, plugin host ID, config schema, label, range, default, unit, step, logarithmic flag,
+`TaskExecutor` copy-back path, `LiveConfig` setter, plugin parameter construction, or remote-control order was changed.
+
+### Structural changes
+
+- Added a core inventory test that records generated normal-distribution traversal by field name, not only by label.
+- Added a GUI settings comment and a narrow test-only constant documenting the intentionally manual settings order.
+- Added a plugin CLAP remote-controls test that exercises `ClapPlugin::remote_controls` and asserts the
+  normal-distribution page order through the actual remote-control callback path.
+- Updated audit docs to state that the three orders are deliberate current behavior, not accidental omissions.
+
+### Affected boundaries / integration points
+
+- `NormalDistributionParameters::visit` remains generated from `NormalDistributionConfig` field order.
+- Shared egui settings remain user-visible and manually ordered.
+- Plugin CLAP remote controls remain host-visible and manually ordered.
+- Plugin host parameter construction, `TaskExecutor` host-origin copy-back, and `LiveConfig` GUI-origin setters remain
+  explicit runtime/host synchronization surfaces.
+
+### Tests / checks
+
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 7 tests.
+- `cargo test -p gui normal_distribution_settings_order_is_intentional`: passed, 1 test.
+- `cargo test -p midi-bpm-detector-plugin normal_distribution_remote_controls_preserve_host_visible_order`: passed, 1
+  test.
+- `cargo +nightly fmt --all -- --check`: passed after applying rustfmt to the new plugin test.
+- `cargo test -p gui`: passed, 5 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 22 tests.
+- `git diff --check`: passed from repo root.
+- Mutation check: temporarily swapped plugin normal-distribution remote-control `resolution` and `factor`; the focused
+  plugin test failed with the expected order mismatch, then passed again after restoring the order.
+
+### Decisions made
+
+- Used a field-name visitor in the core inventory tests so generated order is pinned independently from labels.
+- Documented the GUI settings order next to the manual list instead of replacing it with generated traversal or adding a
+  runtime visitor helper.
+- Tested plugin remote-control order at the CLAP trait boundary rather than only testing `MidiBpmDetectorParams`
+  construction, because the order is host-visible at that boundary.
+
+### Deviations from brief
+
+None.
+
+### Remaining risks
+
+- The GUI order guard is intentionally lightweight: it documents the manual list and pins the named policy order without
+  introducing a runtime abstraction around egui rendering.
+- The tests do not decide whether the three orders should converge. Future work still needs explicit product/host-order
+  approval before changing any user-visible or host-visible order.
+
+### Recommended next slice
+
+Revisit plugin host mapping surfaces now that order-sensitive normal-distribution lists are pinned. Keep the next slice
+bounded to an audit or helper decision for repeated plugin adapter/host mapping code, and preserve host parameter IDs,
+remote-control order, `TaskExecutor` copy-back, and `LiveConfig` setter behavior unless explicitly scoped otherwise.
+
+## Coordinator Correction: Normal Distribution Order Alignment
+
+### Status
+
+Complete and verified, pending commit.
+
+This supersedes the immediately preceding `Normal Distribution Ordering Policy` back-handoff. The previous slice treated
+the generated order, GUI settings order, and plugin CLAP remote-control order as three deliberate orders. The product
+decision is now that the shared egui settings order is canonical.
+
+### Branch / commit
+
+- Branch: `codex/parameter-flow-audit`
+- Commit: not created in this coordinator turn yet.
+
+### Files changed
+
+- `rust/crates/bpm_detection_core/src/parameters.rs`
+- `rust/crates/gui/src/add_slider.rs`
+- `rust/crates/gui/src/config_ui.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/lib.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs`
+- `rust/crates/midi-bpm-detector-plugin/src/bpm_detector_configuration.rs`
+- `docs/audits/parameter-flow/audit.md`
+- `docs/audits/parameter-flow/fresh-context-handover.md`
+- `docs/audits/parameter-flow/repo-map.md`
+- `docs/audits/parameter-flow/handoff.md`
+
+### Summary
+
+Aligned normal-distribution ordering to the canonical GUI order:
+
+- generated traversal: `std_dev`, `resolution`, `cutoff`, `factor`;
+- shared GUI settings: generated traversal via `NormalDistributionParameters::visit(...)`;
+- plugin parameter construction: `std_dev`, `resolution`, `cutoff`, `factor`;
+- plugin host-origin copy-back: `std_dev`, `resolution`, `cutoff`, `factor`;
+- `LiveConfig` normal-distribution accessor implementation order: `std_dev`, `resolution`, `cutoff`, `factor`;
+- plugin CLAP remote controls: `std_dev`, `resolution`, `cutoff`, `factor`.
+
+### Behavioral changes
+
+Plugin CLAP remote-control order changed from `resolution`, `factor`, `cutoff`, `std_dev` to
+`std_dev`, `resolution`, `cutoff`, `factor`. Parameter IDs, labels, ranges, defaults, units, steps, logarithmic flags,
+config schemas, and runtime synchronization semantics are unchanged.
+
+### Structural changes
+
+- Reordered `NormalDistributionConfig` fields so the proc macro generates the canonical traversal order naturally.
+- Added `SlideAdder`'s homogeneous `NormalDistributionParameterVisitor` impl through the existing generic
+  `parameter(...)` fallback.
+- Replaced the manual normal-distribution settings-panel list with generated traversal.
+- Reordered plugin normal-distribution host parameter declarations and construction to match the canonical order.
+- Reordered host-origin copy-back and `LiveConfig` accessor methods for source-level consistency.
+- Updated the CLAP remote-controls test to guard the canonical order at the host-visible boundary.
+- Updated durable audit docs to record that the previous host-visible order was intentionally superseded.
+
+### Tests / checks
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 7 tests.
+- `cargo test -p gui`: passed, 5 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 22 tests.
+- `git diff --check`: passed from repo root.
+- `cargo clippy -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`: passed.
+
+### Remaining risks
+
+- The CLAP remote-control order is host-visible. This change is intentional because the GUI settings order is now the
+  canonical product order.
+- Plugin host mapping and runtime synchronization remain explicit and repetitive. Do not hide those behind a helper until
+  the next slice audits IDs, callbacks, host handles, copy-back timing, and GUI refresh side effects together.
+
+### Recommended next slice
+
+Revisit plugin host mapping surfaces now that normal-distribution ordering is aligned. Keep the next slice bounded to an
+audit/helper decision for repeated plugin adapter and host mapping code. Preserve host parameter IDs, the canonical
+remote-control order, `TaskExecutor` copy-back semantics, and `LiveConfig` setter semantics unless explicitly scoped
+otherwise.
