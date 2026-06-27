@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bounded Implementer"
+  short_description: "Execute one scoped audit slice"
+  default_prompt: "Use $bounded-implementer to execute this bounded implementation slice and write the back-handoff."

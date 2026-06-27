@@ -40,3 +40,15 @@ or Gradle own the Rust workspace.
 
 When touching confusing code, clarify terminology near the code or in the relevant docs. Keep comments concise: where
 data comes from, where it goes, what moment in the flow it belongs to, and why the boundary exists.
+
+## Long-running audit/refactor workflow
+
+For long-running architecture, migration, audit, or refactor work, this repository can use repo-scoped Codex skills.
+
+Use `$repo-audit-coordinator` for planning, slicing, decision logging, and maintaining durable audit state.
+
+Use `$bounded-implementer` for executing exactly one bounded implementation slice from a coordinator brief.
+
+Durable audit state should live under `docs/audits/<audit-name>/`.
+
+Do not rely on chat memory as the source of truth. Before assuming a change is local, check relevant component boundaries, shared contracts, generated code, build/test/CI paths, runtime configuration, and integration points.
