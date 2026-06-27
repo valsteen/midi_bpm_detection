@@ -14,6 +14,29 @@ struct ExampleConfig {
     weight: f32,
 }
 
+#[parameter_group(
+    accessor = NestedExampleConfigAccessor,
+    parameters = NestedExampleParameters,
+    default_parameters = DefaultNestedExampleParameters,
+    visitor = NestedExampleParameterVisitor
+)]
+struct NestedExampleConfig {
+    #[parameter(label = "Example value", range = 1.0..=5.0, step = 1.0, default = 3)]
+    value: u8,
+    nested: NestedConfig,
+}
+
+#[derive(Default)]
+struct NestedConfig {
+    valid: bool,
+}
+
+impl NestedConfig {
+    fn validate(&self) -> Result<(), String> {
+        self.valid.then_some(()).ok_or_else(|| "nested config is invalid".to_string())
+    }
+}
+
 #[test]
 fn parameter_group_generates_accessor_defaults_parameters_and_visit_order() {
     let mut config = ExampleConfig::default();
@@ -54,10 +77,36 @@ fn generated_validation_checks_parameter_ranges_in_visit_order() {
     assert_eq!(config.validate(), Err("Example value value 6 is outside declared range 1..=5".to_string()));
 }
 
+#[test]
+fn unannotated_nested_fields_are_defaulted_validated_and_not_visited() {
+    let mut config = NestedExampleConfig::default();
+
+    assert_eq!(config.value, 3);
+    assert!(!config.nested.valid);
+    assert_eq!(config.validate(), Err("nested config is invalid".to_string()));
+
+    config.nested.valid = true;
+
+    assert_eq!(config.validate(), Ok(()));
+
+    let mut labels = NestedLabels(Vec::new());
+    NestedExampleParameters::visit(&mut labels);
+
+    assert_eq!(labels.0, ["Example value"]);
+}
+
 struct Labels(Vec<&'static str>);
 
 impl ExampleParameterVisitor<ExampleConfig> for Labels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<ExampleConfig, ValueType>) {
+        self.0.push(parameter.label);
+    }
+}
+
+struct NestedLabels(Vec<&'static str>);
+
+impl NestedExampleParameterVisitor<NestedExampleConfig> for NestedLabels {
+    fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<NestedExampleConfig, ValueType>) {
         self.0.push(parameter.label);
     }
 }

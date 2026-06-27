@@ -31,8 +31,8 @@ Current branch checkpoint:
 - dynamic-config macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
 
 The dynamic-config-only attribute proc-macro prototype, first diagnostics follow-up, metadata-only dynamic spec split,
-normal-distribution macro migration, GUI config migration, and static BPM computed-method split are implemented and
-verified. Static BPM remains hand-written and macro-ready.
+normal-distribution macro migration, GUI config migration, static BPM computed-method split, and static BPM macro
+migration are implemented and verified. All typed parameter groups now use the generic attribute macro.
 
 Current commits on `codex/parameter-flow-audit`:
 
@@ -42,6 +42,7 @@ Current commits on `codex/parameter-flow-audit`:
 - `83bae5a Migrate GUI parameters to parameter group macro`
 - `3078c83 Split static BPM computed methods`
 - `bdab497 Stabilize parameter macro diagnostic tests`
+- `887a0bc Prepare static parameter macro slice`
 
 ## Key Findings So Far
 
@@ -86,9 +87,9 @@ Use `$repo-audit-coordinator`.
 Continue with:
 
 1. Use the canonical workspace under `docs/audits/parameter-flow/`.
-2. Read the coordinator review and `Attribute Macro For StaticBPMDetectionConfig` slice brief in
+2. Read the coordinator review and `GUI Settings Visitor Adoption For Matching Groups` slice brief in
    `docs/audits/parameter-flow/handoff.md`.
-3. Execute or hand off that macro migration before revisiting GUI/plugin mapping surfaces.
+3. Execute or hand off that GUI settings visitor adoption before changing normal-distribution or plugin ordering.
 
 ## Prompt To Start The Next Audit-Coordinator Chat
 
@@ -102,8 +103,8 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "Attribute Macro For
-StaticBPMDetectionConfig" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
+We are continuing the parameter mapping/refactor audit. Review the coordinator checkpoint and the "GUI Settings Visitor
+Adoption For Matching Groups" slice in docs/audits/parameter-flow/handoff.md, confirm branch/working-tree state, then prepare the bounded
 implementer prompt or continue coordinator review if the docs have drifted.
 ```
 
@@ -119,7 +120,7 @@ Read:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 
-Execute only the "Attribute Macro For StaticBPMDetectionConfig" slice from docs/audits/parameter-flow/handoff.md. The
-dynamic-config, metadata-spec, normal-distribution, GUI, and static computed-method split slices already exist; do not
-repeat the rejected dynamic-specific `macro_rules!` proof.
+Execute only the "GUI Settings Visitor Adoption For Matching Groups" slice from docs/audits/parameter-flow/handoff.md.
+All typed parameter groups now use the generic attribute macro; do not repeat the rejected dynamic-specific
+`macro_rules!` proof, do not change normal-distribution ordering, and do not change plugin remote controls in this slice.
 ```

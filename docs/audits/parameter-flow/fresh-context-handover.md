@@ -12,7 +12,8 @@ The branch now contains the completed parameter macro slices:
 - `docs/parameter-audit-handoff.md`
 - `docs/parameter-flow-audit.md`
 - `rust/crates/parameter_macros/`
-- dynamic and normal-distribution parameter-group macro wiring in `rust/crates/bpm_detection_core/src/parameters.rs`
+- dynamic, normal-distribution, and static parameter-group macro wiring in
+  `rust/crates/bpm_detection_core/src/parameters.rs`
 - GUI parameter-group macro wiring in `rust/crates/gui/src/config.rs`
 - static BPM computed-method split in `rust/crates/bpm_detection_core/src/parameters.rs`
 
@@ -24,6 +25,9 @@ Reviewed implementation commits on this branch:
 - `83bae5a Migrate GUI parameters to parameter group macro`
 - `3078c83 Split static BPM computed methods`
 - `bdab497 Stabilize parameter macro diagnostic tests`
+- `887a0bc Prepare static parameter macro slice`
+
+The latest coordinator checkpoint also contains the completed, verified static macro migration, pending commit.
 
 Draft PR: <https://github.com/valsteen/midi_bpm_detection/pull/20>.
 
@@ -193,6 +197,25 @@ Completed scope:
 - make `DefaultStaticBPMDetectionParameters` expose `ParameterSpec<T>` metadata specs;
 - leave `StaticBPMDetectionConfig` hand-written and not annotated with `#[parameter_group(...)]`.
 
+## Completed Static Macro Slice
+
+The completed static macro slice is documented in:
+
+- `docs/audits/parameter-flow/handoff.md`
+
+Slice name:
+
+- `Attribute Macro For StaticBPMDetectionConfig`
+
+Completed scope:
+
+- apply the generic `#[parameter_group(...)]` macro to `StaticBPMDetectionConfig`;
+- generate `StaticBPMDetectionConfigAccessor`, `DefaultStaticBPMDetectionParameters`,
+  `StaticBPMDetectionParameters<Config>`, and `StaticBPMDetectionParameterVisitor<Config>`;
+- keep only `bpm_center`, `bpm_range`, and `sample_rate` in the generated static parameter group;
+- keep `normal_distribution` as a nested config field outside the static parameter catalog;
+- keep `StaticBPMDetectionComputed` and inherent computed methods outside the generated parameter group.
+
 ## Next Slice To Execute
 
 The active next slice is documented in:
@@ -201,15 +224,16 @@ The active next slice is documented in:
 
 Slice name:
 
-- `Attribute Macro For StaticBPMDetectionConfig`
+- `GUI Settings Visitor Adoption For Matching Groups`
 
 Scope:
 
-- apply the existing generic `#[parameter_group(...)]` macro to `StaticBPMDetectionConfig`;
-- include only the static BPM parameter fields: `bpm_center`, `bpm_range`, and `sample_rate`;
-- keep `normal_distribution` as a nested config field outside the static parameter field group;
-- preserve `StaticBPMDetectionComputed`, inherent computed methods, static labels/ranges/defaults, serde fields, plugin
-  host parameter IDs, GUI histogram behavior, and runtime update routing.
+- add `SlideAdder` visitor impls for GUI/display and static BPM parameter groups;
+- replace the matching manual GUI/display and static settings-panel `slide_adder.add(...)` lists with generated
+  `GUIParameters::visit(...)` and `StaticBPMDetectionParameters::visit(...)`;
+- preserve the current settings-panel order;
+- leave normal-distribution settings manually ordered because current UI order differs from generated field order;
+- do not change plugin remote-control pages or runtime synchronization.
 
 ## What To Read First In A Fresh Chat
 
@@ -264,11 +288,11 @@ Read first:
 - docs/development.md
 
 We are continuing the parameter-flow audit from a fresh context. The dynamic attribute macro prototype, metadata-spec
-split, NormalDistributionConfig migration, GUIConfig migration, and Static BPM computed-method split are implemented.
-StaticBPMDetectionConfig is the only typed parameter group left outside the macro path. Do not revisit the rejected
-dynamic-specific macro_rules DSL except as historical context. First confirm the current branch and working tree, then
-either prepare the bounded implementer prompt for the "Attribute Macro For StaticBPMDetectionConfig" slice or continue
-coordinator review if the docs have drifted.
+split, NormalDistributionConfig migration, GUIConfig migration, Static BPM computed-method split, and
+StaticBPMDetectionConfig macro migration are implemented. All typed parameter groups now use the generic attribute macro.
+Do not revisit the rejected dynamic-specific macro_rules DSL except as historical context. First confirm the current
+branch and working tree, then either prepare the bounded implementer prompt for the "GUI Settings Visitor Adoption For
+Matching Groups" slice or continue coordinator review if the docs have drifted.
 ```
 
 ## Prompt For Fresh Implementer Chat
@@ -285,12 +309,12 @@ Read first:
 - rust/AGENTS.md
 - docs/development.md
 
-Execute only the slice named "Attribute Macro For StaticBPMDetectionConfig" from
+Execute only the slice named "GUI Settings Visitor Adoption For Matching Groups" from
 docs/audits/parameter-flow/handoff.md.
 
-Apply the existing generic #[parameter_group(...)] macro to StaticBPMDetectionConfig. Include only the static BPM
-parameter fields (`bpm_center`, `bpm_range`, `sample_rate`) in the generated parameter group, keep
-`normal_distribution` nested but outside the generated static field group, and preserve StaticBPMDetectionComputed,
-inherent computed methods, labels, ranges, defaults, serde fields, plugin host parameter IDs, GUI histogram behavior, and
-desktop/wasm/plugin runtime update routing. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
+Add `SlideAdder` visitor implementations for GUI/display and static BPM parameter groups, then replace the matching
+manual GUI/display and static settings-panel `slide_adder.add(...)` calls with `GUIParameters::visit(...)` and
+`StaticBPMDetectionParameters::visit(...)`. Preserve current settings-panel order. Leave normal-distribution settings
+manual because their current UI order differs from generated field order. Do not change plugin remote controls or runtime
+synchronization. Update docs/audits/parameter-flow/handoff.md with a back-handoff.
 ```

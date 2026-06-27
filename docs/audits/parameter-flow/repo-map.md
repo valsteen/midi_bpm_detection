@@ -7,8 +7,8 @@ except where plugin host parameters cross into the tempo bridge.
 ## Current Branch And Working Tree
 
 - Branch observed during coordination: `codex/parameter-flow-audit`, tracking `upstream/codex/parameter-flow-audit`.
-- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, normal distribution, and GUI,
-  plus the static BPM computed-method split.
+- The branch now includes completed macro slices for dynamic config, dynamic metadata specs, normal distribution, GUI,
+  and static BPM, plus the static BPM computed-method split.
 - Audit docs live in:
   - `docs/parameter-flow-audit.md`
   - `docs/parameter-audit-handoff.md`
@@ -22,11 +22,14 @@ except where plugin host parameters cross into the tempo bridge.
   - `OnOff<T>` serializes a logical value as `{ enabled, value }`.
   - `ParameterSpec<ValueType>` is the metadata-only shape used by generated default catalogs.
 
-- `rust/crates/parameter_macros`
+  - `rust/crates/parameter_macros`
   - Defines the generic `#[parameter_group(...)]` proc macro.
   - Generates the dynamic config accessor trait, `Parameter` constants, default impl, validation, visitor trait, and
     traversal from ordinary struct fields plus small `#[parameter(...)]` metadata.
   - Generated default catalogs use `ParameterSpec<T>` and do not need fake `Config = ()` accessors.
+  - Unannotated fields in a parameter group are treated as nested config fields: generated `Default` initializes them
+    with `Default::default()`, generated `validate()` calls `self.<field>.validate()?`, and generated parameter traversal
+    omits them.
   - Must stay free of egui, nih-plug, desktop, wasm, and plugin dependencies.
 
 - `rust/crates/bpm_detection_core`
@@ -34,7 +37,7 @@ except where plugin host parameters cross into the tempo bridge.
     - `StaticBPMDetectionConfig`
     - `DynamicBPMDetectionConfig`
     - `NormalDistributionConfig`
-  - Dynamic config and normal distribution now use the generated parameter-group pattern:
+  - Dynamic config, normal distribution, and static BPM now use the generated parameter-group pattern:
     - config struct;
     - accessor trait;
     - accessor impl for the concrete config;
@@ -42,7 +45,8 @@ except where plugin host parameters cross into the tempo bridge.
     - config-bound parameter constants;
     - visitor trait;
     - validation through generated traversal.
-  - Static BPM remains hand-written, but its computed methods are now split out behind `StaticBPMDetectionComputed`.
+  - Static BPM computed methods remain explicit outside the generated parameter group through
+    `StaticBPMDetectionComputed`.
 
 - `rust/crates/gui`
   - Owns `GUIConfig`, `GUIConfigAccessor`, `GUIParameters`, and reusable egui parameter controls.
@@ -125,7 +129,7 @@ defaults and shipped TOML behavior unless explicitly scoped otherwise.
   - `bpm_center`
   - `bpm_range`
   - `sample_rate`
-  - Computed-method split complete; next planned refactor target is macro migration.
+  - Macro migration complete.
 - Normal distribution:
   - `std_dev`
   - `factor`
@@ -192,6 +196,9 @@ The wasm target may need local setup; if unavailable, the implementer should rec
   exhaustiveness in a later slice?
 - Should static, normal, and GUI groups eventually get visitors, or should the macro produce a simpler typed enumeration
   API that replaces visitors?
+- Normal-distribution generated traversal order is `std_dev`, `factor`, `cutoff`, `resolution`, while current GUI order
+  is `std_dev`, `resolution`, `cutoff`, `factor` and plugin remote-control order is `resolution`, `factor`, `cutoff`,
+  `std_dev`. Decide order semantics before replacing those manual lists.
 - Should the static computed-method extension remain public after the static macro migration, or should GUI histogram
   code eventually call inherent/static helper methods directly?
 - Should output/runtime state such as `send_tempo` become part of a typed parameter catalog, or remain explicitly bespoke

@@ -1,44 +1,39 @@
-use std::{marker::PhantomData, time::Duration as StdDuration};
+use std::time::Duration as StdDuration;
 
 use chrono::Duration;
 use derivative::Derivative;
-use parameter::{Asf64, OnOff, Parameter, ParameterSpec};
+use parameter::{Asf64, OnOff};
 use parameter_macros::parameter_group;
 use serde::{Deserialize, Serialize};
 
 use crate::DurationOps;
 
+#[parameter_group(
+    accessor = StaticBPMDetectionConfigAccessor,
+    parameters = StaticBPMDetectionParameters,
+    default_parameters = DefaultStaticBPMDetectionParameters,
+    visitor = StaticBPMDetectionParameterVisitor
+)]
 #[derive(Clone, Debug, Derivative, Serialize, Deserialize)]
 #[derivative(PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct StaticBPMDetectionConfig {
+    #[parameter(label = "BPM center", range = 1.0..=150.0, step = 0.01, default = 90.0)]
     #[derivative(PartialEq(compare_with = "f32::eq"))]
     pub bpm_center: f32,
+    #[parameter(label = "BPM range", range = 1.0..=100.0, step = 1.0, default = 40)]
     pub bpm_range: u16,
+    #[parameter(
+        label = "BPM sample rate",
+        unit = "samples/second",
+        range = 1.0..=1_0000.,
+        step = 1.0,
+        logarithmic = true,
+        default = 450
+    )]
     // per second
     pub sample_rate: u16,
     pub normal_distribution: NormalDistributionConfig,
-}
-
-impl StaticBPMDetectionConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        StaticBPMDetectionParameters::<Self>::BPM_CENTER.validate_config_value(self)?;
-        StaticBPMDetectionParameters::<Self>::BPM_RANGE.validate_config_value(self)?;
-        StaticBPMDetectionParameters::<Self>::SAMPLE_RATE.validate_config_value(self)?;
-        self.normal_distribution.validate()?;
-
-        Ok(())
-    }
-}
-
-pub trait StaticBPMDetectionConfigAccessor {
-    fn bpm_center(&self) -> f32;
-    fn bpm_range(&self) -> u16;
-    fn sample_rate(&self) -> u16;
-
-    fn set_bpm_center(&mut self, val: f32);
-    fn set_bpm_range(&mut self, val: u16);
-    fn set_sample_rate(&mut self, val: u16);
 }
 
 pub trait StaticBPMDetectionComputed: StaticBPMDetectionConfigAccessor {
@@ -63,32 +58,6 @@ pub trait StaticBPMDetectionComputed: StaticBPMDetectionConfigAccessor {
 
 impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionComputed for Config {}
 
-impl StaticBPMDetectionConfigAccessor for StaticBPMDetectionConfig {
-    fn bpm_center(&self) -> f32 {
-        self.bpm_center
-    }
-
-    fn bpm_range(&self) -> u16 {
-        self.bpm_range
-    }
-
-    fn sample_rate(&self) -> u16 {
-        self.sample_rate
-    }
-
-    fn set_bpm_center(&mut self, val: f32) {
-        self.bpm_center = val;
-    }
-
-    fn set_bpm_range(&mut self, val: u16) {
-        self.bpm_range = val;
-    }
-
-    fn set_sample_rate(&mut self, val: u16) {
-        self.sample_rate = val;
-    }
-}
-
 impl StaticBPMDetectionConfig {
     #[inline]
     #[must_use]
@@ -106,47 +75,6 @@ impl StaticBPMDetectionConfig {
     pub fn lowest_bpm(&self) -> f32 {
         StaticBPMDetectionComputed::lowest_bpm(self)
     }
-}
-
-pub struct DefaultStaticBPMDetectionParameters;
-
-impl DefaultStaticBPMDetectionParameters {
-    pub const BPM_CENTER: ParameterSpec<f32> = ParameterSpec::new("BPM center", None, 1.0..=150.0, 0.01, false, 90.0);
-    pub const BPM_RANGE: ParameterSpec<u16> = ParameterSpec::new("BPM range", None, 1.0..=100.0, 1.0, false, 40);
-    pub const SAMPLE_RATE: ParameterSpec<u16> =
-        ParameterSpec::new("BPM sample rate", Some("samples/second"), 1.0..=1_0000., 1.0, true, 450);
-}
-
-impl Default for StaticBPMDetectionConfig {
-    fn default() -> Self {
-        Self {
-            bpm_range: DefaultStaticBPMDetectionParameters::BPM_RANGE.default,
-            bpm_center: DefaultStaticBPMDetectionParameters::BPM_CENTER.default,
-            sample_rate: DefaultStaticBPMDetectionParameters::SAMPLE_RATE.default,
-            normal_distribution: NormalDistributionConfig::default(),
-        }
-    }
-}
-
-pub struct StaticBPMDetectionParameters<Config> {
-    phantom: PhantomData<Config>,
-}
-
-impl<Config: StaticBPMDetectionConfigAccessor> StaticBPMDetectionParameters<Config> {
-    pub const BPM_CENTER: Parameter<Config, f32> =
-        Parameter::new("BPM center", None, 1.0..=150.0, 0.01, false, 90.0, Config::bpm_center, Config::set_bpm_center);
-    pub const BPM_RANGE: Parameter<Config, u16> =
-        Parameter::new("BPM range", None, 1.0..=100.0, 1.0, false, 40, Config::bpm_range, Config::set_bpm_range);
-    pub const SAMPLE_RATE: Parameter<Config, u16> = Parameter::new(
-        "BPM sample rate",
-        Some("samples/second"),
-        1.0..=1_0000.,
-        1.0,
-        true,
-        450,
-        Config::sample_rate,
-        Config::set_sample_rate,
-    );
 }
 
 #[parameter_group(
@@ -285,7 +213,7 @@ pub struct NormalDistributionConfig {
 
 #[cfg(test)]
 mod parameter_inventory_tests {
-    use parameter::ParameterSpec;
+    use parameter::{Parameter, ParameterSpec};
 
     use super::*;
 
@@ -353,6 +281,22 @@ mod parameter_inventory_tests {
         }
 
         fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
+            self.0.push(parameter.label);
+        }
+    }
+
+    struct StaticParameterLabels(Vec<&'static str>);
+
+    impl StaticBPMDetectionParameterVisitor<StaticBPMDetectionConfig> for StaticParameterLabels {
+        fn bpm_center(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>) {
+            self.0.push(parameter.label);
+        }
+
+        fn bpm_range(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
+            self.0.push(parameter.label);
+        }
+
+        fn sample_rate(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
             self.0.push(parameter.label);
         }
     }
@@ -463,6 +407,23 @@ mod parameter_inventory_tests {
                 default: 450,
             },
         );
+    }
+
+    #[test]
+    fn static_parameter_visitor_lists_static_parameter_fields_only() {
+        let mut labels = StaticParameterLabels(Vec::new());
+
+        StaticBPMDetectionParameters::visit(&mut labels);
+
+        assert_eq!(labels.0, ["BPM center", "BPM range", "BPM sample rate"]);
+    }
+
+    #[test]
+    fn static_validation_includes_nested_normal_distribution() {
+        let mut config = StaticBPMDetectionConfig::default();
+        config.normal_distribution.std_dev = 3.0;
+
+        assert_eq!(config.validate(), Err("Standard deviation value 3 is outside declared range 4..=40".to_string()));
     }
 
     #[test]

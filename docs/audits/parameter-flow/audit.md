@@ -15,8 +15,8 @@ Durable repo state:
 Current branch checkpoint:
 
 - Branch: `codex/parameter-flow-audit`.
-- The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, GUI migration, and static
-  computed-method split have been implemented.
+- The dynamic macro prototype, dynamic metadata-spec split, normal-distribution migration, GUI migration, static
+  computed-method split, and static macro migration have been implemented.
 - Audit docs now include bounded implementer back-handoffs for those slices.
 
 Assumptions from current coordination:
@@ -556,6 +556,53 @@ accessors. The next bounded slice should apply the existing `#[parameter_group(.
 `StaticBPMDetectionConfig` while preserving the manually kept computed-method extension and the nested
 `NormalDistributionConfig`.
 
+## Coordinator Review: StaticBPMDetectionConfig Macro Migration
+
+Review checkpoint: `codex/parameter-flow-audit`, in the coordinator checkpoint that includes the static macro migration
+on top of `887a0bc Prepare static parameter macro slice`.
+
+The slice matches the brief:
+
+- `StaticBPMDetectionConfig` remains an ordinary Rust struct with real fields.
+- Static BPM field metadata now lives in field-level `#[parameter(...)]` attributes on `bpm_center`, `bpm_range`, and
+  `sample_rate`.
+- `normal_distribution` remains a nested `NormalDistributionConfig` field and is omitted from
+  `StaticBPMDetectionParameters::visit`.
+- `StaticBPMDetectionComputed` and the inherent computed methods remain outside the generated parameter group.
+- `StaticBPMDetectionConfigAccessor`, `DefaultStaticBPMDetectionParameters`,
+  `StaticBPMDetectionParameters<Config>`, and `StaticBPMDetectionParameterVisitor<Config>` are generated under the
+  intended public names.
+- No desktop, wasm, plugin, or GUI runtime synchronization code changed.
+
+Macro contract decision:
+
+- The macro now supports unannotated nested fields by defaulting them with `Default::default()` and validating them with
+  `self.<field>.validate()?`.
+- This behavior is accepted for nested config fields such as `normal_distribution`, where the field has ordinary nested
+  config ownership and must not become a typed `Parameter`.
+- This behavior should stay narrow. Future unannotated fields in a parameter group must be nested config values with
+  `Default` and `validate() -> Result<(), String>`, or the macro contract should be revisited before use.
+
+Fresh coordinator verification:
+
+- `cargo +nightly fmt --all -- --check`: passed.
+- `cargo test -p parameter_macros`: passed, 7 tests.
+- `cargo test -p bpm_detection_core parameter_inventory_tests`: passed, 6 tests.
+- `cargo test -p bpm_detection_core`: passed, 8 tests.
+- `cargo test -p gui`: passed, 2 tests.
+- `cargo test -p midi-bpm-detector-plugin`: passed, 21 tests.
+- `cargo test -p desktop`: passed, 13 tests.
+- `cargo test -p wasm --target wasm32-unknown-unknown`: passed, 1 test.
+- `cargo clippy -p parameter_macros -p bpm_detection_core -p gui -p midi-bpm-detector-plugin --all-targets -- -D warnings`:
+  passed.
+- `git diff --check`: passed.
+
+Coordinator judgment: the static macro migration is accepted. All typed parameter groups now use the generic attribute
+macro. The next implementation work should start reducing remaining mapping surfaces, but should preserve current user
+and host ordering. The first bounded cleanup should adopt generated visitors in the GUI settings panel only for groups
+where generated traversal order already matches the current UI order: GUI/display and static BPM. Leave normal
+distribution manual for now because its current settings-panel order differs from generated field order.
+
 ## Non-Goals For The Completed Macro Implementation Slice
 
 - Do not change host/GUI sync policy.
@@ -575,6 +622,10 @@ accessors. The next bounded slice should apply the existing `#[parameter_group(.
 5. Apply the attribute macro to `GUIConfig`.
 6. Split static BPM computed methods from the static parameter field accessor contract.
 7. Apply the attribute macro to `StaticBPMDetectionConfig`.
-8. Revisit egui/plugin host mapping surfaces once all typed groups are homogeneous.
-9. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
+8. Adopt generated visitors in the GUI settings panel for groups whose generated order already matches the current UI
+   order.
+9. Decide how to handle normal-distribution ordering before replacing its manual GUI/plugin lists with generated
+   traversal.
+10. Revisit plugin host mapping surfaces once UI ordering is explicit.
+11. Separately address runtime semantics: GUI/display update path, plugin dynamic task overload, duplicate interpolation
    assignment, and parameter-like atomics.

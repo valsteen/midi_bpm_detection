@@ -247,18 +247,24 @@ fn expand_parameter_group(
     let group = ParsedGroup::new(args)?;
 
     let fields = parse_parameter_fields(&mut input)?;
-    if fields.is_empty() {
+    if fields.parameter_fields.is_empty() {
         return Err(syn::Error::new_spanned(input.ident, "parameter_group requires at least one #[parameter] field"));
     }
 
     let struct_ident = &input.ident;
-    let accessor_impl = expand_accessor_impl(&group.accessor, struct_ident, &fields);
+    let accessor_impl = expand_accessor_impl(&group.accessor, struct_ident, &fields.parameter_fields);
     let default_parameters_impl =
-        expand_default_parameters_impl(&group.default_parameters, &group.parameter_crate, &fields);
+        expand_default_parameters_impl(&group.default_parameters, &group.parameter_crate, &fields.parameter_fields);
     let default_impl = expand_default_impl(struct_ident, &group.parameters, &group.default_parameters, &fields);
-    let visitor_trait = expand_visitor_trait(&group.accessor, &group.visitor, &group.parameter_crate, &fields);
-    let parameters_impl =
-        expand_parameters_impl(&group.accessor, &group.parameters, &group.visitor, &group.parameter_crate, &fields);
+    let visitor_trait =
+        expand_visitor_trait(&group.accessor, &group.visitor, &group.parameter_crate, &fields.parameter_fields);
+    let parameters_impl = expand_parameters_impl(
+        &group.accessor,
+        &group.parameters,
+        &group.visitor,
+        &group.parameter_crate,
+        &fields.parameter_fields,
+    );
     let parameters = &group.parameters;
 
     Ok(quote! {
@@ -385,22 +391,29 @@ fn expand_default_impl(
     struct_ident: &Ident,
     parameters: &Ident,
     default_parameters: &Ident,
-    fields: &[ParameterField],
+    fields: &ParsedFields,
 ) -> proc_macro2::TokenStream {
-    let default_fields = fields.iter().map(|field| {
+    let default_parameter_fields = fields.parameter_fields.iter().map(|field| {
         let field_name = &field.field;
         let const_name = &field.const_name;
         quote! { #field_name: #default_parameters::#const_name.default }
     });
-    let validate_fields = fields.iter().map(|field| {
+    let default_unannotated_fields = fields.unannotated_fields.iter().map(|field_name| {
+        quote! { #field_name: ::std::default::Default::default() }
+    });
+    let validate_fields = fields.parameter_fields.iter().map(|field| {
         let const_name = &field.const_name;
         quote! { #parameters::<Self>::#const_name.validate_config_value(self)?; }
+    });
+    let validate_unannotated_fields = fields.unannotated_fields.iter().map(|field_name| {
+        quote! { self.#field_name.validate()?; }
     });
 
     quote! {
         impl #struct_ident {
             pub fn validate(&self) -> Result<(), String> {
                 #(#validate_fields)*
+                #(#validate_unannotated_fields)*
                 Ok(())
             }
         }
@@ -408,7 +421,8 @@ fn expand_default_impl(
         impl Default for #struct_ident {
             fn default() -> Self {
                 Self {
-                    #(#default_fields,)*
+                    #(#default_parameter_fields,)*
+                    #(#default_unannotated_fields,)*
                 }
             }
         }
@@ -504,25 +518,39 @@ fn required<T>(value: Option<T>, name: &str) -> Result<T> {
     value.ok_or_else(|| syn::Error::new(Span::call_site(), format!("missing parameter_group argument `{name}`")))
 }
 
-fn parse_parameter_fields(input: &mut ItemStruct) -> Result<Vec<ParameterField>> {
+struct ParsedFields {
+    parameter_fields: Vec<ParameterField>,
+    unannotated_fields: Vec<Ident>,
+}
+
+fn parse_parameter_fields(input: &mut ItemStruct) -> Result<ParsedFields> {
     let Fields::Named(fields) = &mut input.fields else {
         return Err(syn::Error::new_spanned(&input.fields, "parameter_group requires named fields"));
     };
 
-    fields
-        .named
-        .iter_mut()
-        .filter_map(|field| {
-            let parameter_args = match ParameterArgs::parse(&field.attrs) {
-                Ok(Some(args)) => args,
-                Ok(None) => return None,
-                Err(err) => return Some(Err(err)),
-            };
-            field.attrs.retain(|attr| !attr.path().is_ident("parameter"));
+    let mut parameter_fields = Vec::new();
+    let mut unannotated_fields = Vec::new();
 
-            Some(build_parameter_field(field, parameter_args))
-        })
-        .collect()
+    for field in &mut fields.named {
+        let Some(field_name) = field.ident.clone() else {
+            return Err(syn::Error::new_spanned(field, "parameter field must be named"));
+        };
+
+        let parameter_args = match ParameterArgs::parse(&field.attrs) {
+            Ok(Some(args)) => args,
+            Ok(None) => {
+                unannotated_fields.push(field_name);
+                continue;
+            }
+            Err(err) => return Err(err),
+        };
+
+        field.attrs.retain(|attr| !attr.path().is_ident("parameter"));
+
+        parameter_fields.push(build_parameter_field(field, parameter_args)?);
+    }
+
+    Ok(ParsedFields { parameter_fields, unannotated_fields })
 }
 
 fn build_parameter_field(field: &syn::Field, args: ParameterArgs) -> Result<ParameterField> {
