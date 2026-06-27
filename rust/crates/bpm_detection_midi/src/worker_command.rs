@@ -30,15 +30,5 @@ impl TryFrom<TimedEvent<MidiMessage<'_>>> for BpmWorkerCommand {
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::Duration;
-
-    use super::*;
-
-    #[test]
-    fn timing_clock_is_not_forwarded_to_bpm_worker() {
-        let event = TimedEvent { timestamp: Duration::zero(), event: MidiMessage::TimingClock };
-
-        assert!(BpmWorkerCommand::try_from(event).is_err());
-    }
-}
+#[path = "../tests/unit/worker_command.rs"]
+mod tests;
