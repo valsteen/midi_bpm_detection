@@ -10,6 +10,28 @@ use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Dura
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 
+pub struct ParameterSpec<ValueType> {
+    pub label: &'static str,
+    pub unit: Option<&'static str>,
+    pub range: RangeInclusive<f64>,
+    pub step: f64,
+    pub logarithmic: bool,
+    pub default: ValueType,
+}
+
+impl<ValueType> ParameterSpec<ValueType> {
+    pub const fn new(
+        label: &'static str,
+        unit: Option<&'static str>,
+        range: RangeInclusive<f64>,
+        step: f64,
+        logarithmic: bool,
+        default: ValueType,
+    ) -> Self {
+        Self { label, unit, range, step, logarithmic, default }
+    }
+}
+
 pub struct Parameter<Config, ValueType> {
     pub label: &'static str,
     pub unit: Option<&'static str>,

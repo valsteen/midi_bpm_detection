@@ -348,7 +348,62 @@ impl MidiBpmDetector {
 
 #[cfg(test)]
 mod tests {
+    use nih_plug::prelude::{ClapPlugin, Param, RemoteControlsContext, RemoteControlsPage, RemoteControlsSection};
+
     use super::{DeferredConfigUpdate, MidiBpmDetector, PluginTiming};
+
+    #[derive(Default)]
+    struct RemoteControlContext {
+        sections: Vec<RemoteControlSectionSnapshot>,
+    }
+
+    struct RemoteControlSection {
+        name: String,
+        pages: Vec<RemoteControlPageSnapshot>,
+    }
+
+    struct RemoteControlPage {
+        name: String,
+        params: Vec<String>,
+    }
+
+    struct RemoteControlSectionSnapshot {
+        name: String,
+        pages: Vec<RemoteControlPageSnapshot>,
+    }
+
+    struct RemoteControlPageSnapshot {
+        name: String,
+        params: Vec<String>,
+    }
+
+    impl RemoteControlsContext for RemoteControlContext {
+        type Section = RemoteControlSection;
+
+        fn add_section(&mut self, name: impl Into<String>, f: impl FnOnce(&mut Self::Section)) {
+            let mut section = RemoteControlSection { name: name.into(), pages: Vec::new() };
+            f(&mut section);
+            self.sections.push(RemoteControlSectionSnapshot { name: section.name, pages: section.pages });
+        }
+    }
+
+    impl RemoteControlsSection for RemoteControlSection {
+        type Page = RemoteControlPage;
+
+        fn add_page(&mut self, name: impl Into<String>, f: impl FnOnce(&mut Self::Page)) {
+            let mut page = RemoteControlPage { name: name.into(), params: Vec::new() };
+            f(&mut page);
+            self.pages.push(RemoteControlPageSnapshot { name: page.name, params: page.params });
+        }
+    }
+
+    impl RemoteControlsPage for RemoteControlPage {
+        fn add_param(&mut self, param: &impl Param) {
+            self.params.push(param.name().to_owned());
+        }
+
+        fn add_spacer(&mut self) {}
+    }
 
     #[test]
     fn delay_has_not_elapsed_before_target_sample() {
@@ -409,6 +464,30 @@ mod tests {
         assert_eq!(update.take(), Some(8));
         assert_eq!(update.changed_at_sample(), None);
     }
+
+    #[test]
+    fn normal_distribution_remote_controls_match_canonical_settings_order() {
+        let plugin = MidiBpmDetector::default();
+        let mut context = RemoteControlContext::default();
+
+        ClapPlugin::remote_controls(&plugin, &mut context);
+
+        let static_section = context
+            .sections
+            .iter()
+            .find(|section| section.name == "Static parameters")
+            .expect("static parameters section should exist");
+        let normal_distribution_page = static_section
+            .pages
+            .iter()
+            .find(|page| page.name == "Normal distribution")
+            .expect("normal distribution page should exist");
+
+        assert_eq!(
+            normal_distribution_page.params,
+            ["Standard deviation", "Normal distribution resolution", "Normal distribution cutoff", "factor",]
+        );
+    }
 }
 
 impl ClapPlugin for MidiBpmDetector {
@@ -430,10 +509,10 @@ impl ClapPlugin for MidiBpmDetector {
                 page.add_param(&self.params.static_params.sample_rate);
             });
             section.add_page("Normal distribution", |page| {
-                page.add_param(&self.params.static_params.normal_distribution.resolution);
-                page.add_param(&self.params.static_params.normal_distribution.factor);
-                page.add_param(&self.params.static_params.normal_distribution.cutoff);
                 page.add_param(&self.params.static_params.normal_distribution.std_dev);
+                page.add_param(&self.params.static_params.normal_distribution.resolution);
+                page.add_param(&self.params.static_params.normal_distribution.cutoff);
+                page.add_param(&self.params.static_params.normal_distribution.factor);
             });
         });
         context.add_section("Dynamic parameters", |section| {

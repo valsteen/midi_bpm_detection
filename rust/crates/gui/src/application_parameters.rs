@@ -1,5 +1,6 @@
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
+    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionComputed,
+    StaticBPMDetectionConfigAccessor,
 };
 use eframe::egui::Ui;
 
@@ -8,6 +9,7 @@ use crate::config::GUIConfigAccessor;
 pub trait BPMDetectionConfig:
     NormalDistributionConfigAccessor
     + DynamicBPMDetectionConfigAccessor
+    + StaticBPMDetectionComputed
     + StaticBPMDetectionConfigAccessor
     + GUIConfigAccessor
 {

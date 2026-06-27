@@ -105,16 +105,16 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
         self.base_config.config.static_bpm_detection_config.normal_distribution.std_dev
     }
 
-    fn factor(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.factor
+    fn resolution(&self) -> f32 {
+        self.base_config.config.static_bpm_detection_config.normal_distribution.resolution
     }
 
     fn cutoff(&self) -> f32 {
         self.base_config.config.static_bpm_detection_config.normal_distribution.cutoff
     }
 
-    fn resolution(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.resolution
+    fn factor(&self) -> f32 {
+        self.base_config.config.static_bpm_detection_config.normal_distribution.factor
     }
 
     fn set_std_dev(&mut self, val: f64) {
@@ -127,11 +127,11 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
         self.base_config.delay_static_changes();
     }
 
-    fn set_factor(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.factor = val;
+    fn set_resolution(&mut self, val: f32) {
+        self.base_config.config.static_bpm_detection_config.normal_distribution.resolution = val;
         apply_float_param(
-            &self.base_config.params.static_params.normal_distribution.factor,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.factor,
+            &self.base_config.params.static_params.normal_distribution.resolution,
+            self.base_config.config.static_bpm_detection_config.normal_distribution.resolution,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
@@ -147,11 +147,11 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
         self.base_config.delay_static_changes();
     }
 
-    fn set_resolution(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.resolution = val;
+    fn set_factor(&mut self, val: f32) {
+        self.base_config.config.static_bpm_detection_config.normal_distribution.factor = val;
         apply_float_param(
-            &self.base_config.params.static_params.normal_distribution.resolution,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.resolution,
+            &self.base_config.params.static_params.normal_distribution.factor,
+            self.base_config.config.static_bpm_detection_config.normal_distribution.factor,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
@@ -331,18 +331,6 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
 
     fn sample_rate(&self) -> u16 {
         self.base_config.config.static_bpm_detection_config.sample_rate
-    }
-
-    fn index_to_bpm(&self, index: usize) -> f32 {
-        self.base_config.config.static_bpm_detection_config.index_to_bpm(index)
-    }
-
-    fn highest_bpm(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.highest_bpm()
-    }
-
-    fn lowest_bpm(&self) -> f32 {
-        self.base_config.config.static_bpm_detection_config.lowest_bpm()
     }
 
     fn set_bpm_center(&mut self, val: f32) {

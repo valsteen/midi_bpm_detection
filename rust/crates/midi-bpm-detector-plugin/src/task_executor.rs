@@ -116,12 +116,12 @@ impl TaskExecutor {
                             config.static_bpm_detection_config.normal_distribution.std_dev = f64::from(
                                 self.params.static_params.normal_distribution.std_dev.unmodulated_plain_value(),
                             );
-                            config.static_bpm_detection_config.normal_distribution.factor =
-                                self.params.static_params.normal_distribution.factor.unmodulated_plain_value();
-                            config.static_bpm_detection_config.normal_distribution.cutoff =
-                                self.params.static_params.normal_distribution.cutoff.unmodulated_plain_value();
                             config.static_bpm_detection_config.normal_distribution.resolution =
                                 self.params.static_params.normal_distribution.resolution.unmodulated_plain_value();
+                            config.static_bpm_detection_config.normal_distribution.cutoff =
+                                self.params.static_params.normal_distribution.cutoff.unmodulated_plain_value();
+                            config.static_bpm_detection_config.normal_distribution.factor =
+                                self.params.static_params.normal_distribution.factor.unmodulated_plain_value();
 
                             config.static_bpm_detection_config.clone()
                         };

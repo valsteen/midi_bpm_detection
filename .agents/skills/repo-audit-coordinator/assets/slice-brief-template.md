@@ -6,6 +6,8 @@
 
 ### Durable context to read first
 
+### Local coordination state
+
 ### Likely files / areas
 
 ### Relevant boundaries / integration points

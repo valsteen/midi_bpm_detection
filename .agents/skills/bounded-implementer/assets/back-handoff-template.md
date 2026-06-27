@@ -4,6 +4,8 @@
 
 ### Branch / commit
 
+### Local coordination state
+
 ### Files changed
 
 ### Summary
