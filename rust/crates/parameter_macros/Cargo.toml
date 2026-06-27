@@ -1,0 +1,18 @@
+[package]
+name = "parameter_macros"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.106"
+quote = "1.0.46"
+syn = { version = "2.0.118", features = ["full"] }
+
+[dev-dependencies]
+parameter = { path = "../parameter" }
+
+[lints]
+workspace = true

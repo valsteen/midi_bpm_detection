@@ -448,6 +448,7 @@ dependencies = [
  "derivative",
  "itertools",
  "parameter",
+ "parameter_macros",
  "serde",
  "statrs",
 ]
@@ -3592,6 +3593,16 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "parameter_macros"
+version = "0.1.0"
+dependencies = [
+ "parameter",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]
