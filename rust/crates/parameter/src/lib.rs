@@ -18,7 +18,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, s
 /// generated `get`/`set` accessors.
 ///
 /// Keep this shape coordinated with `parameter_macros`: changing these fields
-/// or constructor semantics changes the generated parameter contract.
+/// changes the generated parameter contract.
 pub struct ParameterSpec<ValueType> {
     pub label: &'static str,
     pub unit: Option<&'static str>,
@@ -26,19 +26,6 @@ pub struct ParameterSpec<ValueType> {
     pub step: f64,
     pub logarithmic: bool,
     pub default: ValueType,
-}
-
-impl<ValueType> ParameterSpec<ValueType> {
-    pub const fn new(
-        label: &'static str,
-        unit: Option<&'static str>,
-        range: RangeInclusive<f64>,
-        step: f64,
-        logarithmic: bool,
-        default: ValueType,
-    ) -> Self {
-        Self { label, unit, range, step, logarithmic, default }
-    }
 }
 
 pub struct Parameter<Config, ValueType> {

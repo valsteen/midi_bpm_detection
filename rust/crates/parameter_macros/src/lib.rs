@@ -404,14 +404,14 @@ fn expand_parameter_specs_impl(
         let logarithmic = &field.logarithmic;
         let default = &field.default;
         quote! {
-            pub const #const_name: #parameter_crate::ParameterSpec<#ty> = #parameter_crate::ParameterSpec::new(
-                #label,
-                #unit,
-                #range,
-                #step,
-                #logarithmic,
-                #default,
-            );
+            pub const #const_name: #parameter_crate::ParameterSpec<#ty> = #parameter_crate::ParameterSpec {
+                label: #label,
+                unit: #unit,
+                range: #range,
+                step: #step,
+                logarithmic: #logarithmic,
+                default: #default,
+            };
         }
     });
     let methods = fields.iter().map(|field| {

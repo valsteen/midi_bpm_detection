@@ -93,6 +93,26 @@ pub struct ExampleConfig {
     );
 }
 
+#[test]
+fn parameter_spec_constructor_is_not_public_api() {
+    assert_compile_error(
+        "parameter_spec_constructor",
+        r#"
+use parameter::ParameterSpec;
+
+pub const SPEC: ParameterSpec<f32> = ParameterSpec::new(
+    "Example",
+    None,
+    0.0..=1.0,
+    0.0,
+    false,
+    0.5,
+);
+"#,
+        &["no associated function or constant named `new` found for struct `ParameterSpec"],
+    );
+}
+
 fn assert_compile_error(case_name: &str, source: &str, expected_stderr: &[&str]) {
     let fixture_dir = diagnostics_root().join(case_name);
     let src_dir = fixture_dir.join("src");
