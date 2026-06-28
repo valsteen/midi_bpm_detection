@@ -307,14 +307,12 @@ impl MidiBpmDetectorParams {
 
         Self {
             editor_state: EguiState::from_size(1200, 600),
-            send_tempo: BoolParam::new("Send tempo", config.send_tempo.load(Ordering::Relaxed)).with_callback(
-                Arc::new({
-                    let send_tempo = config.send_tempo.clone();
-                    move |value| {
-                        send_tempo.store(value, Ordering::Relaxed);
-                    }
-                }),
-            ),
+            send_tempo: BoolParam::new("Send tempo", config.send_tempo.enabled()).with_callback(Arc::new({
+                let send_tempo = config.send_tempo.clone();
+                move |value| {
+                    send_tempo.set_from_host(value);
+                }
+            })),
             gui_params: PluginGUIParams {
                 interpolation_duration: to_plugin_duration_param(
                     &gui_parameters.interpolation_duration(),

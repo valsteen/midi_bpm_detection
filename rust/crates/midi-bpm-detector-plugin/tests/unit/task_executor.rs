@@ -55,7 +55,7 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
         gui_config: host_gui_config.clone(),
         ..PluginConfig::default()
     };
-    host_config.send_tempo.store(false, Ordering::Relaxed);
+    host_config.send_tempo.set_from_host(false);
 
     let shared_gui_config =
         gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
@@ -68,7 +68,7 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
         gui_config: shared_gui_config.clone(),
         ..PluginConfig::default()
     }));
-    shared_config.read().send_tempo.store(true, Ordering::Relaxed);
+    shared_config.read().send_tempo.set_from_host(true);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
@@ -117,7 +117,7 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
     let config = shared_config.read();
     assert_gui_config_eq(&config.gui_config, &shared_gui_config);
     assert_eq!(config.dynamic_bpm_detection_config, host_dynamic_config);
-    assert!(config.send_tempo.load(Ordering::Relaxed));
+    assert!(config.send_tempo.enabled());
     assert_eq!(executor.dynamic_bpm_detection_config, host_dynamic_config);
     assert!(gui_must_update_config.load(Ordering::Relaxed));
 
@@ -143,7 +143,7 @@ fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
         gui_config: shared_gui_config,
         ..PluginConfig::default()
     }));
-    shared_config.read().send_tempo.store(true, Ordering::Relaxed);
+    shared_config.read().send_tempo.set_from_host(true);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();

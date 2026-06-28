@@ -16,7 +16,11 @@ use nih_plug::params::Param;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
-use crate::{MidiBpmDetectorParams, parameter_sync::ParameterSyncOrigin, plugin_config::PluginConfig};
+use crate::{
+    MidiBpmDetectorParams,
+    parameter_sync::ParameterSyncOrigin,
+    plugin_config::{PluginConfig, SendTempoOutputState},
+};
 
 const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);
@@ -48,7 +52,7 @@ pub struct TaskExecutor {
     pub gui_must_update_config: ArcAtomicBool,
     pub daw_port: ArcAtomicOptionNonZeroU16,
     pub daw_connection: Option<TcpStream>,
-    pub send_tempo: ArcAtomicBool,
+    pub send_tempo: SendTempoOutputState,
 }
 
 impl TaskExecutor {
@@ -80,7 +84,7 @@ impl TaskExecutor {
                     let bpm_detection_result = self.bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config);
 
                     if let (Some((_, bpm)), true, Some(daw_connection)) =
-                        (bpm_detection_result, self.send_tempo.load(Ordering::Relaxed), &mut self.daw_connection)
+                        (bpm_detection_result, self.send_tempo.enabled(), &mut self.daw_connection)
                         && write_bpm_to_tempo_controller(daw_connection, bpm).is_err()
                     {
                         self.daw_connection = None;
