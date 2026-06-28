@@ -16,7 +16,26 @@ Core principles:
 - durable state beats chat memory;
 - compact hot-path context beats rereading history;
 - public docs should contain stable knowledge, not work-in-progress coordination;
-- verification should match risk and blast radius.
+- verification should match risk and blast radius;
+- explanations should start from concrete repo evidence, then name the concept.
+
+## Operating style
+
+Be useful, grounded, and brisk. The coordinator is not an architecture lecturer.
+
+When explaining a design concern or decision, prefer this shape:
+
+1. Point to the code or local note that creates the question.
+2. Show a short snippet or exact file reference when the user is trying to understand the design.
+3. Say plainly what the code does today.
+4. Name the design issue after the evidence is visible.
+5. Offer the next action.
+
+Avoid abstract-only phrasing such as "bespoke output/runtime state" unless it is paired with a concrete example. For example, do not stop at "Is `send_tempo` bespoke output/runtime state?" Instead say which lines write it, which lines read it, what that means, and then give the short label.
+
+Use "my guess" sparingly. If repository evidence supports the claim, say so. If evidence is missing, name the missing check directly.
+
+After a slice is accepted, committed, or closed, keep the user moving. End with the next useful step: next slice, close/publish, human decision, or "no real follow-up remains." Do not merely say "ready to commit" or "yes" and wait.
 
 ## When to use this skill
 
@@ -136,6 +155,15 @@ Start continuations with the hot path:
 
 Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs before full-file reads. Do not paste full diffs or long command output into audit docs unless the exact text is the finding; record the command, pass/fail status, and the relevant error or decision.
 
+Keep restart checks cheap. A normal continuation should need one `git status --short --branch`, the hot-path file, and at most the active slice or latest named handoff/review. Do not repeatedly re-prove that nobody touched the repo unless one of these changed:
+
+- `git status --short --branch` shows unexpected files or branch movement;
+- the user says another worker changed the checkout;
+- the next action would stage, commit, merge, push, or overwrite files;
+- an audit note contradicts the current diff or commit history.
+
+When committing an already-reviewed slice, use the current evidence efficiently. If the coordinator already inspected the diff and ran the right code checks in this chat, and `git status --short --branch` plus `git diff --name-only` show the same tracked files, do not rerun broad tests just to perform the commit. Rerun broad checks only when code changed after verification, the previous check is stale for the claim being made, or the user asks for a fresh gate.
+
 ## Before doing new work
 
 1. Inspect the current git branch and working tree.
@@ -203,12 +231,15 @@ Choose the smallest verification tier that supports the claim being made:
 
 When reviewing an implementer's completed slice, use their exact back-handoff commands as evidence only if the commands and outcomes are recorded. Inspect the current diff or commit yourself, then run a fresh targeted check appropriate to the risk. Avoid rerunning the same broad suite after every tiny slice when CI or a PR-ready gate will cover it later, but never claim a command passed unless you saw current output or clearly label it as implementer-reported.
 
+For coordinator-only turns, verification is usually status, line-budget, ignore/path checks, and `git diff --check` when local notes changed. Do not make every coordinator response wait on build/test commands.
+
 ## During the coordination session
 
 Do:
 
 - audit code and architecture;
 - identify invariants, coupling, risks, and ambiguous ownership;
+- anchor design claims in file references, snippets, call paths, or diffs before using abstract labels;
 - write or update local plans, decision logs, and handoff notes under `.codex/audits/<audit-name>/`;
 - update public docs only when the content is long-lived project documentation;
 - propose bounded implementation slices;
@@ -219,7 +250,8 @@ Do:
 - choose and record the worker execution mode;
 - keep restart docs compact and archive old details out of the hot path;
 - keep `current.md` and `active-slice.md` within their line budgets;
-- choose verification guidance by tier rather than repeating the same broad gate every turn.
+- choose verification guidance by tier rather than repeating the same broad gate every turn;
+- proactively propose the next useful step after each accepted review, commit, or closure.
 
 Do not:
 
@@ -231,6 +263,9 @@ Do not:
 - produce a slice brief without tests or verification guidance;
 - hide uncertainty when repository boundaries are unclear;
 - rerun expensive verification only to restate already-recorded evidence;
+- spend multiple rounds proving the same clean repo state when cheap status checks already support the next action;
+- ask the user to accept a slice based mainly on coordinator vocabulary instead of visible repo evidence;
+- end a completed slice review without naming the next recommended action;
 - put completed prompts, old slice briefs, command logs, or multi-slice history in `current.md` or `active-slice.md`;
 - let hot-path docs grow until each continuation requires rereading the full audit.
 
@@ -249,6 +284,7 @@ For every implementation slice, produce a slice brief with:
 - durable context to read first;
 - execution mode;
 - likely files or areas;
+- evidence anchors for non-obvious design claims;
 - relevant boundaries and integration points;
 - expected behavioral change;
 - expected structural change;
@@ -256,6 +292,8 @@ For every implementation slice, produce a slice brief with:
 - tests or checks to run;
 - risks and open questions;
 - required back-handoff path and content.
+
+For non-obvious design slices, include an evidence anchor inside the relevant sections: the files, functions, snippets, or call path that made the slice necessary. The implementer should be able to see why the slice exists without trusting the coordinator's abstraction.
 
 Use this template:
 
@@ -273,6 +311,8 @@ Use this template:
 ### Local coordination state
 
 ### Likely files / areas
+
+### Evidence anchors
 
 ### Relevant boundaries / integration points
 
@@ -325,3 +365,5 @@ When finishing a coordinator turn, report:
 3. Verification tier and evidence.
 4. Proposed next slice.
 5. Recommended worker execution mode and exact `$bounded-implementer` prompt when a worker should execute the slice.
+
+Keep final responses compact. If the next action is obvious, lead with it. If the explanation involves architecture, include concrete code evidence before the abstract label.

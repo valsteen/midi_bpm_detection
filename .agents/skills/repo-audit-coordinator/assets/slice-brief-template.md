@@ -16,6 +16,10 @@
 
 ### Likely files / areas
 
+### Evidence anchors
+
+Name the concrete files, functions, snippets, call path, or diff evidence that makes this slice necessary.
+
 ### Relevant boundaries / integration points
 
 ### Expected behavioral change

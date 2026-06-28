@@ -16,6 +16,10 @@ Use one of: complete / partial / blocked / needs-human-decision.
 
 ### Structural changes
 
+### Code anchors
+
+Use short file/function references, or snippets only when a reference alone would not explain a non-obvious change.
+
 ### Affected boundaries / integration points
 
 ### Tests / checks

@@ -52,6 +52,21 @@ Keep edits scoped to the slice.
 
 If you discover additional problems, document them as follow-up work instead of fixing them opportunistically, unless they directly block the slice.
 
+## Operating style
+
+Be concise and concrete. The implementer is a focused worker, not a second coordinator.
+
+Do the required status and boundary checks once at the start, then move into the slice. Do not repeatedly re-check the same clean state unless files changed, another worker touched the checkout, or the next action would stage, commit, merge, push, or overwrite files.
+
+When a change is non-obvious, explain it from the code outward:
+
+1. Show the relevant function, field, call path, or short snippet.
+2. Say what was awkward or wrong before.
+3. Say what changed.
+4. Say what behavior is preserved or intentionally changed.
+
+Avoid abstract labels without evidence. The back-handoff should let the coordinator and user understand why a change exists without replaying the whole worker transcript.
+
 ## Human steering and worker mode
 
 Use the execution mode from the slice brief:
@@ -78,6 +93,8 @@ Do not treat routine code navigation, compiler errors, formatting, or narrow tes
    - execution mode;
    - acceptance criteria;
    - tests/checks to run.
+
+Keep this restatement short. It is a launch checklist, not a design essay.
 
 If the brief is ambiguous, make the smallest reasonable interpretation that preserves the stated non-goals. Do not expand the scope.
 
@@ -124,6 +141,8 @@ Before finishing:
 4. Confirm whether the acceptance criteria were met.
 5. Update the named `back-handoffs/YYYY-MM-DD-<slice-name>.md` file with a back-handoff.
 
+Do not rerun broad checks only to make the final message look more cautious. Rerun a check when the brief requires it, code changed since the last run, the failure mode is plausible for the edit, or the coordinator will need fresh evidence to accept the slice.
+
 If the brief names a different back-handoff file, update that file instead.
 
 Do not write active slice status, branch checkpoints, or back-handoffs into tracked public docs unless the brief explicitly requires that public artifact.
@@ -139,6 +158,7 @@ The back-handoff must include:
 - summary;
 - behavioral changes;
 - structural changes;
+- concrete code anchors for non-obvious structural or behavioral changes;
 - affected boundaries or integration points;
 - tests/checks run and results;
 - decisions made during implementation;
@@ -165,6 +185,10 @@ Use this template:
 
 ### Structural changes
 
+### Code anchors
+
+Include short file/function references for non-obvious changes. Use snippets only when a reference alone would not explain the decision.
+
 ### Affected boundaries / integration points
 
 ### Tests / checks
@@ -178,6 +202,8 @@ Use this template:
 ### Recommended next slice
 ```
 
+Always fill `Recommended next slice`. Use "none; coordinator should close or publish" when no follow-up is known. Do not invent extra work to avoid saying none.
+
 ## Final response format
 
 When finishing an implementation turn, report:
@@ -188,3 +214,5 @@ When finishing an implementation turn, report:
 4. Whether the acceptance criteria were met.
 5. Location of the updated back-handoff.
 6. Anything the audit coordinator should inspect next.
+
+If the slice is complete, make the next coordinator action explicit: accept and commit, request a human decision, queue a named follow-up, or close/publish.
