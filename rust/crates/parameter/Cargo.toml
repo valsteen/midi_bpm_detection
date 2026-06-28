@@ -7,6 +7,15 @@ edition = "2024"
 
 serde = { version = "1.0.228", features = ["derive"] }
 num-traits = "0.2.19"
+parameter_macros = { package = "parameter-macros", path = "macros" }
+
+[[test]]
+name = "diagnostics"
+path = "tests/integration/diagnostics.rs"
+
+[[test]]
+name = "parameter_group"
+path = "tests/integration/parameter_group.rs"
 
 [lints]
 workspace = true

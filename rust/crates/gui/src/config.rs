@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use parameter_macros::parameter_group;
+use parameter::parameter_group;
 use serde::{Deserialize, Serialize};
 
 #[parameter_group]
