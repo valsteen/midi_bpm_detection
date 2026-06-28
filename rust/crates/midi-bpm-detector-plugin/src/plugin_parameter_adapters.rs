@@ -185,18 +185,22 @@ macro_rules! impl_to_param_for_float {
             type Type = $float_type;
 
             fn to_param(&self, val: $float_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
-                let range = if self.logarithmic {
-                    FloatRange::Skewed { min: *self.range.start() as f32, max: *self.range.end() as f32, factor: 0.3 }
+                let range = if self.spec.logarithmic {
+                    FloatRange::Skewed {
+                        min: *self.spec.range.start() as f32,
+                        max: *self.spec.range.end() as f32,
+                        factor: 0.3,
+                    }
                 } else {
-                    FloatRange::Linear { min: *self.range.start() as f32, max: *self.range.end() as f32 }
+                    FloatRange::Linear { min: *self.spec.range.start() as f32, max: *self.spec.range.end() as f32 }
                 };
 
-                let mut param = FloatParam::new(self.label, val as f32, range).with_callback(callback.clone());
-                if let Some(unit) = self.unit {
+                let mut param = FloatParam::new(self.spec.label, val as f32, range).with_callback(callback.clone());
+                if let Some(unit) = self.spec.unit {
                     param = param.with_unit(unit);
                 }
-                if self.step > 0.0 {
-                    param = param.with_step_size(self.step as f32)
+                if self.spec.step > 0.0 {
+                    param = param.with_step_size(self.spec.step as f32)
                 }
                 param = param.with_value_to_string(Arc::new(|value| format!("{:.2}", value)));
                 param
@@ -214,12 +218,12 @@ macro_rules! impl_to_param_for_integer {
 
             fn to_param(&self, val: $int_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
                 let mut param = IntParam::new(
-                    self.label,
+                    self.spec.label,
                     i32::from(val),
-                    IntRange::Linear { min: *self.range.start() as i32, max: *self.range.end() as i32 },
+                    IntRange::Linear { min: *self.spec.range.start() as i32, max: *self.spec.range.end() as i32 },
                 )
                 .with_callback(callback.clone());
-                if let Some(unit) = self.unit {
+                if let Some(unit) = self.spec.unit {
                     param = param.with_unit(unit);
                 }
                 param
@@ -233,19 +237,19 @@ fn build_float_param<Config, ValueType>(
     val: f32,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> FloatParam {
-    let range = if param.logarithmic {
-        FloatRange::Skewed { min: *param.range.start() as f32, max: *param.range.end() as f32, factor: 0.3 }
+    let range = if param.spec.logarithmic {
+        FloatRange::Skewed { min: *param.spec.range.start() as f32, max: *param.spec.range.end() as f32, factor: 0.3 }
     } else {
-        FloatRange::Linear { min: *param.range.start() as f32, max: *param.range.end() as f32 }
+        FloatRange::Linear { min: *param.spec.range.start() as f32, max: *param.spec.range.end() as f32 }
     };
 
-    let mut float_param = FloatParam::new(param.label, val, range).with_callback(callback.clone());
+    let mut float_param = FloatParam::new(param.spec.label, val, range).with_callback(callback.clone());
 
-    if let Some(unit) = param.unit {
+    if let Some(unit) = param.spec.unit {
         float_param = float_param.with_unit(unit);
     }
-    if param.step > 0.0 {
-        float_param = float_param.with_step_size(param.step as f32);
+    if param.spec.step > 0.0 {
+        float_param = float_param.with_step_size(param.spec.step as f32);
     }
 
     float_param.with_value_to_string(Arc::new(|value| format!("{value:.2}")))
@@ -283,16 +287,20 @@ pub(crate) fn u16_range_to_logarithmic_param<Config>(
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> FloatParam {
     let mut param = FloatParam::new(
-        parameter.label,
+        parameter.spec.label,
         f32::from(val),
-        FloatRange::Skewed { min: *parameter.range.start() as f32, max: *parameter.range.end() as f32, factor: 0.3 },
+        FloatRange::Skewed {
+            min: *parameter.spec.range.start() as f32,
+            max: *parameter.spec.range.end() as f32,
+            factor: 0.3,
+        },
     )
     .with_callback(callback.clone());
-    if let Some(unit) = parameter.unit {
+    if let Some(unit) = parameter.spec.unit {
         param = param.with_unit(unit);
     }
-    param = param.with_step_size(parameter.step.max(1.0) as f32);
-    if let Some(unit) = parameter.unit {
+    param = param.with_step_size(parameter.spec.step.max(1.0) as f32);
+    if let Some(unit) = parameter.spec.unit {
         param = param.with_unit(unit);
     }
     param

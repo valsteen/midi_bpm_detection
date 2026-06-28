@@ -6,47 +6,47 @@ struct DynamicParameterLabels(Vec<&'static str>);
 
 impl DynamicBPMDetectionParameterVisitor<DynamicBPMDetectionConfig> for DynamicParameterLabels {
     fn beats_lookback(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, u8>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn normal_distribution_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn time_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn velocity_current_note_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn velocity_note_from_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn in_beat_range_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn multiplier_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn subdivision_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn octave_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn pitch_distance_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn high_tempo_bias_weight(&mut self, parameter: Parameter<DynamicBPMDetectionConfig, OnOff<f32>>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 
@@ -54,19 +54,19 @@ struct NormalDistributionParameterLabels(Vec<&'static str>);
 
 impl NormalDistributionParameterVisitor<NormalDistributionConfig> for NormalDistributionParameterLabels {
     fn std_dev(&mut self, parameter: Parameter<NormalDistributionConfig, f64>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn cutoff(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn factor(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 
@@ -94,15 +94,15 @@ struct StaticParameterLabels(Vec<&'static str>);
 
 impl StaticBPMDetectionParameterVisitor<StaticBPMDetectionConfig> for StaticParameterLabels {
     fn bpm_center(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn bpm_range(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn sample_rate(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 

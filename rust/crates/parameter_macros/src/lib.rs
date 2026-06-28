@@ -264,6 +264,7 @@ fn expand_parameter_group(
     let parameters_impl = expand_parameters_impl(
         &group.accessor,
         &group.parameters,
+        &group.parameter_specs,
         &group.visitor,
         &group.parameter_crate,
         &fields.parameter_fields,
@@ -524,6 +525,7 @@ fn expand_visitor_trait(
 fn expand_parameters_impl(
     accessor: &Ident,
     parameters: &Ident,
+    parameter_specs: &Ident,
     visitor: &Ident,
     parameter_crate: &Path,
     fields: &[ParameterField],
@@ -531,22 +533,11 @@ fn expand_parameters_impl(
     let consts = fields.iter().map(|field| {
         let const_name = &field.const_name;
         let ty = &field.ty;
-        let label = &field.label;
-        let unit = expand_unit(field);
-        let range = &field.range;
-        let step = &field.step;
-        let logarithmic = &field.logarithmic;
-        let default = &field.default;
         let getter = &field.accessor;
         let setter = &field.setter;
         quote! {
             pub const #const_name: #parameter_crate::Parameter<Config, #ty> = #parameter_crate::Parameter::new(
-                #label,
-                #unit,
-                #range,
-                #step,
-                #logarithmic,
-                #default,
+                #parameter_specs::#const_name,
                 Config::#getter,
                 Config::#setter,
             );
