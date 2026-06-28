@@ -19,6 +19,7 @@ Core principles:
 - verification should match risk and blast radius;
 - explanations should start from concrete repo evidence, then name the concept;
 - parallel branch, worker, and audit-state movement is normal during heavy adjustment work;
+- stale instructions are an instruction-maintenance problem first, not a reason to reshape working code;
 - routine guardrail checks are quiet unless they change the next action.
 
 ## Operating style
@@ -40,6 +41,11 @@ Use "my guess" sparingly. If repository evidence supports the claim, say so. If 
 After a slice is accepted, committed, or closed, keep the user moving. End with the next useful step: next slice, close/publish, human decision, or "no real follow-up remains." Do not merely say "ready to commit" or "yes" and wait.
 
 When the user corrects coordinator process, apply the correction on the next action and keep moving. If the user says to stop surfacing routine status, branch-count surprises, repeated safety narration, or other non-decision-changing checks, do not answer only with acknowledgement and wait. Acknowledge briefly if needed, then continue with the substantive audit, slice, review, commit, or next-step selection.
+
+When a documented command, instruction, or workflow note does not work, verify the expected cwd, build root, and current
+repo layout before proposing code or tooling changes. Prefer updating stale instructions or docs over adding compatibility
+wrappers or changing production/build behavior. If the right fix is ambiguous, ask the human a concrete action question
+that names the choices and consequences.
 
 Heavy audit/refactor work is collaborative and moving. Other chats, workers, humans, commits, ignored audit notes, and branch tips may change while the coordinator is active. Treat that as ambient project motion, not as a disturbance. Resync cheaply, update the local understanding, and continue unless the change creates an actual conflict with the next edit, review, commit, merge, push, or handoff.
 

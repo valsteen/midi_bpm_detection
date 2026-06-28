@@ -34,7 +34,7 @@ auto-download is enabled, so Gradle can provision JDK 17 when needed. Check what
 
 ## One Command Surface
 
-Use the helper script when you do not remember the exact Cargo invocation:
+From the `rust/` build root, use the helper script when you do not remember the exact Cargo invocation:
 
 ```shell
 scripts/dev.sh help

@@ -18,6 +18,9 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 ## Rust And Tooling
 
 - Run Cargo commands from this `rust/` directory unless a task explicitly targets the repository root.
+- The Rust helper script is `rust/scripts/dev.sh`; repository docs that say `scripts/dev.sh ...` assume the command is
+  being run from `rust/`. If that command appears missing from the repository root, use the documented `cd rust` context
+  rather than adding a root wrapper.
 - `rustfmt` is intentionally run with nightly.
 - Keep `clippy::pedantic` enabled at workspace level.
 - Do not blindly trust idioms that are common in training data, examples, or generic Rust advice. Check whether the
