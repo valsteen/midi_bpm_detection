@@ -63,6 +63,7 @@ pub struct MidiBpmDetector {
     task_executor_handoff: Option<task_executor::TaskExecutor>,
     gui_editor_handoff: Option<GuiEditor>,
     static_bpm_detection_config_changed_at: DeferredConfigUpdate,
+    gui_config_changed_at: DeferredConfigUpdate,
     dynamic_bpm_detection_config_changed_at: DeferredConfigUpdate,
 }
 
@@ -138,11 +139,13 @@ impl Default for MidiBpmDetector {
         let bpm_detection = BPMDetection::new(config.static_bpm_detection_config.clone());
 
         let static_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
+        let gui_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
         let dynamic_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
 
         let params = Arc::new(MidiBpmDetectorParams::new(
             &mut config,
             &static_bpm_detection_config_changed_at,
+            &gui_config_changed_at,
             &dynamic_bpm_detection_config_changed_at,
             &current_sample,
             &daw_port,
@@ -186,6 +189,7 @@ impl Default for MidiBpmDetector {
             task_executor_handoff: Some(task_executor),
             gui_editor_handoff: Some(gui_editor),
             static_bpm_detection_config_changed_at,
+            gui_config_changed_at,
             dynamic_bpm_detection_config_changed_at,
         }
     }
@@ -273,6 +277,9 @@ impl Plugin for MidiBpmDetector {
         let delay_by = duration_to_sample(sample_rate, HOST_PARAMETER_SYNC_COALESCING_WINDOW);
         Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
             context.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host));
+        });
+        Self::execute_at_delay(current_sample, delay_by, &self.gui_config_changed_at, || {
+            context.execute_background(Task::GUIConfig(ParameterSyncOrigin::Host));
         });
         Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
             context.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));

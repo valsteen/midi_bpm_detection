@@ -121,6 +121,17 @@ impl PluginDynamicParams {
     }
 }
 
+impl PluginGUIParams {
+    pub(crate) fn read_gui_config(&self) -> GUIConfig {
+        GUIConfig {
+            interpolation_duration: std::time::Duration::from_secs_f32(
+                self.interpolation_duration.unmodulated_plain_value(),
+            ),
+            interpolation_curve: self.interpolation_curve.unmodulated_plain_value(),
+        }
+    }
+}
+
 struct DynamicRemoteControlParams<'params, 'page, Page> {
     params: &'params PluginDynamicParams,
     page: &'page mut Page,
@@ -273,16 +284,19 @@ impl MidiBpmDetectorParams {
     pub fn new(
         config: &mut PluginConfig,
         static_bpm_detection_config_changed_at: &DeferredConfigUpdate,
+        gui_config_changed_at: &DeferredConfigUpdate,
         dynamic_bpm_detection_config_changed_at: &DeferredConfigUpdate,
         current_sample: &Arc<AtomicUsize>,
         daw_port: &ArcAtomicOptionNonZeroU16,
     ) -> Self {
         let static_updater_factory =
             UpdaterFactory::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
+        let gui_updater_factory = UpdaterFactory::new(current_sample.clone(), gui_config_changed_at.clone());
         let dynamic_updater_factory =
             UpdaterFactory::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
         let update_static_changed_at_f32 = static_updater_factory.update_changed_at();
         let update_static_changed_at_u16 = static_updater_factory.update_changed_at();
+        let update_gui_changed_at_f32 = gui_updater_factory.update_changed_at();
         let update_dynamic_changed_at_f32 = dynamic_updater_factory.update_changed_at();
         let update_dynamic_changed_at_u8 = dynamic_updater_factory.update_changed_at();
         let dynamic_config = &config.dynamic_bpm_detection_config;
@@ -305,12 +319,12 @@ impl MidiBpmDetectorParams {
                 interpolation_duration: to_plugin_duration_param(
                     &gui_parameters.interpolation_duration(),
                     &config.gui_config,
-                    &update_dynamic_changed_at_f32,
+                    &update_gui_changed_at_f32,
                 ),
                 interpolation_curve: to_plugin_float_param(
                     &gui_parameters.interpolation_curve(),
                     &config.gui_config,
-                    &update_dynamic_changed_at_f32,
+                    &update_gui_changed_at_f32,
                 ),
             },
             static_params: PluginStaticParams {
