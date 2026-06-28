@@ -12,7 +12,6 @@ use bpm_detection_core::{
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
-use nih_plug::params::Param;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
@@ -106,23 +105,7 @@ impl TaskExecutor {
                     ParameterSyncOrigin::Host => {
                         let config = {
                             let mut config = self.config.write();
-                            config.static_bpm_detection_config.bpm_center =
-                                self.params.static_params.bpm_center.unmodulated_plain_value();
-                            config.static_bpm_detection_config.bpm_range =
-                                self.params.static_params.bpm_range.unmodulated_plain_value() as u16;
-                            config.static_bpm_detection_config.sample_rate =
-                                self.params.static_params.sample_rate.unmodulated_plain_value() as u16;
-
-                            config.static_bpm_detection_config.normal_distribution.std_dev = f64::from(
-                                self.params.static_params.normal_distribution.std_dev.unmodulated_plain_value(),
-                            );
-                            config.static_bpm_detection_config.normal_distribution.resolution =
-                                self.params.static_params.normal_distribution.resolution.unmodulated_plain_value();
-                            config.static_bpm_detection_config.normal_distribution.cutoff =
-                                self.params.static_params.normal_distribution.cutoff.unmodulated_plain_value();
-                            config.static_bpm_detection_config.normal_distribution.factor =
-                                self.params.static_params.normal_distribution.factor.unmodulated_plain_value();
-
+                            config.static_bpm_detection_config = self.params.static_params.read_static_config();
                             config.static_bpm_detection_config.clone()
                         };
                         self.gui_must_update_config.store(true, Ordering::Relaxed);
