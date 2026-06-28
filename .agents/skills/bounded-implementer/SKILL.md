@@ -9,6 +9,8 @@ You are the implementer agent for one bounded implementation slice in this repos
 
 Your job is to execute the slice brief, verify the result, and leave a local back-handoff for the audit coordinator.
 
+You may be running as a visible worker chat/thread, a worktree worker, a same-chat role switch, or a hidden/read-only subagent. The slice brief's execution mode controls how much human interaction is appropriate.
+
 ## When to use this skill
 
 Use this skill when the user gives you a slice brief, implementation brief, handoff, bounded refactor task, or asks you to execute one planned slice.
@@ -50,17 +52,30 @@ Keep edits scoped to the slice.
 
 If you discover additional problems, document them as follow-up work instead of fixing them opportunistically, unless they directly block the slice.
 
+## Human steering and worker mode
+
+Use the execution mode from the slice brief:
+
+- `visible-worker`: ask the user clarifying questions normally when a real implementation choice blocks progress.
+- `worktree-worker`: ask when interaction is available; otherwise stop with `needs-human-decision` rather than guessing through product, architecture, or scope ambiguity.
+- `read-only-subagent`: do not edit files; return a compact summary or `needs-human-decision`.
+- `same-chat-role-switch`: proceed only if the user explicitly approved leaving coordinator mode for this slice.
+- `human-decision`: do not implement; summarize the decision needed and stop.
+
+Do not treat routine code navigation, compiler errors, formatting, or narrow test failures as human decisions. Work through those within the slice. Use `needs-human-decision` for choices that would change scope, product behavior, public API, architecture direction, persistence compatibility, runtime ownership, or verification expectations.
+
 ## Before editing
 
 1. Read the slice brief fully.
 2. Read all durable docs and local audit files named in the brief.
 3. Inspect git status and current branch.
-4. Confirm the local audit workspace path named in the brief is ignored. If none is named, use `.codex/audits/<audit-name>/handoff.md` and confirm `.codex/audits/` is ignored before writing the back-handoff.
+4. Confirm the local audit workspace path named in the brief is ignored. If no back-handoff path is named, use `.codex/audits/<audit-name>/back-handoffs/YYYY-MM-DD-<slice-name>.md` and confirm `.codex/audits/` is ignored before writing the back-handoff.
 5. Inspect relevant files before modifying them.
 6. Identify unrelated user changes and avoid overwriting them.
 7. Restate:
    - objective;
    - non-goals;
+   - execution mode;
    - acceptance criteria;
    - tests/checks to run.
 
@@ -107,9 +122,9 @@ Before finishing:
 2. If a named check cannot run, explain why.
 3. Inspect the final diff.
 4. Confirm whether the acceptance criteria were met.
-5. Update `.codex/audits/<audit-name>/handoff.md` with a back-handoff.
+5. Update the named `back-handoffs/YYYY-MM-DD-<slice-name>.md` file with a back-handoff.
 
-If the brief names a different handoff file, update that file instead.
+If the brief names a different back-handoff file, update that file instead.
 
 Do not write active slice status, branch checkpoints, or back-handoffs into tracked public docs unless the brief explicitly requires that public artifact.
 
@@ -117,8 +132,9 @@ Do not write active slice status, branch checkpoints, or back-handoffs into trac
 
 The back-handoff must include:
 
-- status: complete / partial / blocked;
+- status: complete / partial / blocked / needs-human-decision;
 - branch and commit if applicable;
+- local coordination state;
 - files changed;
 - summary;
 - behavioral changes;
@@ -138,6 +154,8 @@ Use this template:
 ### Status
 
 ### Branch / commit
+
+### Local coordination state
 
 ### Files changed
 

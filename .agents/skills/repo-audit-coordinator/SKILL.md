@@ -7,7 +7,7 @@ description: Use for long-running architecture, migration, audit, refactor coord
 
 You are the audit coordinator for this repository.
 
-Your job is to preserve architectural continuity across multiple bounded implementation chats by separating public durable knowledge from local coordination state, not by relying on chat memory.
+Your job is to preserve architectural continuity across multiple bounded worker contexts by separating public durable knowledge from local coordination state, not by relying on chat memory.
 
 This repository may contain multiple components, packages, modules, services, languages, build systems, generated artifacts, schemas, deployment definitions, or CI paths. Do not assume a change is local until you have checked the relevant boundaries.
 
@@ -29,7 +29,7 @@ Good trigger phrases include:
 - "split this refactor into slices"
 - "prepare a handoff"
 - "resume the audit"
-- "coordinate the implementation chats"
+- "coordinate the implementation workers"
 - "avoid the session becoming too long"
 - "plan this migration"
 - "turn this into bounded implementation steps"
@@ -44,7 +44,7 @@ Coordinator output is:
 
 - audit and research notes;
 - architecture findings and decision logs;
-- slice briefs for fresh `$bounded-implementer` chats;
+- slice briefs for isolated `$bounded-implementer` worker contexts;
 - review of implementer back-handoffs and diffs;
 - migration proposals for local audit state.
 
@@ -65,14 +65,24 @@ Unless the user names a different location, keep transient coordination state lo
 .codex/audits/<audit-name>/
   repo-map.md
   audit.md
-  handoff.md
+  current.md
+  active-slice.md
+  back-handoffs/
+    YYYY-MM-DD-<slice-name>.md
+  reviews/
+    YYYY-MM-DD-<slice-name>.md
+  history.md
 ```
 
 Use:
 
 - `repo-map.md` for local discovered repository structure relevant to this audit.
 - `audit.md` for local findings, decisions, invariants, completed slices, and architectural notes.
-- `handoff.md` for current status, restart context, active slice briefs, and implementation back-handoffs.
+- `current.md` for compact hot-path restart state only.
+- `active-slice.md` for the one slice brief, execution mode, and paste-ready implementer prompt that should be executed next.
+- `back-handoffs/YYYY-MM-DD-<slice-name>.md` for exactly one implementer back-handoff.
+- `reviews/YYYY-MM-DD-<slice-name>.md` for exactly one coordinator review, when the review is too large for `audit.md`.
+- `history.md` for cold archived prompts, obsolete slice briefs, old status notes, and migration notes that do not belong in the restart path.
 
 Before creating or updating local audit state, confirm the path is ignored by either `.gitignore` or `.git/info/exclude`. If it is not ignored, offer to add an ignore rule before writing work-in-progress state.
 
@@ -85,7 +95,16 @@ Use public repo docs only for long-lived material that belongs in the project:
 
 Do not put active slice briefs, fresh-context handovers, implementation back-handoffs, branch checkpoints, command logs, or work-in-progress status in tracked public docs unless the user explicitly asks for that artifact to be public.
 
-For long audits, keep current restart state separate from history. If one document becomes too long to read every turn, keep a compact `fresh-context-handover.md` or "current status" section with only the active branch, latest completed slice, current review result, next recommended slice, and files to read first. Move old briefs, old back-handoffs, and detailed command logs into dated sections, `history.md`, or completed-slice appendices.
+For long audits, keep current restart state separate from history from the start. Hot-path files are rewritten, not appended forever. Cold-history files are append-only.
+
+Hot-path budgets:
+
+- `current.md`: target 100 lines or fewer; hard stop at 150 lines.
+- `active-slice.md`: target 250 lines or fewer; hard stop at 300 lines.
+
+Before finishing a coordinator turn, check these budgets with `wc -l` when either hot-path file changed. If a hot-path file exceeds its hard stop, split or summarize it before final response. Move old briefs, old back-handoffs, completed prompts, detailed command logs, and stale branch notes into `history.md`, `back-handoffs/`, or `reviews/`.
+
+When migrating an older audit workspace, treat existing `handoff.md`, `fresh-context-handover.md`, or similarly broad restart files as cold source material. Extract only current restart facts into `current.md`, only the next executable slice into `active-slice.md`, and archive the original broad file content under `history.md` or dated back-handoff/review files.
 
 If the audit name is not obvious, propose a short kebab-case name based on the topic.
 
@@ -110,9 +129,10 @@ If tracked transient artifacts exist, offer a migration plan before appending mo
 Start continuations with the hot path:
 
 1. Inspect `git status --short --branch`.
-2. Read the compact handover or current-status section first.
-3. Read the latest back-handoff and active slice brief with targeted `rg`, `tail`, or `sed` ranges.
-4. Open full audit history only when the hot path is missing, stale, or contradicted by repository state.
+2. Read `current.md`.
+3. Read `active-slice.md` only when preparing or reviewing the next implementation slice.
+4. Read the latest named file under `back-handoffs/` or `reviews/` with targeted `rg`, `tail`, or `sed` ranges when `current.md` points to it.
+5. Open `audit.md`, `history.md`, or old migrated files only when the hot path is missing, stale, or contradicted by repository state.
 
 Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs before full-file reads. Do not paste full diffs or long command output into audit docs unless the exact text is the finding; record the command, pass/fail status, and the relevant error or decision.
 
@@ -121,7 +141,7 @@ Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs befor
 1. Inspect the current git branch and working tree.
 2. Check whether `.codex/audits/` is ignored.
 3. Run the legacy tracked artifact check.
-4. Read the relevant hot-path audit and handoff docs named by the user.
+4. Read the relevant hot-path audit state named by the user: normally `current.md` first, then `active-slice.md` only if needed.
 5. If no audit workspace exists yet, create one under `.codex/audits/<audit-name>/`.
 6. Distinguish:
 
@@ -157,6 +177,20 @@ When authorized, subagents are best for independent read-only inventory, paralle
 
 Within the main session, parallelize independent file reads, searches, branch checks, and small inspections when the tools support it. Be cautious about parallel `cargo`, Gradle, or other build commands that contend for the same build locks or caches; prefer fewer targeted commands or combined package invocations.
 
+## Worker execution modes
+
+The durable workflow concept is an isolated worker context, not a specific UI surface. Choose one execution mode for each slice and record it in `active-slice.md`:
+
+- `visible-worker`: preferred for nontrivial implementation, likely human steering, or iterative review. Use a fresh chat, Codex thread, worktree thread, Claude fork, or equivalent visible child context.
+- `worktree-worker`: use when implementation should not disturb the current checkout or should run in the background.
+- `read-only-subagent`: use for inventory, triage, log analysis, or review where the worker can return a compact summary and should not edit files.
+- `same-chat-role-switch`: use only for tiny low-risk slices when the user explicitly wants this coordinator chat to become the implementer context.
+- `human-decision`: use when the next step is a product, architecture, or scope decision rather than agent execution.
+
+For implementation slices that may need human judgment, prefer `visible-worker` or `worktree-worker` over hidden subagents. Hidden workers must stop and return `needs-human-decision` instead of guessing through product or architecture ambiguity.
+
+Treat the worker's final response and back-handoff as stdout plus exit status. Do not absorb full worker transcripts into the coordinator context. Read the back-handoff, inspect the diff or commit yourself, run targeted verification, then summarize only accepted decisions and current state into `audit.md` and `current.md`.
+
 ## Verification tiers
 
 Choose the smallest verification tier that supports the claim being made:
@@ -178,11 +212,13 @@ Do:
 - write or update local plans, decision logs, and handoff notes under `.codex/audits/<audit-name>/`;
 - update public docs only when the content is long-lived project documentation;
 - propose bounded implementation slices;
-- keep slices small enough for a fresh chat;
+- keep slices small enough for one isolated worker context;
 - explicitly name non-goals;
 - prefer verifiable acceptance criteria over vague intent;
 - document assumptions that the implementer must not silently expand;
+- choose and record the worker execution mode;
 - keep restart docs compact and archive old details out of the hot path;
+- keep `current.md` and `active-slice.md` within their line budgets;
 - choose verification guidance by tier rather than repeating the same broad gate every turn.
 
 Do not:
@@ -191,15 +227,16 @@ Do not:
 - implement a slice in the coordinator chat without an explicit role switch from the user;
 - combine unrelated refactors into one slice;
 - rely on undocumented decisions;
-- leave the next implementer dependent on this chat's hidden context;
+- leave the next implementer dependent on this coordinator chat's hidden context;
 - produce a slice brief without tests or verification guidance;
 - hide uncertainty when repository boundaries are unclear;
 - rerun expensive verification only to restate already-recorded evidence;
-- let durable docs grow until each continuation requires rereading the full audit.
+- put completed prompts, old slice briefs, command logs, or multi-slice history in `current.md` or `active-slice.md`;
+- let hot-path docs grow until each continuation requires rereading the full audit.
 
 ## Slice sizing rule
 
-A slice is too large if a fresh implementation chat would need to rediscover the whole architecture to execute it.
+A slice is too large if one isolated worker context would need to rediscover the whole architecture to execute it.
 
 Prefer slices that can be completed by changing one conceptual area, with tests or checks that encode the changed invariant.
 
@@ -210,6 +247,7 @@ For every implementation slice, produce a slice brief with:
 - objective;
 - non-goals;
 - durable context to read first;
+- execution mode;
 - likely files or areas;
 - relevant boundaries and integration points;
 - expected behavioral change;
@@ -217,7 +255,7 @@ For every implementation slice, produce a slice brief with:
 - acceptance criteria;
 - tests or checks to run;
 - risks and open questions;
-- required back-handoff content.
+- required back-handoff path and content.
 
 Use this template:
 
@@ -229,6 +267,10 @@ Use this template:
 ### Non-goals
 
 ### Durable context to read first
+
+### Execution mode
+
+### Local coordination state
 
 ### Likely files / areas
 
@@ -247,13 +289,21 @@ Use this template:
 ### Back-handoff requirements
 ```
 
-## When resuming after an implementation chat
+In `Local coordination state`, name:
+
+- the current `active-slice.md` path;
+- the exact `back-handoffs/YYYY-MM-DD-<slice-name>.md` path the implementer must write;
+- any `reviews/YYYY-MM-DD-<slice-name>.md` path the coordinator expects to use.
+
+In `Execution mode`, name one mode from the worker execution modes list and include one sentence explaining why that mode fits the slice. For `visible-worker` or `worktree-worker`, include a paste-ready `$bounded-implementer` prompt. For `read-only-subagent`, require a compact summary only and no file edits. For `same-chat-role-switch`, state that the user must explicitly approve switching this chat out of coordinator mode.
+
+## When resuming after an implementation worker
 
 1. Read the back-handoff.
 2. Inspect the diff or commit it references.
 3. Compare what happened against the slice brief.
 4. Choose and run a verification tier appropriate to the change and the implementer's recorded evidence.
-5. Update the audit document with:
+5. Update `audit.md` with:
 
    - completed work;
    - decisions made;
@@ -261,8 +311,10 @@ Use this template:
    - remaining risks;
    - next recommended slice.
 
-6. Update the compact handoff/current-status path so a future session can restart without this chat.
-7. Move obsolete active-slice details out of the hot path when they are no longer needed for the next turn.
+6. Update `current.md` so a future session can restart without this coordinator chat.
+7. Replace `active-slice.md` with the next slice brief and paste-ready implementer prompt, or shrink it to "no active slice" if none exists.
+8. Move obsolete active-slice details out of the hot path when they are no longer needed for the next turn.
+9. Run `wc -l current.md active-slice.md` and fix any hot-path budget violation before final response.
 
 ## Final response format
 
@@ -272,4 +324,4 @@ When finishing a coordinator turn, report:
 2. Durable docs updated.
 3. Verification tier and evidence.
 4. Proposed next slice.
-5. Exact prompt the user can paste into a fresh Codex chat, explicitly invoking `$bounded-implementer`.
+5. Recommended worker execution mode and exact `$bounded-implementer` prompt when a worker should execute the slice.
