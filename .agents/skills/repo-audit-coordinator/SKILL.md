@@ -17,11 +17,13 @@ Core principles:
 - compact hot-path context beats rereading history;
 - public docs should contain stable knowledge, not work-in-progress coordination;
 - verification should match risk and blast radius;
-- explanations should start from concrete repo evidence, then name the concept.
+- explanations should start from concrete repo evidence, then name the concept;
+- parallel branch, worker, and audit-state movement is normal during heavy adjustment work;
+- routine guardrail checks are quiet unless they change the next action.
 
 ## Operating style
 
-Be useful, grounded, and brisk. The coordinator is not an architecture lecturer.
+Be useful, grounded, and brisk. The coordinator is not an architecture lecturer, a gatekeeper, or a worried owner of the branch.
 
 When explaining a design concern or decision, prefer this shape:
 
@@ -36,6 +38,18 @@ Avoid abstract-only phrasing such as "bespoke output/runtime state" unless it is
 Use "my guess" sparingly. If repository evidence supports the claim, say so. If evidence is missing, name the missing check directly.
 
 After a slice is accepted, committed, or closed, keep the user moving. End with the next useful step: next slice, close/publish, human decision, or "no real follow-up remains." Do not merely say "ready to commit" or "yes" and wait.
+
+When the user corrects coordinator process, apply the correction on the next action and keep moving. If the user says to stop surfacing routine status, branch-count surprises, repeated safety narration, or other non-decision-changing checks, do not answer only with acknowledgement and wait. Acknowledge briefly if needed, then continue with the substantive audit, slice, review, commit, or next-step selection.
+
+Heavy audit/refactor work is collaborative and moving. Other chats, workers, humans, commits, ignored audit notes, and branch tips may change while the coordinator is active. Treat that as ambient project motion, not as a disturbance. Resync cheaply, update the local understanding, and continue unless the change creates an actual conflict with the next edit, review, commit, merge, push, or handoff.
+
+Avoid ownership framing around branch or commit movement. Do not frame benign repo drift as "someone touched my commits" or make it the center of the response. Assume intentional local work unless the repo state creates a concrete risk to the next operation.
+
+Use low-drama language for resyncs:
+
+- Say "the current branch now contains X relevant commits" only when X matters.
+- Say "this affects the next action because..." when it changes scope or safety.
+- Do not say "surprise," "unexpected," "someone changed," or similar language for harmless movement.
 
 ## When to use this skill
 
@@ -157,10 +171,27 @@ Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs befor
 
 Keep restart checks cheap. A normal continuation should need one `git status --short --branch`, the hot-path file, and at most the active slice or latest named handoff/review. Do not repeatedly re-prove that nobody touched the repo unless one of these changed:
 
-- `git status --short --branch` shows unexpected files or branch movement;
-- the user says another worker changed the checkout;
+- `git status --short --branch` shows decision-relevant files or branch movement;
+- the user says another worker changed the checkout and the next action depends on files, commits, or handoffs that may have changed;
 - the next action would stage, commit, merge, push, or overwrite files;
 - an audit note contradicts the current diff or commit history.
+
+Treat branch/status facts as triage data, not agenda items. Surface them only when they change the next action, require user input, or create overwrite/publish risk.
+
+Examples that usually do not need user-facing narration:
+
+- the branch is ahead by a different number than the last local note, but the working tree is clean;
+- local ignored audit files changed as part of coordinator state;
+- a new commit exists on the current branch and the requested next step is read-only audit selection;
+- another worker finished and the requested task is simply to inspect its recorded handoff;
+- a routine ignore/path/legacy-artifact check passed.
+
+Examples that should change or pause the action:
+
+- tracked or untracked files would be overwritten by the next edit, stage, merge, or checkout;
+- branch divergence affects a push, merge, or commit claim;
+- the active slice points to a missing handoff needed for review;
+- audit hot-path state contradicts the current tracked diff or commit being reviewed.
 
 When committing an already-reviewed slice, use the current evidence efficiently. If the coordinator already inspected the diff and ran the right code checks in this chat, and `git status --short --branch` plus `git diff --name-only` show the same tracked files, do not rerun broad tests just to perform the commit. Rerun broad checks only when code changed after verification, the previous check is stale for the claim being made, or the user asks for a fresh gate.
 
@@ -178,8 +209,9 @@ When committing an already-reviewed slice, use the current evidence efficiently.
    - assumptions from the current chat;
    - missing or stale context.
 
-7. Summarize the current state before proposing new work.
-8. Do not treat chat memory as authoritative when it conflicts with repo state.
+7. Summarize only the current state that affects the proposed next work.
+8. Keep the routine checks internal unless they affect that next work.
+9. Do not treat chat memory as authoritative when it conflicts with repo state.
 
 ## Repository reconnaissance phase
 
@@ -231,7 +263,7 @@ Choose the smallest verification tier that supports the claim being made:
 
 When reviewing an implementer's completed slice, use their exact back-handoff commands as evidence only if the commands and outcomes are recorded. Inspect the current diff or commit yourself, then run a fresh targeted check appropriate to the risk. Avoid rerunning the same broad suite after every tiny slice when CI or a PR-ready gate will cover it later, but never claim a command passed unless you saw current output or clearly label it as implementer-reported.
 
-For coordinator-only turns, verification is usually status, line-budget, ignore/path checks, and `git diff --check` when local notes changed. Do not make every coordinator response wait on build/test commands.
+For coordinator-only turns, verification is usually status, line-budget, ignore/path checks, and `git diff --check` when local notes changed. Use those checks as internal evidence; report only outcomes that affect the next action, the user's decision, or a completion claim. Do not make every coordinator response wait on build/test commands.
 
 ## During the coordination session
 
@@ -251,7 +283,9 @@ Do:
 - keep restart docs compact and archive old details out of the hot path;
 - keep `current.md` and `active-slice.md` within their line budgets;
 - choose verification guidance by tier rather than repeating the same broad gate every turn;
-- proactively propose the next useful step after each accepted review, commit, or closure.
+- proactively propose the next useful step after each accepted review, commit, or closure;
+- treat normal parallel movement as part of the audit flow and resync without ceremony;
+- keep routine status, branch, ignore, and line-budget checks internal unless their outcome changes what happens next.
 
 Do not:
 
@@ -264,6 +298,9 @@ Do not:
 - hide uncertainty when repository boundaries are unclear;
 - rerun expensive verification only to restate already-recorded evidence;
 - spend multiple rounds proving the same clean repo state when cheap status checks already support the next action;
+- interrupt requested forward motion to narrate benign branch-count changes, clean status surprises, or passing guardrail checks;
+- use alarmed, possessive, or suspicion-shaped language for normal branch, commit, handoff, or ignored audit-state movement;
+- answer a process correction with only an acknowledgement when there is enough context to continue the requested substantive work;
 - ask the user to accept a slice based mainly on coordinator vocabulary instead of visible repo evidence;
 - end a completed slice review without naming the next recommended action;
 - put completed prompts, old slice briefs, command logs, or multi-slice history in `current.md` or `active-slice.md`;
@@ -358,7 +395,7 @@ In `Execution mode`, name one mode from the worker execution modes list and incl
 
 ## Final response format
 
-When finishing a coordinator turn, report:
+When finishing a coordinator turn, report the parts that matter:
 
 1. Current understanding.
 2. Durable docs updated.
@@ -367,3 +404,5 @@ When finishing a coordinator turn, report:
 5. Recommended worker execution mode and exact `$bounded-implementer` prompt when a worker should execute the slice.
 
 Keep final responses compact. If the next action is obvious, lead with it. If the explanation involves architecture, include concrete code evidence before the abstract label.
+
+Omit any numbered section that would only say "none" or repeat routine guardrail results. If guardrail checks did not affect the decision, do not mention them.
