@@ -112,7 +112,7 @@ Use:
 - `repo-map.md` for local discovered repository structure relevant to this audit.
 - `audit.md` for local findings, decisions, invariants, completed slices, and architectural notes.
 - `current.md` for compact hot-path restart state only.
-- `active-slice.md` for the one slice brief, execution mode, and paste-ready implementer prompt that should be executed next.
+- `active-slice.md` for the one slice brief, execution mode, worker launch action, and paste-ready implementer prompt fallback that should be executed next.
 - `back-handoffs/YYYY-MM-DD-<slice-name>.md` for exactly one implementer back-handoff.
 - `reviews/YYYY-MM-DD-<slice-name>.md` for exactly one coordinator review, when the review is too large for `audit.md`.
 - `history.md` for cold archived prompts, obsolete slice briefs, old status notes, and migration notes that do not belong in the restart path.
@@ -251,6 +251,29 @@ For implementation slices that may need human judgment, prefer `visible-worker` 
 
 Treat the worker's final response and back-handoff as stdout plus exit status. Do not absorb full worker transcripts into the coordinator context. Read the back-handoff, inspect the diff or commit yourself, run targeted verification, then summarize only accepted decisions and current state into `audit.md` and `current.md`.
 
+## User-facing handoff clarity
+
+`active-slice.md` is restart state, not a user instruction by itself. When a coordinator turn creates, replaces, or keeps an active implementation slice, end with the concrete action the user should take next.
+
+Prefer the least-manual worker launch path available in the current Codex surface:
+
+1. If the current surface exposes a thread-creation tool and the user explicitly asked to create worker threads, or granted standing authorization for this audit to create them, create the worker thread with the exact `$bounded-implementer` prompt. Report the created thread as the next action surface.
+2. Otherwise, if the current surface supports `codex://threads/new` deep links, provide a clickable "Open worker thread" link with URL-encoded `path=` for the workspace and `prompt=` for the worker prompt.
+3. Otherwise, say plainly: "Next: paste this prompt into a fresh worker chat," then include the exact `$bounded-implementer` prompt in a fenced `text` block.
+
+In every worker-launch path, name the back-handoff path the worker must write.
+
+Do not end with only "queued," "recorded," "active slice updated," or a link to `active-slice.md`. Those are internal state updates; they do not tell the user what to do.
+
+Only use an auto-discovery flow when the worker prompt in `active-slice.md` explicitly supports it. In that case, make the launch action brainless, for example a created thread, a deep link, or the exact command text: "$bounded-implementer continue .codex/audits/<audit-name>/active-slice.md". If both a launch action and raw paste are possible, lead with the launch action and keep the paste-ready prompt as fallback.
+
+For non-worker modes:
+
+- `human-decision`: ask the decision question or give the decision options; do not say a worker is queued.
+- `read-only-subagent`: state that the coordinator will run or request the read-only pass, or provide the exact prompt if the user must start it.
+- `same-chat-role-switch`: state that the user must explicitly approve switching this chat out of coordinator mode before implementation begins.
+- no active slice: say "No active implementation slice remains" and name the next useful action, such as review, commit, publish, close, or a human decision.
+
 ## Verification tiers
 
 Choose the smallest verification tier that supports the claim being made:
@@ -320,6 +343,7 @@ For every implementation slice, produce a slice brief with:
 - non-goals;
 - durable context to read first;
 - execution mode;
+- worker launch action for user-started workers;
 - likely files or areas;
 - evidence anchors for non-obvious design claims;
 - relevant boundaries and integration points;
@@ -344,6 +368,10 @@ Use this template:
 ### Durable context to read first
 
 ### Execution mode
+
+### Worker launch action
+
+For `visible-worker` or `worktree-worker`, include the least-manual launch path available: created Codex thread, Codex deep link, or exact paste-ready prompt. Always keep the exact worker prompt available in this section or immediately below it. For `read-only-subagent`, include the exact read-only prompt when user-started. For `human-decision`, replace this section with the decision question. For `same-chat-role-switch`, state that explicit user approval is required first.
 
 ### Local coordination state
 
@@ -372,7 +400,7 @@ In `Local coordination state`, name:
 - the exact `back-handoffs/YYYY-MM-DD-<slice-name>.md` path the implementer must write;
 - any `reviews/YYYY-MM-DD-<slice-name>.md` path the coordinator expects to use.
 
-In `Execution mode`, name one mode from the worker execution modes list and include one sentence explaining why that mode fits the slice. For `visible-worker` or `worktree-worker`, include a paste-ready `$bounded-implementer` prompt. For `read-only-subagent`, require a compact summary only and no file edits. For `same-chat-role-switch`, state that the user must explicitly approve switching this chat out of coordinator mode.
+In `Execution mode`, name one mode from the worker execution modes list and include one sentence explaining why that mode fits the slice. For `visible-worker` or `worktree-worker`, include the launch path and `$bounded-implementer` prompt in `Worker launch action`. For `read-only-subagent`, require a compact summary only and no file edits. For `same-chat-role-switch`, state that the user must explicitly approve switching this chat out of coordinator mode.
 
 ## When resuming after an implementation worker
 
@@ -389,7 +417,7 @@ In `Execution mode`, name one mode from the worker execution modes list and incl
    - next recommended slice.
 
 6. Update `current.md` so a future session can restart without this coordinator chat.
-7. Replace `active-slice.md` with the next slice brief and paste-ready implementer prompt, or shrink it to "no active slice" if none exists.
+7. Replace `active-slice.md` with the next slice brief and worker launch action, including the paste-ready implementer prompt as fallback, or shrink it to "no active slice" if none exists.
 8. Move obsolete active-slice details out of the hot path when they are no longer needed for the next turn.
 9. Run `wc -l current.md active-slice.md` and fix any hot-path budget violation before final response.
 
@@ -401,7 +429,8 @@ When finishing a coordinator turn, report the parts that matter:
 2. Durable docs updated.
 3. Verification tier and evidence.
 4. Proposed next slice.
-5. Recommended worker execution mode and exact `$bounded-implementer` prompt when a worker should execute the slice.
+5. Recommended worker execution mode and least-manual launch action when a worker should execute the slice: created thread, clickable deep link, or exact `$bounded-implementer` prompt.
+6. The user's next physical action: open the created thread, click the deep link, paste the prompt in a fresh worker chat, answer a decision question, approve same-chat role switch, commit/publish, or close.
 
 Keep final responses compact. If the next action is obvious, lead with it. If the explanation involves architecture, include concrete code evidence before the abstract label.
 
