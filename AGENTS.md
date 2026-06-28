@@ -9,6 +9,19 @@ Repository-level instructions for AI coding agents working on this monorepo.
 - Do not revert unrelated changes. Assume unrecognized local changes came from the user.
 - When changing behavior, verify with the narrowest useful command first, then broaden verification when the blast radius grows.
 
+## Instruction And Command Consistency
+
+- If an instruction, documented command, or workflow note does not work, first check whether the instruction is stale,
+  incomplete, or being run from the wrong build root. Do not add compatibility code, wrappers, build plumbing, or product
+  behavior just to make a stale instruction true.
+- Prefer fixing the instruction or documentation when the code is already in the right shape. If changing code or tooling
+  still seems like the right fix, make the reason explicit and ask the human before doing it unless the task already
+  requested that exact tooling change.
+- Keep agent-facing instructions current and concise. When adding a new rule, remove or update any nearby stale wording
+  that would point agents in a different direction.
+- When asking the human for direction, ask a concrete action question with the options or consequence named. Do not hand
+  back vague uncertainty.
+
 ## Monorepo Shape
 
 - `rust/`: Cargo workspace for the BPM detector core, plugin, desktop app, WASM demo, shared GUI, MIDI service, and Rust tools. Follow `rust/AGENTS.md` for Rust-specific instructions.
