@@ -148,9 +148,6 @@ impl TaskExecutor {
                         );
                         config.gui_config.interpolation_curve =
                             self.params.gui_params.interpolation_curve.unmodulated_plain_value();
-                        config.gui_config.interpolation_duration = Duration::from_secs_f32(
-                            self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
-                        );
 
                         config.dynamic_bpm_detection_config = self.params.dynamic_params.read_dynamic_config();
                         config.send_tempo.store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
