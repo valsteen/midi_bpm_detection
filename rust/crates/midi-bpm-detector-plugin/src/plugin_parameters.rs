@@ -132,6 +132,28 @@ impl PluginGUIParams {
     }
 }
 
+impl PluginStaticParams {
+    pub(crate) fn read_static_config(&self) -> StaticBPMDetectionConfig {
+        StaticBPMDetectionConfig {
+            bpm_center: self.bpm_center.unmodulated_plain_value(),
+            bpm_range: self.bpm_range.unmodulated_plain_value() as u16,
+            sample_rate: self.sample_rate.unmodulated_plain_value() as u16,
+            normal_distribution: self.normal_distribution.read_config(),
+        }
+    }
+}
+
+impl NormalDistributionParams {
+    fn read_config(&self) -> NormalDistributionConfig {
+        NormalDistributionConfig {
+            std_dev: f64::from(self.std_dev.unmodulated_plain_value()),
+            resolution: self.resolution.unmodulated_plain_value(),
+            cutoff: self.cutoff.unmodulated_plain_value(),
+            factor: self.factor.unmodulated_plain_value(),
+        }
+    }
+}
+
 struct DynamicRemoteControlParams<'params, 'page, Page> {
     params: &'params PluginDynamicParams,
     page: &'page mut Page,

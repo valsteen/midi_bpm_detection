@@ -1,6 +1,6 @@
 use std::sync::{Arc, atomic::AtomicUsize};
 
-use bpm_detection_core::parameters::DynamicBPMDetectionConfig;
+use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig};
 use nih_plug::prelude::{Param, Params, RemoteControlsPage};
 
 use super::*;
@@ -133,4 +133,23 @@ fn dynamic_params_read_initialized_host_values_as_dynamic_config() {
         MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
 
     assert_eq!(params.dynamic_params.read_dynamic_config(), source_dynamic_config);
+}
+
+#[test]
+fn static_params_read_initialized_host_values_as_static_config() {
+    let source_static_config = StaticBPMDetectionConfig {
+        bpm_center: 111.5,
+        bpm_range: 48,
+        sample_rate: 720,
+        normal_distribution: NormalDistributionConfig { std_dev: 18.25, resolution: 0.5, cutoff: 128.0, factor: 32.0 },
+    };
+    let mut config =
+        PluginConfig { static_bpm_detection_config: source_static_config.clone(), ..PluginConfig::default() };
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+
+    assert_eq!(params.static_params.read_static_config(), source_static_config);
 }
