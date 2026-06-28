@@ -24,6 +24,21 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - Avoid generic `utils` crates. Put reusable primitives in focused crates that match their dependency surface, such as synchronization primitives in `sync`.
 - Keep dependency versions moving forward. Prefer updating/forking the dependency that pins an old version over patching an obsolete transitive crate.
 
+## Rust Test Layout
+
+- Do not add inline `mod tests { ... }` test bodies to production source files.
+- Unit test bodies belong in each crate's `tests/unit/*.rs` files, wired from the production module with the small hook:
+
+  ```rust
+  #[cfg(test)]
+  #[path = "../tests/unit/<module>.rs"]
+  mod tests;
+  ```
+
+- Unit test files use the same basename as their production module: `src/thing.rs` maps to `tests/unit/thing.rs`, not `tests/unit/thing_test.rs`.
+- New integration tests belong under `tests/integration/`, not directly under `tests/`.
+- This layout keeps RustRover filtering production files versus test files predictably and keeps GitHub/tree views easier to scan.
+
 ## Architecture Boundaries
 
 - Preserve the separation between the production plugin, native desktop mode, WASM showcase mode, shared GUI, MIDI service, and BPM detection core.
