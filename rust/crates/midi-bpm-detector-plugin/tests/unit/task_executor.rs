@@ -1,5 +1,5 @@
 use std::{
-    io::Read,
+    io::{ErrorKind, Read},
     net::{Ipv4Addr, TcpListener, TcpStream},
     sync::{Arc, atomic::AtomicUsize},
     time::Duration as StdDuration,
@@ -13,6 +13,11 @@ use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
 use super::*;
 use crate::{DeferredConfigUpdate, plugin_config::PluginConfig};
+
+fn assert_gui_config_eq(actual: &gui::GUIConfig, expected: &gui::GUIConfig) {
+    assert_eq!(actual.interpolation_duration, expected.interpolation_duration);
+    assert!((actual.interpolation_curve - expected.interpolation_curve).abs() < f32::EPSILON);
+}
 
 #[test]
 fn tempo_controller_frame_prefixes_big_endian_payload_length() {
@@ -29,7 +34,7 @@ fn tempo_controller_frame_writes_big_endian_bpm() {
 }
 
 #[test]
-fn host_origin_dynamic_sync_copies_host_values_and_forces_recompute() {
+fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
     let host_dynamic_config = DynamicBPMDetectionConfig {
         beats_lookback: 13,
         normal_distribution_weight: OnOff::On(0.9),
@@ -50,22 +55,31 @@ fn host_origin_dynamic_sync_copies_host_values_and_forces_recompute() {
         gui_config: host_gui_config.clone(),
         ..PluginConfig::default()
     };
-    host_config.send_tempo.store(true, Ordering::Relaxed);
+    host_config.send_tempo.store(false, Ordering::Relaxed);
 
+    let shared_gui_config =
+        gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
     let shared_config = Arc::new(RwLock::new(PluginConfig {
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig {
             beats_lookback: 2,
             normal_distribution_weight: OnOff::Off(0.1),
             ..DynamicBPMDetectionConfig::default()
         },
-        gui_config: gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 },
+        gui_config: shared_gui_config.clone(),
         ..PluginConfig::default()
     }));
+    shared_config.read().send_tempo.store(true, Ordering::Relaxed);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
-    let params =
-        Arc::new(MidiBpmDetectorParams::new(&mut host_config, &changed_at, &changed_at, &current_sample, &daw_port));
+    let params = Arc::new(MidiBpmDetectorParams::new(
+        &mut host_config,
+        &changed_at,
+        &changed_at,
+        &changed_at,
+        &current_sample,
+        &daw_port,
+    ));
     let (_, events_receiver) = StaticRb::<Event, 1000>::default().split();
     let gui_must_update_config = ArcAtomicBool::new(false);
     let send_tempo = shared_config.read().send_tempo.clone();
@@ -101,8 +115,7 @@ fn host_origin_dynamic_sync_copies_host_values_and_forces_recompute() {
     executor.execute(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));
 
     let config = shared_config.read();
-    assert_eq!(config.gui_config.interpolation_duration, host_gui_config.interpolation_duration);
-    assert!((config.gui_config.interpolation_curve - host_gui_config.interpolation_curve).abs() < f32::EPSILON);
+    assert_gui_config_eq(&config.gui_config, &shared_gui_config);
     assert_eq!(config.dynamic_bpm_detection_config, host_dynamic_config);
     assert!(config.send_tempo.load(Ordering::Relaxed));
     assert_eq!(executor.dynamic_bpm_detection_config, host_dynamic_config);
@@ -111,4 +124,78 @@ fn host_origin_dynamic_sync_copies_host_values_and_forces_recompute() {
     let mut frame = [0; TEMPO_CONTROLLER_FRAME_BYTES];
     server.read_exact(&mut frame).unwrap();
     assert_eq!(u32::from_be_bytes(frame[..4].try_into().unwrap()), TEMPO_CONTROLLER_PAYLOAD_BYTES);
+}
+
+#[test]
+fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
+    let host_gui_config =
+        gui::GUIConfig { interpolation_duration: StdDuration::from_secs_f32(0.82), interpolation_curve: 1.25 };
+    let mut host_config = PluginConfig { gui_config: host_gui_config.clone(), ..PluginConfig::default() };
+    let shared_dynamic_config = DynamicBPMDetectionConfig {
+        beats_lookback: 2,
+        normal_distribution_weight: OnOff::Off(0.1),
+        ..Default::default()
+    };
+    let shared_gui_config =
+        gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
+    let shared_config = Arc::new(RwLock::new(PluginConfig {
+        dynamic_bpm_detection_config: shared_dynamic_config.clone(),
+        gui_config: shared_gui_config,
+        ..PluginConfig::default()
+    }));
+    shared_config.read().send_tempo.store(true, Ordering::Relaxed);
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params = Arc::new(MidiBpmDetectorParams::new(
+        &mut host_config,
+        &changed_at,
+        &changed_at,
+        &changed_at,
+        &current_sample,
+        &daw_port,
+    ));
+    let (_, events_receiver) = StaticRb::<Event, 1000>::default().split();
+    let gui_must_update_config = ArcAtomicBool::new(false);
+    let send_tempo = shared_config.read().send_tempo.clone();
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut server, _) = listener.accept().unwrap();
+    server.set_read_timeout(Some(StdDuration::from_millis(25))).unwrap();
+    let mut bpm_detection = BPMDetection::new(shared_config.read().static_bpm_detection_config.clone());
+
+    bpm_detection.receive_note_on(TimedNoteOn {
+        timestamp: ChronoDuration::zero(),
+        event: NoteOn { channel: 0, pitch: 60, velocity: 100 },
+    });
+    bpm_detection.receive_note_on(TimedNoteOn {
+        timestamp: ChronoDuration::milliseconds(667),
+        event: NoteOn { channel: 0, pitch: 60, velocity: 100 },
+    });
+
+    let mut executor = TaskExecutor {
+        bpm_detection,
+        dynamic_bpm_detection_config: shared_dynamic_config.clone(),
+        gui_remote: None,
+        params,
+        gui_remote_receiver: Arc::new(AtomicCell::new(None)),
+        events_receiver: events_receiver.freeze(),
+        config: shared_config.clone(),
+        gui_must_update_config: gui_must_update_config.clone(),
+        daw_port,
+        daw_connection: Some(client),
+        send_tempo,
+    };
+
+    executor.execute(Task::GUIConfig(ParameterSyncOrigin::Host));
+
+    let config = shared_config.read();
+    assert_gui_config_eq(&config.gui_config, &host_gui_config);
+    assert_eq!(config.dynamic_bpm_detection_config, shared_dynamic_config);
+    assert_eq!(executor.dynamic_bpm_detection_config, shared_dynamic_config);
+    assert!(gui_must_update_config.load(Ordering::Relaxed));
+
+    let mut frame = [0; TEMPO_CONTROLLER_FRAME_BYTES];
+    let err = server.read_exact(&mut frame).unwrap_err();
+    assert!(matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut));
 }

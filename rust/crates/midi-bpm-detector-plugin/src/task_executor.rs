@@ -27,6 +27,7 @@ const TEMPO_CONTROLLER_FRAME_BYTES: usize = 8;
 pub enum Task {
     ProcessNotes { force_evaluate_bpm_detection: bool },
     StaticBPMDetectionConfig(ParameterSyncOrigin),
+    GUIConfig(ParameterSyncOrigin),
     DynamicBPMDetectionConfig(ParameterSyncOrigin),
 }
 
@@ -60,12 +61,7 @@ impl TaskExecutor {
         match task {
             Task::ProcessNotes { force_evaluate_bpm_detection } => {
                 let mut evaluate_bpm_detection = force_evaluate_bpm_detection;
-                if !self.params.editor_state.is_open() {
-                    self.gui_remote = None;
-                }
-                if let Some(new_gui_remote) = self.gui_remote_receiver.take() {
-                    self.gui_remote = Some(new_gui_remote);
-                }
+                self.refresh_gui_remote();
                 for event in self.events_receiver.pop_iter() {
                     match event {
                         Event::TimedNoteOn(timed_note_on) => {
@@ -138,19 +134,26 @@ impl TaskExecutor {
                     }
                 }
             }
+            Task::GUIConfig(sync) => {
+                if sync == ParameterSyncOrigin::Host {
+                    {
+                        let mut config = self.config.write();
+                        config.gui_config = self.params.gui_params.read_gui_config();
+                    }
+                    self.gui_must_update_config.store(true, Ordering::Relaxed);
+                }
+
+                self.refresh_gui_remote();
+                if let Some(gui_remote) = &mut self.gui_remote {
+                    gui_remote.request_repaint();
+                }
+            }
             Task::DynamicBPMDetectionConfig(sync) => match sync {
                 ParameterSyncOrigin::Host => {
                     {
                         let mut config = self.config.write();
 
-                        config.gui_config.interpolation_duration = Duration::from_secs_f32(
-                            self.params.gui_params.interpolation_duration.unmodulated_plain_value(),
-                        );
-                        config.gui_config.interpolation_curve =
-                            self.params.gui_params.interpolation_curve.unmodulated_plain_value();
-
                         config.dynamic_bpm_detection_config = self.params.dynamic_params.read_dynamic_config();
-                        config.send_tempo.store(self.params.send_tempo.unmodulated_plain_value(), Ordering::Relaxed);
                         self.dynamic_bpm_detection_config = config.dynamic_bpm_detection_config.clone();
                     }
                     self.gui_must_update_config.store(true, Ordering::Relaxed);
@@ -161,6 +164,15 @@ impl TaskExecutor {
                     self.dynamic_bpm_detection_config = config.dynamic_bpm_detection_config.clone();
                 }
             },
+        }
+    }
+
+    fn refresh_gui_remote(&mut self) {
+        if !self.params.editor_state.is_open() {
+            self.gui_remote = None;
+        }
+        if let Some(new_gui_remote) = self.gui_remote_receiver.take() {
+            self.gui_remote = Some(new_gui_remote);
         }
     }
 }

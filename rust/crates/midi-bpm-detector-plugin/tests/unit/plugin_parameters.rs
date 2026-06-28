@@ -30,7 +30,8 @@ fn plugin_on_off_params_initialize_enabled_state_from_matching_config_field() {
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
 
-    let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
 
     assert!(params.dynamic_params.velocity_current_note_weight.is_enabled());
     assert!(!params.dynamic_params.velocity_note_from_weight.is_enabled());
@@ -42,7 +43,8 @@ fn dynamic_remote_controls_expose_every_dynamic_parameter() {
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
-    let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
     let mut remote_controls = RemoteControlNames(Vec::new());
 
     params.dynamic_params.add_remote_controls(&mut remote_controls);
@@ -71,7 +73,8 @@ fn static_plugin_parameter_ids_match_config_field_names() {
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
-    let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
     let param_ids = params.param_map().into_iter().map(|(id, _, _)| id).collect::<Vec<_>>();
 
     assert!(param_ids.contains(&String::from("bpm_center")));
@@ -86,7 +89,8 @@ fn dynamic_on_off_persistent_keys_match_parameter_ids() {
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
-    let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
     let persistent_keys = params.serialize_fields().into_keys().collect::<Vec<_>>();
 
     for key in [
@@ -125,7 +129,8 @@ fn dynamic_params_read_initialized_host_values_as_dynamic_config() {
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
-    let params = MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &current_sample, &daw_port);
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
 
     assert_eq!(params.dynamic_params.read_dynamic_config(), source_dynamic_config);
 }

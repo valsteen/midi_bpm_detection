@@ -26,6 +26,7 @@ pub struct BaseConfig {
     async_executor: AsyncExecutor<MidiBpmDetector>,
     force_evaluate_bpm_detection: ArcAtomicBool,
     delayed_update_dynamic_bpm_detection_config: Option<Instant>,
+    delayed_update_gui_config: Option<Instant>,
     delayed_update_static_bpm_detection_config: Option<Instant>,
     pub has_config_changes_via_ui: bool,
     pub send_tempo_changed: ArcAtomicBool,
@@ -45,6 +46,7 @@ impl BaseConfig {
             async_executor,
             force_evaluate_bpm_detection,
             delayed_update_dynamic_bpm_detection_config: None,
+            delayed_update_gui_config: None,
             delayed_update_static_bpm_detection_config: None,
             has_config_changes_via_ui: false,
             params,
@@ -66,6 +68,13 @@ impl BaseConfig {
         }
     }
 
+    fn delay_gui_changes(&mut self) {
+        self.has_config_changes_via_ui = true;
+        if self.delayed_update_gui_config.is_none() {
+            self.delayed_update_gui_config = Some(Instant::now());
+        }
+    }
+
     pub fn apply_delayed_updates(&mut self) {
         if self
             .delayed_update_static_bpm_detection_config
@@ -79,6 +88,17 @@ impl BaseConfig {
             self.async_executor.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Gui));
             self.delayed_update_static_bpm_detection_config = None;
             info!("apply static params");
+        }
+        if self
+            .delayed_update_gui_config
+            .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
+        {
+            {
+                *self.shared_config.write() = self.config.clone();
+            }
+            self.async_executor.execute_background(Task::GUIConfig(ParameterSyncOrigin::Gui));
+            self.delayed_update_gui_config = None;
+            info!("apply GUI params");
         }
         if self
             .delayed_update_dynamic_bpm_detection_config
@@ -364,13 +384,13 @@ impl GUIConfigAccessor for LiveConfig<'_> {
     fn set_interpolation_duration(&mut self, val: Duration) {
         self.base_config.config.gui_config.interpolation_duration = val;
         apply_duration_param(&self.base_config.params.gui_params.interpolation_duration, val, self.param_setter);
-        self.base_config.delay_dynamic_changes();
+        self.base_config.delay_gui_changes();
     }
 
     fn set_interpolation_curve(&mut self, val: f32) {
         self.base_config.config.gui_config.interpolation_curve = val;
         apply_float_param(&self.base_config.params.gui_params.interpolation_curve, val, self.param_setter);
-        self.base_config.delay_dynamic_changes();
+        self.base_config.delay_gui_changes();
     }
 }
 

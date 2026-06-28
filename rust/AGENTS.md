@@ -7,6 +7,9 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - Make small, reviewable changes. Prefer commits that map to one clear design or behavior step.
 - Discuss non-obvious design choices before implementing them.
 - Do not introduce macros unless the user explicitly agrees first.
+- Avoid macro calls in ordinary Rust code unless they remove meaningful boilerplate or encode an established local
+  pattern. Even familiar macros must earn their use; prefer direct syntax when it is clearer for IDE navigation and human
+  readers.
 - Do not add `#[allow(...)]` lint exceptions without explicit human confirmation.
 - Treat clippy warnings as work to fix. If a lint looks wrong or harmful, stop and explain the tradeoff before changing code.
 - When changing behavior, verify with the narrowest useful command first, then broaden verification when the blast radius grows.
@@ -17,6 +20,8 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - Run Cargo commands from this `rust/` directory unless a task explicitly targets the repository root.
 - `rustfmt` is intentionally run with nightly.
 - Keep `clippy::pedantic` enabled at workspace level.
+- Do not blindly trust idioms that are common in training data, examples, or generic Rust advice. Check whether the
+  pattern improves this repository's readability, tooling, and maintenance before using it.
 - Prefer type-safe representations over sentinel values. If a value has an unset/error/special state, encode that state in the type.
 - Avoid false reuse. If a new helper/protocol makes callers prove a variant is impossible with `unreachable!`, `debug_assert`, or "cannot happen here" comments, split the type or move the shared representation later in the flow. If a caller already knows the only valid case, keep the direct code there instead of routing through a generic policy method.
 - Before keeping a new abstraction, check that it models production code that exists now. Do not add variants, traits, or policy layers for possible future cases; add them when the future case exists.
