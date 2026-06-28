@@ -21,6 +21,10 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - The Rust helper script is `rust/scripts/dev.sh`; repository docs that say `scripts/dev.sh ...` assume the command is
   being run from `rust/`. If that command appears missing from the repository root, use the documented `cd rust` context
   rather than adding a root wrapper.
+- Plugin task-executor tests bind localhost TCP sockets with `TcpListener`. In Codex sandboxed runs, Rust test commands
+  that include `midi-bpm-detector-plugin` or the whole workspace predictably fail with `Operation not permitted` unless
+  the command has elevated sandbox permissions. Request that permission up front for those test commands; do not run a
+  sandboxed probe just to rediscover the known localhost-bind failure.
 - `rustfmt` is intentionally run with nightly.
 - Keep `clippy::pedantic` enabled at workspace level.
 - Do not blindly trust idioms that are common in training data, examples, or generic Rust advice. Check whether the
