@@ -260,12 +260,10 @@ impl GUIConfigAccessor for BaseConfig {
 
     fn set_interpolation_duration(&mut self, val: Duration) {
         self.config.gui_config.interpolation_duration = val;
-        self.propagate_dynamic_changes();
     }
 
     fn set_interpolation_curve(&mut self, val: f32) {
         self.config.gui_config.interpolation_curve = val;
-        self.propagate_dynamic_changes();
     }
 }
 

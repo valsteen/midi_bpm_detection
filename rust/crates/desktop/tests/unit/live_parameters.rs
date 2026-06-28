@@ -6,7 +6,10 @@ use std::{
 
 use bpm_detection_core::{
     bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor},
+    parameters::{
+        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfig,
+        StaticBPMDetectionConfigAccessor,
+    },
 };
 use bpm_detection_midi::MidiServiceConfig;
 use gui::{GUIConfig, GUIConfigAccessor};
@@ -72,16 +75,33 @@ fn static_parameter_setter_propagates_static_config() {
 }
 
 #[test]
-fn gui_parameter_setter_propagates_dynamic_config() {
+fn dynamic_parameter_setter_propagates_dynamic_config() {
     let static_changes = Arc::new(StdMutex::new(Vec::new()));
     let dynamic_changes = Arc::new(StdMutex::new(Vec::new()));
     let mut config = base_config(Arc::clone(&static_changes), Arc::clone(&dynamic_changes));
 
-    config.set_interpolation_duration(Duration::from_millis(250));
+    config.set_beats_lookback(12);
 
     let static_changes = static_changes.lock().expect("static changes lock should not be poisoned");
     let dynamic_changes = dynamic_changes.lock().expect("dynamic changes lock should not be poisoned");
     assert!(static_changes.is_empty());
     assert_eq!(dynamic_changes.len(), 1);
+    assert_eq!(dynamic_changes[0].beats_lookback, 12);
+}
+
+#[test]
+fn gui_parameter_setters_update_local_config_without_propagating_detection_config() {
+    let static_changes = Arc::new(StdMutex::new(Vec::new()));
+    let dynamic_changes = Arc::new(StdMutex::new(Vec::new()));
+    let mut config = base_config(Arc::clone(&static_changes), Arc::clone(&dynamic_changes));
+
+    config.set_interpolation_duration(Duration::from_millis(250));
+    config.set_interpolation_curve(0.35);
+
+    let static_changes = static_changes.lock().expect("static changes lock should not be poisoned");
+    let dynamic_changes = dynamic_changes.lock().expect("dynamic changes lock should not be poisoned");
+    assert!(static_changes.is_empty());
+    assert!(dynamic_changes.is_empty());
     assert_eq!(config.interpolation_duration(), Duration::from_millis(250));
+    assert!((config.interpolation_curve() - 0.35).abs() < f32::EPSILON);
 }
