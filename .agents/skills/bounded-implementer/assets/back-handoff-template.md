@@ -2,6 +2,8 @@
 
 ### Status
 
+Use one of: complete / partial / blocked / needs-human-decision.
+
 ### Branch / commit
 
 ### Local coordination state
