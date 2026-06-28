@@ -14,5 +14,13 @@ syn = { version = "2.0.118", features = ["full"] }
 [dev-dependencies]
 parameter = { path = "../parameter" }
 
+[[test]]
+name = "diagnostics"
+path = "tests/integration/diagnostics.rs"
+
+[[test]]
+name = "parameter_group"
+path = "tests/integration/parameter_group.rs"
+
 [lints]
 workspace = true

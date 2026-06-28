@@ -10,6 +10,15 @@ use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Dura
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 
+/// Static, config-free metadata for a typed parameter.
+///
+/// This is the canonical metadata contract used by the `#[parameter_group]`
+/// proc macro. The macro generates one `ParameterSpec<T>` per annotated config
+/// field, then builds `Parameter<Config, T>` values by pairing this spec with
+/// generated `get`/`set` accessors.
+///
+/// Keep this shape coordinated with `parameter_macros`: changing these fields
+/// or constructor semantics changes the generated parameter contract.
 pub struct ParameterSpec<ValueType> {
     pub label: &'static str,
     pub unit: Option<&'static str>,
@@ -33,44 +42,33 @@ impl<ValueType> ParameterSpec<ValueType> {
 }
 
 pub struct Parameter<Config, ValueType> {
-    pub label: &'static str,
-    pub unit: Option<&'static str>,
-    pub range: RangeInclusive<f64>,
-    pub step: f64,
-    pub logarithmic: bool,
-    pub default: ValueType,
+    pub spec: ParameterSpec<ValueType>,
     pub get: fn(&Config) -> ValueType,
     pub set: fn(&mut Config, ValueType),
 }
 
 impl<Config, ValueType> Parameter<Config, ValueType> {
-    #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        label: &'static str,
-        unit: Option<&'static str>,
-        range: RangeInclusive<f64>,
-        step: f64,
-        logarithmic: bool,
-        default: ValueType,
+        spec: ParameterSpec<ValueType>,
         get: fn(&Config) -> ValueType,
         set: fn(&mut Config, ValueType),
     ) -> Self {
-        Self { label, unit, range, step, logarithmic, default, get, set }
+        Self { spec, get, set }
     }
 }
 
 impl<Config, ValueType: Asf64> Parameter<Config, ValueType> {
     pub fn validate_config_value(&self, config: &Config) -> Result<(), String> {
         let value = (self.get)(config).as_f64();
-        if self.range.contains(&value) {
+        if self.spec.range.contains(&value) {
             return Ok(());
         }
 
         Err(format!(
             "{} value {value} is outside declared range {}..={}",
-            self.label,
-            self.range.start(),
-            self.range.end()
+            self.spec.label,
+            self.spec.range.start(),
+            self.spec.range.end()
         ))
     }
 }

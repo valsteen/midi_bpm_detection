@@ -16,12 +16,12 @@ pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
     parameter: &Parameter<Config, ParameterValueType>,
     get_set_value: impl FnMut(Option<f64>) -> f64,
 ) {
-    let mut slider = Slider::from_get_set(parameter.range.clone(), get_set_value)
-        .logarithmic(parameter.logarithmic)
-        .step_by(parameter.step)
+    let mut slider = Slider::from_get_set(parameter.spec.range.clone(), get_set_value)
+        .logarithmic(parameter.spec.logarithmic)
+        .step_by(parameter.spec.step)
         .clamping(SliderClamping::Edits);
 
-    if let Some(unit) = parameter.unit.as_ref() {
+    if let Some(unit) = parameter.spec.unit.as_ref() {
         slider = slider.text(*unit);
     }
 
@@ -36,7 +36,7 @@ pub fn add_slider_default<GuiValueType, Config, ParameterValueType>(
 ) where
     GuiValueType: Asf64,
 {
-    ui.label(parameter.label);
+    ui.label(parameter.spec.label);
 
     add_slider::<GuiValueType, Config, ParameterValueType>(ui, true, parameter, move |value_opt: Option<f64>| {
         get_set_as_f64(value_opt.map(GuiValueType::new_from))
@@ -78,13 +78,13 @@ impl<Config> SlideAdder<'_, Config> {
         #[cfg(feature = "on_off_widgets")]
         let (is_enabled, changed) = {
             let mut is_enabled = (parameter.get)(self.config).is_enabled();
-            let on_off_checkbox = self.ui.checkbox(&mut is_enabled, parameter.label);
+            let on_off_checkbox = self.ui.checkbox(&mut is_enabled, parameter.spec.label);
             (is_enabled, on_off_checkbox.changed())
         };
 
         #[cfg(not(feature = "on_off_widgets"))]
         let (is_enabled, changed) = {
-            self.ui.label(parameter.label);
+            self.ui.label(parameter.spec.label);
             (true, false)
         };
 

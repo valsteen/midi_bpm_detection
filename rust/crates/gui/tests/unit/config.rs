@@ -6,11 +6,11 @@ struct GUIParameterLabels(Vec<&'static str>);
 
 impl GUIParameterVisitor<GUIConfig> for GUIParameterLabels {
     fn interpolation_duration(&mut self, parameter: Parameter<GUIConfig, Duration>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 
     fn interpolation_curve(&mut self, parameter: Parameter<GUIConfig, f32>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 

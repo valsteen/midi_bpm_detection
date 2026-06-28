@@ -58,16 +58,21 @@ fn parameter_group_generates_accessor_defaults_parameters_and_visit_order() {
     assert_eq!(config.value, 4);
     assert_f32_eq(config.weight, 0.5);
 
-    let value_parameter = ExampleConfig::PARAMETER_SPECS.value();
-    let weight_parameter = ExampleConfig::PARAMETER_SPECS.weight();
+    let value_spec = ExampleConfig::PARAMETER_SPECS.value();
+    let weight_spec = ExampleConfig::PARAMETER_SPECS.weight();
 
-    assert_parameter_spec(&value_parameter);
-    assert_parameter_spec(&weight_parameter);
-    assert_eq!(value_parameter.label, "Example value");
-    assert_f64_eq(value_parameter.step, 1.0);
-    assert!(!value_parameter.logarithmic);
-    assert_f32_eq(weight_parameter.default, 1.25);
-    assert_eq!(ExampleConfig::PARAMETERS.value().label, "Example value");
+    assert_parameter_spec(&value_spec);
+    assert_parameter_spec(&weight_spec);
+    assert_eq!(value_spec.label, "Example value");
+    assert_f64_eq(value_spec.step, 1.0);
+    assert!(!value_spec.logarithmic);
+    assert_f32_eq(weight_spec.default, 1.25);
+
+    let value_parameter = ExampleConfig::PARAMETERS.value();
+    assert_eq!(value_parameter.spec.label, "Example value");
+    assert_f64_eq(value_parameter.spec.step, 1.0);
+    (value_parameter.set)(&mut config, 5);
+    assert_eq!((value_parameter.get)(&config), 5);
 
     let mut labels = Labels(Vec::new());
     ExampleConfig::PARAMETERS.visit(&mut labels);
@@ -141,7 +146,7 @@ struct Labels(Vec<&'static str>);
 
 impl ExampleParameterVisitor<ExampleConfig> for Labels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<ExampleConfig, ValueType>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 
@@ -149,7 +154,7 @@ struct NestedLabels(Vec<&'static str>);
 
 impl NestedExampleParameterVisitor<NestedExampleConfig> for NestedLabels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<NestedExampleConfig, ValueType>) {
-        self.0.push(parameter.label);
+        self.0.push(parameter.spec.label);
     }
 }
 
