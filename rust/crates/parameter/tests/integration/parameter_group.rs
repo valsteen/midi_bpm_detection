@@ -1,5 +1,4 @@
-use parameter::parameter_group;
-use parameter::{Asf64, Parameter, ParameterSpec};
+use parameter::{Asf64, Parameter, ParameterSpec, parameter_group};
 
 #[parameter_group]
 struct ExampleConfig {
