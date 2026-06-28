@@ -29,7 +29,6 @@ pub struct BaseConfig {
     delayed_update_gui_config: Option<Instant>,
     delayed_update_static_bpm_detection_config: Option<Instant>,
     pub has_config_changes_via_ui: bool,
-    pub send_tempo_changed: ArcAtomicBool,
 }
 
 impl BaseConfig {
@@ -50,7 +49,6 @@ impl BaseConfig {
             delayed_update_static_bpm_detection_config: None,
             has_config_changes_via_ui: false,
             params,
-            send_tempo_changed: ArcAtomicBool::default(),
         }
     }
 
@@ -396,11 +394,10 @@ impl GUIConfigAccessor for LiveConfig<'_> {
 
 impl BPMDetectionConfig for LiveConfig<'_> {
     fn get_send_tempo(&self) -> bool {
-        self.base_config.config.send_tempo.load(Ordering::Relaxed)
+        self.base_config.config.send_tempo.enabled()
     }
 
     fn set_send_tempo(&mut self, enabled: bool) {
-        self.base_config.config.send_tempo.store(enabled, Ordering::SeqCst);
-        self.base_config.send_tempo_changed.store(true, Ordering::SeqCst);
+        self.base_config.config.send_tempo.set_from_gui(enabled);
     }
 }

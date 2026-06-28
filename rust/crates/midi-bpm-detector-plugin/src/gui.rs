@@ -32,14 +32,12 @@ impl GuiEditor {
             self.force_evaluate_bpm_detection.clone(),
             self.params.clone(),
         );
-        let send_tempo_changed = live_config.send_tempo_changed.clone();
         let (gui_remote, gui_builder) = create_gui(live_config);
         gui_remote.receive_keystrokes({
             let send_tempo = config.send_tempo.clone();
             Box::new(move |key| {
                 if key.to_lowercase() == "t" {
-                    send_tempo.fetch_xor(true, Ordering::Acquire);
-                    send_tempo_changed.store(true, Ordering::Release);
+                    send_tempo.toggle_from_shortcut();
                 }
             })
         });
@@ -53,12 +51,7 @@ impl GuiEditor {
         let should_drop = match (self.editor_state.is_open(), self.bpm_detection_app.as_mut()) {
             (true, Some(BPMDetectionApp { base_config, bpm_detection_gui })) => {
                 let mut live_config = LiveConfig { base_config, param_setter };
-                if live_config
-                    .base_config
-                    .send_tempo_changed
-                    .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
-                    .is_ok()
-                {
+                if live_config.base_config.config.send_tempo.take_host_param_update_request() {
                     let send_tempo = live_config.get_send_tempo();
                     param_setter.begin_set_parameter(&self.params.send_tempo);
                     param_setter.set_parameter(&self.params.send_tempo, send_tempo);
