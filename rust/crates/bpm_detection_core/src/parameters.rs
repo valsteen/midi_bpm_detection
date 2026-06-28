@@ -2,8 +2,7 @@ use std::time::Duration as StdDuration;
 
 use chrono::Duration;
 use derivative::Derivative;
-use parameter::{Asf64, OnOff};
-use parameter_macros::parameter_group;
+use parameter::{Asf64, OnOff, parameter_group};
 use serde::{Deserialize, Serialize};
 
 use crate::DurationOps;

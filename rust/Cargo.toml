@@ -9,7 +9,7 @@ members = [
     "crates/gui",
     "crates/sync",
     "crates/parameter",
-    "crates/parameter_macros",
+    "crates/parameter/macros",
     "crates/wasm",
     "crates/midi-bpm-detector-plugin",
     "crates/midi-bpm-detector-plugin/xtask",

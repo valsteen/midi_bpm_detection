@@ -5,7 +5,7 @@ fn missing_default_reports_field_attribute_span() {
     assert_compile_error(
         "missing_default",
         r#"
-use parameter_macros::parameter_group;
+    use parameter::parameter_group;
 
 #[parameter_group(
     accessor = ExampleConfigAccessor,
@@ -32,7 +32,7 @@ fn unknown_parameter_key_reports_key_with_suggestion() {
     assert_compile_error(
         "unknown_parameter_key",
         r#"
-use parameter_macros::parameter_group;
+    use parameter::parameter_group;
 
 #[parameter_group(
     accessor = ExampleConfigAccessor,
@@ -54,7 +54,7 @@ fn duplicate_parameter_key_reports_key() {
     assert_compile_error(
         "duplicate_parameter_key",
         r#"
-use parameter_macros::parameter_group;
+    use parameter::parameter_group;
 
 #[parameter_group(
     accessor = ExampleConfigAccessor,
@@ -76,7 +76,7 @@ fn unknown_group_key_reports_group_key() {
     assert_compile_error(
         "unknown_group_key",
         r#"
-use parameter_macros::parameter_group;
+    use parameter::parameter_group;
 
 #[parameter_group(
     accessors = ExampleConfigAccessor,
@@ -148,14 +148,12 @@ name = "parameter-macro-diagnostic-fixture"
 version = "0.0.0"
 edition = "2024"
 
-[dependencies]
-parameter = {{ path = "{}" }}
-parameter_macros = {{ path = "{}" }}
+	[dependencies]
+	parameter = {{ path = "{}" }}
 
-[workspace]
-"#,
-        parameter_crate_dir().display(),
-        parameter_macros_dir().display()
+	[workspace]
+	"#,
+        parameter_crate_dir().display()
     )
 }
 
@@ -163,18 +161,14 @@ fn diagnostics_root() -> PathBuf {
     rust_workspace_dir().join("target/parameter-macro-diagnostic-fixtures")
 }
 
-fn parameter_macros_dir() -> PathBuf {
+fn parameter_crate_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn parameter_crate_dir() -> PathBuf {
-    crates_dir().join("parameter")
-}
-
 fn rust_workspace_dir() -> PathBuf {
-    crates_dir().parent().expect("crates should live under the Rust workspace").to_path_buf()
-}
-
-fn crates_dir() -> PathBuf {
-    parameter_macros_dir().parent().expect("parameter_macros should live under crates").to_path_buf()
+    parameter_crate_dir()
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("parameter should live under the Rust workspace crates directory")
+        .to_path_buf()
 }

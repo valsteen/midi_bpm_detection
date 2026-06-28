@@ -448,7 +448,6 @@ dependencies = [
  "derivative",
  "itertools",
  "parameter",
- "parameter_macros",
  "serde",
  "statrs",
 ]
@@ -1994,7 +1993,6 @@ dependencies = [
  "log",
  "num-traits",
  "parameter",
- "parameter_macros",
  "serde",
  "sync",
  "wasm-bindgen-futures",
@@ -3593,14 +3591,14 @@ name = "parameter"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "parameter-macros",
  "serde",
 ]
 
 [[package]]
-name = "parameter_macros"
+name = "parameter-macros"
 version = "0.1.0"
 dependencies = [
- "parameter",
  "proc-macro2",
  "quote",
  "syn 2.0.118",

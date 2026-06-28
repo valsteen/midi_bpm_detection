@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 parameter = { path = "../parameter"}
-parameter_macros = { path = "../parameter_macros" }
 
 
 itertools = "0.15.0"

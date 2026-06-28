@@ -8,6 +8,7 @@
 
 use std::{borrow::Cow, fmt, marker::PhantomData, ops::RangeInclusive, time::Duration};
 
+pub use parameter_macros::parameter_group;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, ser::SerializeStruct};
 
 /// Static, config-free metadata for a typed parameter.
@@ -17,8 +18,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de, de::Visitor, s
 /// field, then builds `Parameter<Config, T>` values by pairing this spec with
 /// generated `get`/`set` accessors.
 ///
-/// Keep this shape coordinated with `parameter_macros`: changing these fields
-/// changes the generated parameter contract.
+/// Keep this shape coordinated with the `parameter_group` macro backend:
+/// changing these fields changes the generated parameter contract.
 pub struct ParameterSpec<ValueType> {
     pub label: &'static str,
     pub unit: Option<&'static str>,
