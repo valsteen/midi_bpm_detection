@@ -1,7 +1,7 @@
 use std::sync::{Arc, atomic::AtomicUsize};
 
 use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig};
-use nih_plug::prelude::{Param, Params, RemoteControlsPage};
+use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
 
 use super::*;
 use crate::DeferredConfigUpdate;
@@ -107,6 +107,22 @@ fn dynamic_on_off_persistent_keys_match_parameter_ids() {
     ] {
         assert!(persistent_keys.contains(&String::from(key)));
     }
+}
+
+#[test]
+fn daw_port_is_visible_non_automatable_rendezvous_parameter() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+
+    let flags = params.daw_port.flags();
+
+    assert!(flags.contains(ParamFlags::NON_AUTOMATABLE));
+    assert!(!flags.contains(ParamFlags::HIDDEN));
+    assert!(!flags.contains(ParamFlags::HIDE_IN_GENERIC_UI));
 }
 
 #[test]

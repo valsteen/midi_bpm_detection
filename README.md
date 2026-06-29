@@ -144,6 +144,8 @@ The extension follows the currently selected device. When it recognizes this plu
 the plug-in's `DAW Port` parameter. The plug-in then sends detected BPM updates over that socket, and the extension
 applies them to Bitwig's transport tempo.
 
+This Bitwig tempo-control path has been manually tested on macOS with Bitwig Studio 6.0.6.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md): crate map, runtime modes, and architecture boundaries.

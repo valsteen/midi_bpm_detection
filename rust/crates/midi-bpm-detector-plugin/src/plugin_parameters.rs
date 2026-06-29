@@ -453,12 +453,14 @@ impl MidiBpmDetectorParams {
                     &update_dynamic_changed_at_f32,
                 ),
             },
-            daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).with_callback(Arc::new({
-                let daw_port = daw_port.clone();
-                move |value| {
-                    daw_port.store(NonZeroU16::new(value.to_u16().unwrap()), Ordering::Relaxed);
-                }
-            })),
+            daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 })
+                .non_automatable()
+                .with_callback(Arc::new({
+                    let daw_port = daw_port.clone();
+                    move |value| {
+                        daw_port.store(NonZeroU16::new(value.to_u16().unwrap()), Ordering::Relaxed);
+                    }
+                })),
         }
     }
 }
