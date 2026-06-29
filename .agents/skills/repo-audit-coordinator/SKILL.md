@@ -404,6 +404,14 @@ Treat the worker's final response and back-handoff as stdout plus exit status. D
 
 `active-slice.md` is restart state, not a user instruction by itself. When a coordinator turn creates, replaces, or keeps an active implementation slice, end with the concrete action the user should take next.
 
+Hard launch-output gate: if the response says a worker task, active slice, implementation slice, probe, or bounded task is ready for `visible-worker` or `worktree-worker` execution, the same response is incomplete unless it includes one of these launch artifacts:
+
+- a created worker thread reference;
+- a clickable worker-thread/deep-link launch;
+- a fenced `text` block containing the exact `$bounded-implementer` prompt to paste.
+
+Do not make the human infer that a task title such as "DAW Port Non-Automatable Probe" is the prompt. A task title is only a label. The launch artifact must include the audit path or slice path, execution mode, required back-handoff path, and the most important constraints.
+
 Prefer the least-manual worker launch path available in the current Codex surface:
 
 1. If the current surface exposes a thread-creation tool and the user explicitly asked to create worker threads, or granted standing authorization for this audit to create them, create the worker thread with the exact `$bounded-implementer` prompt. Report the created thread as the next action surface.
@@ -415,6 +423,26 @@ In every worker-launch path, name the back-handoff path the worker must write.
 Do not end with only "queued," "recorded," "active slice updated," or a link to `active-slice.md`. Those are internal state updates; they do not tell the user what to do.
 
 Only use an auto-discovery flow when the worker prompt in `active-slice.md` explicitly supports it. In that case, make the launch action brainless, for example a created thread, a deep link, or the exact command text: "$bounded-implementer continue .codex/audits/<audit-name>/active-slice.md". If both a launch action and raw paste are possible, lead with the launch action and keep the paste-ready prompt as fallback.
+
+Bad final-action shape:
+
+```text
+Next worker task is now ready: DAW Port Non-Automatable Probe.
+See .codex/audits/parameter-flow/active-slice.md.
+```
+
+Good final-action shape:
+
+```text
+Next: paste this prompt into a fresh worker chat:
+
+$bounded-implementer
+Workspace: /path/to/repo
+Execute .codex/audits/parameter-flow/active-slice.md.
+Execution mode: visible-worker.
+Required back-handoff: .codex/audits/parameter-flow/back-handoffs/YYYY-MM-DD-slice.md.
+Stay within the brief's non-goals and write the back-handoff before finishing.
+```
 
 For non-worker modes:
 
@@ -598,6 +626,6 @@ When finishing a coordinator turn, report the parts that matter:
 5. Recommended worker execution mode and least-manual launch action when a worker should execute the slice: created thread, clickable deep link, or exact `$bounded-implementer` prompt.
 6. The user's next physical action: open the created thread, click the deep link, paste the prompt in a fresh worker chat, answer a decision question, approve same-chat role switch, commit/publish, or continue the named audit item.
 
-Keep final responses compact. If the next action is obvious, lead with it. If the explanation involves architecture, include concrete code evidence before the abstract label.
+Keep final responses compact. If a worker should run next, lead with `Next:` and the launch artifact before internal state details. If the explanation involves architecture, include concrete code evidence before the abstract label.
 
 Omit any numbered section that would only say "none" or repeat routine guardrail results. If guardrail checks did not affect the decision, do not mention them.
