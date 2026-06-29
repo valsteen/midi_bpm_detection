@@ -18,9 +18,11 @@ Core principles:
 - public docs should contain stable knowledge, not work-in-progress coordination;
 - verification should match risk and blast radius;
 - explanations should start from concrete repo evidence, then name the concept;
-- parallel branch, worker, and audit-state movement is normal during heavy adjustment work;
+- parallel branch, worker, and audit-state movement is normal during heavy adjustment work, and branches are logistics rather than the audit agenda;
 - stale instructions are an instruction-maintenance problem first, not a reason to reshape working code;
-- routine guardrail checks are quiet unless they change the next action.
+- routine guardrail checks are quiet unless they change the next action;
+- unexpected small tasks should enter the audit flow through an intake lane instead of becoming side quests that fight the process;
+- human intent is a real dependency: when files, git, GitHub, or worker receipts cannot answer a product/process question, ask the human a concrete action question.
 
 ## Operating style
 
@@ -38,7 +40,7 @@ Avoid abstract-only phrasing such as "bespoke output/runtime state" unless it is
 
 Use "my guess" sparingly. If repository evidence supports the claim, say so. If evidence is missing, name the missing check directly.
 
-After a slice is accepted, committed, or closed, keep the user moving. End with the next useful step: next slice, close/publish, human decision, or "no real follow-up remains." Do not merely say "ready to commit" or "yes" and wait.
+After a slice is accepted, committed, or published, keep the user moving. End with the next useful step: next slice, intake triage, human decision, or "no real follow-up remains." Do not turn branch cleanup into the default next task.
 
 When the user corrects coordinator process, apply the correction on the next action and keep moving. If the user says to stop surfacing routine status, branch-count surprises, repeated safety narration, or other non-decision-changing checks, do not answer only with acknowledgement and wait. Acknowledge briefly if needed, then continue with the substantive audit, slice, review, commit, or next-step selection.
 
@@ -56,6 +58,33 @@ Use low-drama language for resyncs:
 - Say "the current branch now contains X relevant commits" only when X matters.
 - Say "this affects the next action because..." when it changes scope or safety.
 - Do not say "surprise," "unexpected," "someone changed," or similar language for harmless movement.
+
+## Flow model: continuous intake
+
+The coordinator is not a rigid phase machine. It maintains a lightweight Kanban-style flow:
+
+- `intake`: a newly discovered side issue, repo-state mismatch, stale instruction, failed command, or user correction that needs triage;
+- `ready`: the next bounded audit question, implementation slice, review, or human decision is clear;
+- `active`: one coordinator review or one worker slice is being prepared or evaluated;
+- `blocked`: a real missing decision, conflict, or unavailable artifact prevents the next action;
+- `done`: the item is recorded, published, superseded, or intentionally dropped.
+
+When unexpected work appears, classify it into this flow in one sentence internally, then either fold it into the current slice if it is necessary, queue it as a later slice, or drop it as irrelevant. Do not treat normal intake as a process failure, and do not start a branch-status investigation unless the intake item affects the next file edit, review, commit, merge, push, pull, or handoff.
+
+State transitions must leave the next turn in a coherent starting state. If the user or previous turn switched to `main` after publishing, the next continuation starts from `main`; it should not recommend retiring the old feature branch unless the user asks or a real cleanup action is needed. If the audit branch will carry several small maintenance slices, keep using it as the work container and move the audit item forward.
+
+## Branch and remote posture
+
+Branches are transport containers for groups of audit slices. A long audit may accumulate multiple small, related maintenance commits on one branch when waiting for CI or PR merges after every slice would slow the work down.
+
+Do not recommend "close/retire branch" as the default next action after a merge, publish, or completed slice. Mention branch cleanup only when:
+
+- the user asks to clean up, switch, delete, or publish a branch;
+- the next operation would merge, rebase, push, pull, checkout, or overwrite files;
+- branch divergence changes the truth of a commit, PR, or merge claim;
+- the current branch is the wrong starting point for the requested next code or audit work.
+
+Remote PR and CI checks are not part of ordinary coordinator startup. Use `gh`, `git fetch`, or network checks only for publish/merge/PR-status work, for stale-remote suspicion that affects the next action, or when the user explicitly asks.
 
 ## When to use this skill
 
@@ -105,6 +134,7 @@ Unless the user names a different location, keep transient coordination state lo
   repo-map.md
   audit.md
   current.md
+  queue.md
   active-slice.md
   back-handoffs/
     YYYY-MM-DD-<slice-name>.md
@@ -118,10 +148,26 @@ Use:
 - `repo-map.md` for local discovered repository structure relevant to this audit.
 - `audit.md` for local findings, decisions, invariants, completed slices, and architectural notes.
 - `current.md` for compact hot-path restart state only.
+- `queue.md` for multiple intake items discovered while an audit is active.
 - `active-slice.md` for the one slice brief, execution mode, worker launch action, and paste-ready implementer prompt fallback that should be executed next.
 - `back-handoffs/YYYY-MM-DD-<slice-name>.md` for exactly one implementer back-handoff.
 - `reviews/YYYY-MM-DD-<slice-name>.md` for exactly one coordinator review, when the review is too large for `audit.md`.
 - `history.md` for cold archived prompts, obsolete slice briefs, old status notes, and migration notes that do not belong in the restart path.
+
+Every exchange artifact should start with a small YAML-like state header before prose:
+
+```md
+---
+kind: current | queue | active-slice | back-handoff | review
+state: intake | ready | active | blocked | done | superseded
+item: short-kebab-case-name
+updated: "YYYY-MM-DD"
+next_action: none | read-current | read-queue | read-active-slice | read-back-handoff | inspect-diff | verify | human-decision | publish | create-slice
+read_policy: stop-after-header | read-summary | read-full
+---
+```
+
+The header is the protocol. The prose below it is supporting detail. If `state: done` and `next_action: none`, do not read old back-handoffs, reviews, or history to re-prove completion. Archive bulky completed detail out of `current.md` and `active-slice.md`.
 
 Before creating or updating local audit state, confirm the path is ignored by either `.gitignore` or `.git/info/exclude`. If it is not ignored, offer to add an ignore rule before writing work-in-progress state.
 
@@ -147,6 +193,89 @@ When migrating an older audit workspace, treat existing `handoff.md`, `fresh-con
 
 If the audit name is not obvious, propose a short kebab-case name based on the topic.
 
+## Exchange protocol
+
+Coordinator and worker files are message artifacts, not journals. Each artifact should answer three questions without requiring a full read:
+
+- What is this item?
+- Is it active, blocked, done, or superseded?
+- What exact next action, if any, should happen?
+
+Use the state header to decide what to read:
+
+- `read_policy: stop-after-header`: stop after the header unless the user asks for archaeology.
+- `read_policy: read-summary`: read the header and the first summary section only.
+- `read_policy: read-full`: read the full artifact because it is the active brief, the active back-handoff, or the blocker evidence.
+
+For completed lanes, prefer a tiny tombstone over a recap. A done `active-slice.md` should say what completed, where the durable record lives, and `next_action: none` or `human-decision`. It should not list every commit, old prompt, or possible future idea.
+
+`current.md` is the single status card for the audit. It may point at one active slice, one active back-handoff, or one active review. If it says `state: done` and `next_action: none`, a continuation should move on without reading `audit.md`, `history.md`, old handoffs, or old reviews.
+
+When `current.md` has an active pointer, put it in the header:
+
+```md
+active_ref: .codex/audits/<audit-name>/active-slice.md
+```
+
+Use only one `active_ref` at a time. If there are multiple possible next items, keep them in `queue.md` and choose one before replacing `active-slice.md`.
+
+`queue.md` is the intake lane. Use it when more than one follow-up exists, or when a discovered item should not immediately replace the active slice. Keep it as a compact table:
+
+```md
+---
+kind: queue
+state: active
+item: <audit-name>
+updated: "YYYY-MM-DD"
+next_action: create-slice | human-decision | none
+read_policy: read-summary
+---
+
+| Item | State | Source | Next action | Notes |
+| --- | --- | --- | --- | --- |
+| socket-retry-policy | intake | back-handoffs/YYYY-MM-DD-slice.md | human-decision | Need product retry semantics. |
+```
+
+Queue states are `intake`, `ready`, `active`, `blocked`, `done`, `superseded`, or `dropped`. A coordinator continuation may read only the queue header and table; it should not open source receipts until one queued item is selected for active work.
+
+`audit.md` is the accepted decision log. Append compact accepted facts there after review, then remove bulky working details from hot-path files. Do not use `audit.md` as the restart checklist when `current.md` has a valid state header.
+
+`back-handoffs/` and `reviews/` are per-item receipts. Read one only when `current.md`, `active-slice.md`, or the user names it. After the coordinator accepts a receipt, record the accepted result in `audit.md`, mark the hot-path next action, and do not re-open the receipt in later continuations.
+
+Do not force a follow-up when the honest result is no follow-up. Use `next_action: none` and say "No follow-up from this item." New ideas discovered during the work go into `queue.md` as separate intake rows unless they directly block the current item.
+
+## Recovery protocol: human-as-service
+
+When status sources disagree, the coordinator should recover by producing a small recovery packet, not by silently rereading history or narrating confusion. Use this when any of these disagree in a way that affects the next action:
+
+- the deterministic status helper;
+- `current.md`, `queue.md`, or `active-slice.md` headers;
+- a named back-handoff or review;
+- the current git diff, branch, or commit;
+- GitHub/remote state, only when publish, merge, or PR status is actually the next action;
+- the user's latest instruction.
+
+Recovery packet shape:
+
+```md
+### Recovery Packet
+
+- Observed facts:
+- Conflicting sources:
+- Safe next action:
+- Human question:
+```
+
+Keep it short. `Observed facts` should be concrete, such as "`active-slice.md` says `state: ready`, but the back-handoff says `state: done` and the diff contains the expected files." `Conflicting sources` should name the exact files, branch, PR, command, or user instruction. `Safe next action` should name what can happen without guessing, such as inspect diff, update queue, mark receipt accepted, or stop before staging. `Human question` is required when the missing fact is intent, product behavior, scope, or preferred workflow.
+
+Treat the human as the service for intent. Do not simulate the human by reading more files. Ask one concrete action question with the options or consequence named:
+
+```text
+I can preserve the current branch as the active audit container, or mark this lane done and continue from main. Which should I use for the next slice?
+```
+
+After the human answers, update `current.md`, `queue.md`, or `active-slice.md` so the next continuation starts from that accepted state. If the issue remains unresolved, set the relevant item to `state: blocked`, `next_action: human-decision`, and put the question in `queue.md` rather than leaving it implicit in the chat.
+
 ## Legacy tracked artifact check
 
 Before doing new coordinator work, inspect for tracked transient audit artifacts:
@@ -163,21 +292,35 @@ Classify any matches:
 
 If tracked transient artifacts exist, offer a migration plan before appending more work-in-progress content. Do not silently continue writing transient state into tracked docs.
 
+## Deterministic status helper
+
+Use the local helper for routine startup/status facts instead of manually composing several git checks:
+
+```sh
+zsh .agents/skills/repo-audit-coordinator/scripts/coordinator-status.zsh --audit-path .codex/audits/<audit-name>
+```
+
+Omit `--audit-path` when there is no audit workspace yet. The helper is local-only: it does not fetch, push, pull, or call GitHub. It consolidates branch/tracking, working tree changes, ignored audit-state status, tracked transient docs, hot-path line counts, protocol fields, and queue active-item counts.
+
+Treat the helper output as a triage packet. Read it once, decide whether anything changes the next action, and keep routine passing facts out of the user-facing response. If the helper reports a real blocker, name only the blocker and its consequence.
+
 ## Context budget and restart flow
 
 Start continuations with the hot path:
 
-1. Inspect `git status --short --branch`.
-2. Read `current.md`.
-3. Read `active-slice.md` only when preparing or reviewing the next implementation slice.
-4. Read the latest named file under `back-handoffs/` or `reviews/` with targeted `rg`, `tail`, or `sed` ranges when `current.md` points to it.
-5. Open `audit.md`, `history.md`, or old migrated files only when the hot path is missing, stale, or contradicted by repository state.
+1. Run the deterministic status helper, normally with `--audit-path` when the audit name is known.
+2. Use the helper's hot-path protocol fields to decide whether to stop, read the summary, or read the full file.
+3. Read `current.md` only as far as its `read_policy` requires.
+4. Read `queue.md` only when the helper reports active queue items and there is no current active item, or when the user's request is to choose/triage follow-ups.
+5. Read `active-slice.md` only when its header says it is active/ready or the next action is preparing or reviewing an implementation slice.
+6. Read the latest named file under `back-handoffs/` or `reviews/` with targeted `rg`, `tail`, or `sed` ranges only when a hot-path header points to it.
+7. Open `audit.md`, `history.md`, or old migrated files only when the hot path is missing, stale, or contradicted by repository state.
 
 Prefer `rg`, `git diff --stat`, `git diff --name-only`, and targeted diffs before full-file reads. Do not paste full diffs or long command output into audit docs unless the exact text is the finding; record the command, pass/fail status, and the relevant error or decision.
 
-Keep restart checks cheap. A normal continuation should need one `git status --short --branch`, the hot-path file, and at most the active slice or latest named handoff/review. Do not repeatedly re-prove that nobody touched the repo unless one of these changed:
+Keep restart checks cheap. A normal continuation should need one status-helper run, the hot-path file, and at most the active slice or latest named handoff/review. Do not repeatedly re-prove that nobody touched the repo unless one of these changed:
 
-- `git status --short --branch` shows decision-relevant files or branch movement;
+- the status helper shows decision-relevant files or branch movement;
 - the user says another worker changed the checkout and the next action depends on files, commits, or handoffs that may have changed;
 - the next action would stage, commit, merge, push, or overwrite files;
 - an audit note contradicts the current diff or commit history.
@@ -203,9 +346,9 @@ When committing an already-reviewed slice, use the current evidence efficiently.
 
 ## Before doing new work
 
-1. Inspect the current git branch and working tree.
-2. Check whether `.codex/audits/` is ignored.
-3. Run the legacy tracked artifact check.
+1. Run the deterministic status helper, with `--audit-path` if the audit workspace is known.
+2. Treat branch, ignore, legacy-artifact, and hot-path facts as one triage packet.
+3. If the helper shows tracked transient artifacts, classify them before appending more work-in-progress content.
 4. Read the relevant hot-path audit state named by the user: normally `current.md` first, then `active-slice.md` only if needed.
 5. If no audit workspace exists yet, create one under `.codex/audits/<audit-name>/`.
 6. Distinguish:
@@ -278,7 +421,7 @@ For non-worker modes:
 - `human-decision`: ask the decision question or give the decision options; do not say a worker is queued.
 - `read-only-subagent`: state that the coordinator will run or request the read-only pass, or provide the exact prompt if the user must start it.
 - `same-chat-role-switch`: state that the user must explicitly approve switching this chat out of coordinator mode before implementation begins.
-- no active slice: say "No active implementation slice remains" and name the next useful action, such as review, commit, publish, close, or a human decision.
+- no active slice: say "No active implementation slice remains" and name the next useful audit, review, publish action, or human decision. Do not recommend branch retirement as filler.
 
 ## Verification tiers
 
@@ -312,9 +455,10 @@ Do:
 - keep restart docs compact and archive old details out of the hot path;
 - keep `current.md` and `active-slice.md` within their line budgets;
 - choose verification guidance by tier rather than repeating the same broad gate every turn;
-- proactively propose the next useful step after each accepted review, commit, or closure;
+- proactively propose the next useful step after each accepted review, commit, publish, or completed audit item;
 - treat normal parallel movement as part of the audit flow and resync without ceremony;
-- keep routine status, branch, ignore, and line-budget checks internal unless their outcome changes what happens next.
+- keep routine status, branch, ignore, and line-budget checks internal unless their outcome changes what happens next;
+- route unexpected side issues through intake instead of letting them derail the active item.
 
 Do not:
 
@@ -328,10 +472,15 @@ Do not:
 - rerun expensive verification only to restate already-recorded evidence;
 - spend multiple rounds proving the same clean repo state when cheap status checks already support the next action;
 - interrupt requested forward motion to narrate benign branch-count changes, clean status surprises, or passing guardrail checks;
+- make branch closure, deletion, or retirement the default recommendation when no active slice remains;
+- query GitHub or fetch remotes during ordinary continuation just to restate local branch status;
+- let a phase checklist reject the starting state produced by the previous accepted action;
 - use alarmed, possessive, or suspicion-shaped language for normal branch, commit, handoff, or ignored audit-state movement;
 - answer a process correction with only an acknowledgement when there is enough context to continue the requested substantive work;
 - ask the user to accept a slice based mainly on coordinator vocabulary instead of visible repo evidence;
-- end a completed slice review without naming the next recommended action;
+- end a completed slice review without naming the next coordinator action;
+- treat completed handoffs or reviews as active evidence after their accepted result has been summarized into `audit.md`;
+- keep a done `active-slice.md` full of old commits, old prompts, or branch cleanup advice;
 - put completed prompts, old slice briefs, command logs, or multi-slice history in `current.md` or `active-slice.md`;
 - let hot-path docs grow until each continuation requires rereading the full audit.
 
@@ -365,6 +514,15 @@ For non-obvious design slices, include an evidence anchor inside the relevant se
 Use this template:
 
 ```md
+---
+kind: active-slice
+state: ready
+item: <slice-name>
+updated: "YYYY-MM-DD"
+next_action: read-active-slice
+read_policy: read-full
+---
+
 ## Slice Brief: <name>
 
 ### Objective
@@ -403,6 +561,7 @@ For `visible-worker` or `worktree-worker`, include the least-manual launch path 
 In `Local coordination state`, name:
 
 - the current `active-slice.md` path;
+- the queue path, `.codex/audits/<audit-name>/queue.md`;
 - the exact `back-handoffs/YYYY-MM-DD-<slice-name>.md` path the implementer must write;
 - any `reviews/YYYY-MM-DD-<slice-name>.md` path the coordinator expects to use.
 
@@ -420,12 +579,13 @@ In `Execution mode`, name one mode from the worker execution modes list and incl
    - decisions made;
    - changed assumptions;
    - remaining risks;
-   - next recommended slice.
+   - next coordinator action.
 
 6. Update `current.md` so a future session can restart without this coordinator chat.
 7. Replace `active-slice.md` with the next slice brief and worker launch action, including the paste-ready implementer prompt as fallback, or shrink it to "no active slice" if none exists.
-8. Move obsolete active-slice details out of the hot path when they are no longer needed for the next turn.
-9. Run `wc -l current.md active-slice.md` and fix any hot-path budget violation before final response.
+8. Put any unexpected follow-up into `queue.md`, either as ready next work, blocked work, or an explicit dropped/superseded item. Use `active-slice.md` only for the one selected next item.
+9. Move obsolete active-slice details out of the hot path when they are no longer needed for the next turn.
+10. Run the deterministic status helper with `--audit-path` and fix any hot-path budget violation before final response.
 
 ## Final response format
 
@@ -436,7 +596,7 @@ When finishing a coordinator turn, report the parts that matter:
 3. Verification tier and evidence.
 4. Proposed next slice.
 5. Recommended worker execution mode and least-manual launch action when a worker should execute the slice: created thread, clickable deep link, or exact `$bounded-implementer` prompt.
-6. The user's next physical action: open the created thread, click the deep link, paste the prompt in a fresh worker chat, answer a decision question, approve same-chat role switch, commit/publish, or close.
+6. The user's next physical action: open the created thread, click the deep link, paste the prompt in a fresh worker chat, answer a decision question, approve same-chat role switch, commit/publish, or continue the named audit item.
 
 Keep final responses compact. If the next action is obvious, lead with it. If the explanation involves architecture, include concrete code evidence before the abstract label.
 

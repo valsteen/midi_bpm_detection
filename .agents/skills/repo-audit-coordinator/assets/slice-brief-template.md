@@ -1,3 +1,12 @@
+---
+kind: active-slice
+state: ready
+item: <slice-name>
+updated: "YYYY-MM-DD"
+next_action: read-active-slice
+read_policy: read-full
+---
+
 ## Slice Brief: <name>
 
 ### Objective
@@ -15,6 +24,7 @@ For `visible-worker` or `worktree-worker`, include the least-manual launch path 
 ### Local coordination state
 
 - Active slice path: `.codex/audits/<audit-name>/active-slice.md`
+- Queue path: `.codex/audits/<audit-name>/queue.md`
 - Implementer back-handoff path: `.codex/audits/<audit-name>/back-handoffs/YYYY-MM-DD-<slice-name>.md`
 - Coordinator review path, if needed: `.codex/audits/<audit-name>/reviews/YYYY-MM-DD-<slice-name>.md`
 

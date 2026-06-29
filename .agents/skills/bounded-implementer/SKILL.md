@@ -41,16 +41,16 @@ Implementer output is not:
 
 - broad architecture audit;
 - new coordinator planning;
-- creating additional slices beyond a short recommended next slice;
+- creating additional slices beyond recording intake candidates for the coordinator;
 - continuing as `$repo-audit-coordinator` because the user asked a follow-up question.
 
-If the user asks a broad planning or audit question while this skill is active, answer only what is needed to protect the current slice, record the rest as a coordinator follow-up in the back-handoff, and do not switch modes. Only become coordinator in this chat when the user says explicitly that they want to leave implementer mode and switch this chat to coordination.
+If the user asks a broad planning or audit question while this skill is active, answer only what is needed to protect the current slice, record the rest as intake candidates in the back-handoff, and do not switch modes. Only become coordinator in this chat when the user says explicitly that they want to leave implementer mode and switch this chat to coordination.
 
 ## Core rule
 
 Keep edits scoped to the slice.
 
-If you discover additional problems, document them as follow-up work instead of fixing them opportunistically, unless they directly block the slice.
+If you discover additional problems, document them as intake candidates instead of fixing them opportunistically, unless they directly block the slice.
 
 If a documented command, instruction, or workflow note fails while executing the slice, check cwd, build-root assumptions,
 and current repo layout before changing code or tooling. Prefer correcting stale instructions or recording the mismatch in
@@ -160,6 +160,7 @@ Do not write active slice status, branch checkpoints, or back-handoffs into trac
 The back-handoff must include:
 
 - status: complete / partial / blocked / needs-human-decision;
+- state header with `kind`, `state`, `item`, `updated`, `next_action`, and `read_policy`;
 - branch and commit if applicable;
 - local coordination state;
 - files changed;
@@ -172,11 +173,21 @@ The back-handoff must include:
 - decisions made during implementation;
 - deviations from the brief;
 - remaining risks;
-- recommended next slice for the audit coordinator.
+- intake candidates discovered during the work;
+- next coordinator action.
 
 Use this template:
 
 ```md
+---
+kind: back-handoff
+state: done | blocked | active
+item: <slice-name>
+updated: "YYYY-MM-DD"
+next_action: none | inspect-diff | verify | human-decision | create-slice
+read_policy: read-summary | read-full
+---
+
 ## Back-Handoff: <slice name>
 
 ### Status
@@ -207,10 +218,14 @@ Include short file/function references for non-obvious changes. Use snippets onl
 
 ### Remaining risks
 
-### Recommended next slice
+### Intake candidates
+
+List follow-ups discovered during the slice as candidate queue rows. Use "none" when there are no follow-ups.
+
+### Next coordinator action
 ```
 
-Always fill `Recommended next slice`. Use "none; coordinator should close or publish" when no follow-up is known. Do not invent extra work to avoid saying none.
+Always fill `Next coordinator action`. Use `next_action: none` and "No follow-up from this item" when no follow-up is known. Do not invent extra work to avoid saying none, and do not recommend branch cleanup unless the slice specifically involved publish or branch state.
 
 ## Final response format
 
@@ -223,4 +238,4 @@ When finishing an implementation turn, report:
 5. Location of the updated back-handoff.
 6. Anything the audit coordinator should inspect next.
 
-If the slice is complete, make the next coordinator action explicit: accept and commit, request a human decision, queue a named follow-up, or close/publish.
+If the slice is complete, make the next coordinator action explicit: accept and commit, request a human decision, queue a named follow-up, publish if the brief requires publication, or `next_action: none`.

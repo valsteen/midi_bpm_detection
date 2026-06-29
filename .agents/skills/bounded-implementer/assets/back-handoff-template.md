@@ -1,3 +1,12 @@
+---
+kind: back-handoff
+state: done | blocked | active
+item: <slice-name>
+updated: "YYYY-MM-DD"
+next_action: none | inspect-diff | verify | human-decision | create-slice
+read_policy: read-summary | read-full
+---
+
 ## Back-Handoff: <slice name>
 
 ### Status
@@ -30,4 +39,8 @@ Use short file/function references, or snippets only when a reference alone woul
 
 ### Remaining risks
 
-### Recommended next slice
+### Intake candidates
+
+List follow-ups discovered during the slice as candidate queue rows. Use "none" when there are no follow-ups.
+
+### Next coordinator action
