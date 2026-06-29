@@ -25,5 +25,6 @@ internal class BeatDetectionExtensionMetadataTest {
 
         assertEquals("Beat Detection Bitwig Extension", definition.name)
         assertEquals("Beat Detection Bitwig Extension", definition.hardwareModel)
+        assertEquals(25, definition.requiredAPIVersion)
     }
 }

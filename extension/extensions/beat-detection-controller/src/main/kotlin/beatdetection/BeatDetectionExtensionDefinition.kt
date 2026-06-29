@@ -18,7 +18,7 @@ public class BeatDetectionExtensionDefinition : ControllerExtensionDefinition() 
             version = "0.1",
             hardwareVendor = "Midi BPM Detection",
             hardwareModel = "Beat Detection Bitwig Extension",
-            requiredApiVersion = 2,
+            requiredApiVersion = 25,
         ).requireValid()
 
     override fun getName(): String = identity.name
