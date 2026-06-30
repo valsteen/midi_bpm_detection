@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 
 internal class ControllerStatusSurfaceTest {
     @Test
-    fun reportsPluginAndBridgeLifecycle() {
+    fun tracksBridgeLifecycle() {
         val status = RecordingStatusControl()
         val surface =
             ControllerStatusSurface(
@@ -20,7 +20,7 @@ internal class ControllerStatusSurfaceTest {
         assertEquals("Plugin found; waiting for connection", status.value)
 
         surface.markBridgeConnected()
-        surface.markBpmReceived(126.456f)
+        surface.markBpmReceived()
         assertEquals("Plugin connected", status.value)
 
         surface.markBridgeDisconnected()
@@ -31,7 +31,7 @@ internal class ControllerStatusSurfaceTest {
     }
 
     @Test
-    fun doesNotRewriteUnchangedConnectedStatus() {
+    fun skipsDuplicateConnectedStatus() {
         val status = RecordingStatusControl()
         val surface =
             ControllerStatusSurface(
@@ -39,14 +39,14 @@ internal class ControllerStatusSurfaceTest {
             )
 
         surface.markBridgeConnected()
-        surface.markBpmReceived(126.456f)
-        surface.markBpmReceived(127.0f)
+        surface.markBpmReceived()
+        surface.markBpmReceived()
 
         assertEquals(listOf("Waiting for Plugin", "Plugin connected"), status.values)
     }
 
     @Test
-    fun identifiesWhenTrackedDawPortDisappears() {
+    fun detectsMissingTrackedDawPort() {
         assertFalse(
             trackedDawPortDisappeared(
                 trackedParameterId = "track/device/daw-port",
@@ -70,7 +70,7 @@ internal class ControllerStatusSurfaceTest {
     }
 
     @Test
-    fun doesNotImmediatelyRestoreUserSelectedEnumValue() {
+    fun keepsUserSelectedEnumValue() {
         val enum = RecordingEnumStatusValue()
         val control = enum.statusControl()
 

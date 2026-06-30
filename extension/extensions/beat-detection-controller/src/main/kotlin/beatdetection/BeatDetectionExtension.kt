@@ -43,7 +43,7 @@ public class BeatDetectionExtension(
             }
             remoteClient.setReceiveCallback { bytes ->
                 val bpm = TempoControllerFrame.readBpm(bytes)
-                statusSurface.markBpmReceived(bpm)
+                statusSurface.markBpmReceived()
                 transport.tempo().value().raw = bpm.toDouble()
             }
         }

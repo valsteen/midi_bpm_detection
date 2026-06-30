@@ -42,7 +42,7 @@ internal class ControllerStatusSurface internal constructor(
         }
     }
 
-    internal fun markBpmReceived(_bpm: Float) {
+    internal fun markBpmReceived() {
         markBridgeConnected()
     }
 
