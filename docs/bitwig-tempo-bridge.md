@@ -44,6 +44,21 @@ The extension chooses the localhost port. The plugin learns it through a host-ex
 The `DAW Port` parameter is not a user-facing tempo value. It is the rendezvous slot that lets the Bitwig extension tell
 the plugin which localhost port to connect to.
 
+## Extension Status UI
+
+The preferred Bitwig-side feedback surface is the controller icon popover opened from the small keyboard/piano-shaped
+controller icons in Bitwig's top-right toolbar. The extension uses Bitwig's document-state settings surface for that
+status; Bitwig's API names this `DocumentState` and documents it as the Studio IO panel.
+
+Do not treat Bitwig settings as neutral status labels. `Settings.getStringSetting(...)` is an editable text field, enum
+settings are still user-selectable, and extension-owned setting writes may interact with Bitwig's Undo history. When
+adding or changing dynamic status there, manually check Undo behavior in Bitwig and prefer coarse, infrequently written
+states over constantly rewritten diagnostic text.
+
+Settings > Controllers, also called the Controller Preferences panel in the Bitwig API, is an installation/configuration
+surface. Do not put user-facing runtime bridge status there unless Bitwig exposes a clearly non-editable informational
+widget.
+
 ## Socket Frame
 
 The Rust side writes one length-prefixed payload per BPM update:

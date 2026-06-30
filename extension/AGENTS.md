@@ -18,6 +18,16 @@ Repository instructions for AI coding agents working on this project.
 - Put reusable Bitwig ceremony in `libs/bitwig-bootstrap`.
 - Put loadable extension outputs in `extensions/*`.
 
+## Bitwig Settings And Undo
+
+- Treat Bitwig document/controller settings as user-editable settings first, not as read-only status labels. In API 25,
+  `Settings.getStringSetting(...)` creates an editable text field, and enum settings remain user-selectable.
+- Before adding dynamic status or diagnostics through `DocumentState`, `Preferences`, or any other Bitwig `Settings`
+  surface, check whether extension-owned writes appear in Bitwig's Undo history. If undo suppression is not available,
+  prefer stable/coarse status, duplicate-write suppression, or a different feedback surface.
+- Do not use Settings > Controllers / Controller Preferences for user-facing runtime status unless Bitwig exposes a
+  clearly non-editable informational widget. Keep that area for installation/configuration.
+
 ## Documentation
 
 - Use `../docs/development.md` for build, lint, package, and install commands.
