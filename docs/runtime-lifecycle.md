@@ -209,11 +209,12 @@ sequenceDiagram
     Params->>Marker: mark_changed_at_if_idle(current_sample)
     Process->>Marker: after 50 ms worth of samples
     Process->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host)
+    Process->>Exec: Task::GUIConfig(ParameterSyncOrigin::Host)
     Process->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host)
     Exec->>Config: copy authoritative values from host params
     Exec->>Gui: gui_must_update_config = true
-    Exec->>Model: update_static_config or dynamic config snapshot
-    Exec->>Model: force ProcessNotes recompute
+    Exec->>Model: update static config or dynamic config snapshot
+    Exec->>Model: force ProcessNotes recompute for static/dynamic changes
     Gui->>Config: reload config on next editor update
 ```
 
@@ -230,16 +231,19 @@ sequenceDiagram
     participant Config as shared PluginConfig
     participant Exec as TaskExecutor
     participant Model as BPMDetection
+    participant GuiRemote as GuiRemote
 
     Editor->>Live: user edits GUI control
     Live->>Setter: begin/set/end matching host parameter
-    Live->>Live: delay static or dynamic change for 200 ms
+    Live->>Live: delay static, GUI/display, or dynamic change for 200 ms
     Live->>Config: write edited PluginConfig after delay
     Live->>Exec: Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Gui)
+    Live->>Exec: Task::GUIConfig(ParameterSyncOrigin::Gui)
     Live->>Exec: Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Gui)
     Exec->>Config: read GUI-authored config
     Exec->>Model: apply static config or dynamic snapshot
-    Exec->>Model: recompute on forced ProcessNotes
+    Exec->>Model: recompute on forced ProcessNotes for static/dynamic changes
+    Exec->>GuiRemote: request repaint for GUI/display changes
 ```
 
 The GUI-origin path intentionally writes host parameters through `ParamSetter`, because the DAW surface must reflect the
@@ -251,13 +255,13 @@ fixed:
 
 | Origin | Authoritative surface | Coalescing window | GUI refresh | Host refresh | BPM recompute |
 | --- | --- | --- | --- | --- | --- |
-| Host/DAW | host parameters | 50 ms on the host sample clock | reload from shared config | already current | immediate worker task |
-| GUI | shared GUI-authored config | 200 ms on the editor wall clock | already current | `ParamSetter` write-through before the worker task | next realtime `process()` block |
+| Host/DAW | host parameters | 50 ms on the host sample clock | reload from shared config | already current | immediate worker task for static/dynamic changes |
+| GUI | shared GUI-authored config | 200 ms on the editor wall clock | already current | `ParamSetter` write-through before the worker task | next realtime `process()` block for static/dynamic changes |
 
 This table documents behavior, not optional capabilities. It is useful because the worker receives both host-origin and
 GUI-origin config tasks. At origin-specific call sites, keep known facts direct: the host path uses the host coalescing
-window, the GUI path uses the GUI coalescing window and always marks BPM detection for re-evaluation before queueing a
-GUI-origin task.
+window, the GUI path uses the GUI coalescing window, static and dynamic changes mark BPM detection for re-evaluation, and
+GUI/display changes repaint without forcing a BPM recompute.
 
 ## Plugin GUI Open And Close
 
