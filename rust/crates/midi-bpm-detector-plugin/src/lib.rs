@@ -131,8 +131,7 @@ impl Default for MidiBpmDetector {
         let (events_sender, events_receiver) = StaticRb::<Event, 1000>::default().split();
         let events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false> = events_sender.freeze();
         let events_receiver: Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true> = events_receiver.freeze();
-        let gui_remote_receiver = Arc::new(AtomicCell::new(None));
-        let gui_remote = None;
+        let gui_remote_handoff = Arc::new(AtomicCell::new(None));
         let daw_port = ArcAtomicOptionNonZeroU16::none();
 
         let mut config = PluginConfig::default();
@@ -151,29 +150,25 @@ impl Default for MidiBpmDetector {
             &daw_port,
         ));
 
-        let shared_config = Arc::new(RwLock::new(config.clone()));
+        let gui_task_config = Arc::new(RwLock::new(config.clone()));
         let gui_must_update_config = ArcAtomicBool::new(false);
 
-        let task_executor = task_executor::TaskExecutor {
-            bpm_detection,
-            dynamic_bpm_detection_config: config.dynamic_bpm_detection_config,
-            gui_remote,
-            params: params.clone(),
-            gui_remote_receiver: gui_remote_receiver.clone(),
-            events_receiver,
-            config: shared_config.clone(),
-            gui_must_update_config: gui_must_update_config.clone(),
-            tempo_controller: task_executor::TempoControllerOutput::new(daw_port, config.send_tempo.clone()),
-        };
+        let task_executor = task_executor::TaskExecutor::new(
+            task_executor::DetectionRuntime::new(bpm_detection, config.dynamic_bpm_detection_config, events_receiver),
+            task_executor::GuiTaskConfigSync::new(gui_task_config.clone(), gui_must_update_config.clone()),
+            task_executor::GuiTaskOutput::new(None, gui_remote_handoff.clone(), params.editor_state.clone()),
+            task_executor::TempoControllerOutput::new(daw_port, config.send_tempo.clone()),
+            params.clone(),
+        );
 
         let force_evaluate_bpm_detection = ArcAtomicBool::new(false);
 
         let gui_editor = GuiEditor {
             editor_state: params.editor_state.clone(),
             bpm_detection_app: None,
-            gui_remote_receiver: gui_remote_receiver.clone(),
+            gui_remote_handoff: gui_remote_handoff.clone(),
             force_evaluate_bpm_detection: force_evaluate_bpm_detection.clone(),
-            config: shared_config,
+            gui_task_config,
             params: params.clone(),
             gui_must_update_config,
         };

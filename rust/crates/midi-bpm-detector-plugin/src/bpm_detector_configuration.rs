@@ -22,7 +22,7 @@ use crate::{
 pub struct BaseConfig {
     pub config: PluginConfig,
     params: Arc<MidiBpmDetectorParams>,
-    shared_config: Arc<RwLock<PluginConfig>>,
+    gui_task_config: Arc<RwLock<PluginConfig>>,
     async_executor: AsyncExecutor<MidiBpmDetector>,
     force_evaluate_bpm_detection: ArcAtomicBool,
     delayed_update_dynamic_bpm_detection_config: Option<Instant>,
@@ -34,14 +34,14 @@ pub struct BaseConfig {
 impl BaseConfig {
     pub fn new(
         config: PluginConfig,
-        shared_config: Arc<RwLock<PluginConfig>>,
+        gui_task_config: Arc<RwLock<PluginConfig>>,
         async_executor: AsyncExecutor<MidiBpmDetector>,
         force_evaluate_bpm_detection: ArcAtomicBool,
         params: Arc<MidiBpmDetectorParams>,
     ) -> Self {
         Self {
             config,
-            shared_config,
+            gui_task_config,
             async_executor,
             force_evaluate_bpm_detection,
             delayed_update_dynamic_bpm_detection_config: None,
@@ -79,7 +79,7 @@ impl BaseConfig {
             .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
         {
             {
-                *self.shared_config.write() = self.config.clone();
+                *self.gui_task_config.write() = self.config.clone();
             }
 
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
@@ -92,7 +92,7 @@ impl BaseConfig {
             .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
         {
             {
-                *self.shared_config.write() = self.config.clone();
+                *self.gui_task_config.write() = self.config.clone();
             }
             self.async_executor.execute_background(Task::GUIConfig(ParameterSyncOrigin::Gui));
             self.delayed_update_gui_config = None;
@@ -103,7 +103,7 @@ impl BaseConfig {
             .is_some_and(|instant| instant.elapsed() > GUI_PARAMETER_SYNC_COALESCING_WINDOW)
         {
             {
-                *self.shared_config.write() = self.config.clone();
+                *self.gui_task_config.write() = self.config.clone();
             }
             self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
             self.async_executor.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Gui));

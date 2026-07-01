@@ -7,7 +7,9 @@ use std::{
 };
 
 use bpm_detection_core::{
-    BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMDetectionReceiver, parameters::DynamicBPMDetectionConfig,
+    BPMDetection, TimedNoteOn,
+    bpm_detection_receiver::BPMDetectionReceiver,
+    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
 };
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
@@ -40,63 +42,140 @@ pub enum Event {
     DawBPM(f32),
 }
 
-type EventsReceiver = Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true>;
+pub(crate) type EventsReceiver = Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true>;
 
-pub struct TaskExecutor {
-    pub bpm_detection: BPMDetection,
-    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    pub gui_remote: Option<GuiRemote>,
-    pub params: Arc<MidiBpmDetectorParams>,
-    pub gui_remote_receiver: Arc<AtomicCell<Option<GuiRemote>>>,
-    pub events_receiver: EventsReceiver,
-    pub config: Arc<RwLock<PluginConfig>>,
-    // when gui_must_update_config is set, GUI loads up this config
-    pub gui_must_update_config: ArcAtomicBool,
-    pub tempo_controller: TempoControllerOutput,
+pub(crate) struct TaskExecutor {
+    detection: DetectionRuntime,
+    gui_task_config_sync: GuiTaskConfigSync,
+    gui_output: GuiTaskOutput,
+    tempo_output: TempoControllerOutput,
+    params: Arc<MidiBpmDetectorParams>,
 }
 
-struct ProcessNotesLane<'lane> {
-    bpm_detection: &'lane mut BPMDetection,
-    dynamic_bpm_detection_config: &'lane DynamicBPMDetectionConfig,
-    gui_remote: &'lane mut Option<GuiRemote>,
-    gui_remote_receiver: &'lane AtomicCell<Option<GuiRemote>>,
-    events_receiver: &'lane mut EventsReceiver,
-    editor_state: &'lane EguiState,
-    tempo_controller: &'lane mut TempoControllerOutput,
+pub(crate) struct DetectionRuntime {
+    bpm_detection: BPMDetection,
+    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
+    events_receiver: EventsReceiver,
 }
 
-struct PublishBpmLane<'lane> {
-    bpm_detection: &'lane mut BPMDetection,
-    dynamic_bpm_detection_config: &'lane DynamicBPMDetectionConfig,
-    gui_remote: &'lane mut Option<GuiRemote>,
-    editor_state: &'lane EguiState,
-    tempo_controller: &'lane mut TempoControllerOutput,
+impl DetectionRuntime {
+    #[must_use]
+    pub(crate) fn new(
+        bpm_detection: BPMDetection,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
+        events_receiver: EventsReceiver,
+    ) -> Self {
+        Self { bpm_detection, dynamic_bpm_detection_config, events_receiver }
+    }
 }
 
-struct StaticConfigLane<'lane> {
-    bpm_detection: &'lane mut BPMDetection,
-    config: &'lane RwLock<PluginConfig>,
-    gui_must_update_config: &'lane ArcAtomicBool,
-    host_params: &'lane PluginStaticParams,
+pub(crate) struct GuiTaskConfigSync {
+    gui_task_config: Arc<RwLock<PluginConfig>>,
+    gui_must_update_config: ArcAtomicBool,
 }
 
-struct GuiConfigLane<'lane> {
-    config: &'lane RwLock<PluginConfig>,
-    gui_must_update_config: &'lane ArcAtomicBool,
-    host_params: &'lane PluginGUIParams,
-    gui_remote: &'lane mut Option<GuiRemote>,
-    gui_remote_receiver: &'lane AtomicCell<Option<GuiRemote>>,
-    editor_state: &'lane EguiState,
+impl GuiTaskConfigSync {
+    #[must_use]
+    pub(crate) fn new(gui_task_config: Arc<RwLock<PluginConfig>>, gui_must_update_config: ArcAtomicBool) -> Self {
+        Self { gui_task_config, gui_must_update_config }
+    }
+
+    fn read_host_static_config(&self, host_params: &PluginStaticParams) -> StaticBPMDetectionConfig {
+        let mut config = self.gui_task_config.write();
+        config.static_bpm_detection_config = host_params.read_static_config();
+        self.gui_must_update_config.store(true, Ordering::Relaxed);
+
+        config.static_bpm_detection_config.clone()
+    }
+
+    fn read_gui_origin_static_config(&self) -> StaticBPMDetectionConfig {
+        self.gui_task_config.read().static_bpm_detection_config.clone()
+    }
+
+    fn sync_host_gui_config(&self, host_params: &PluginGUIParams) {
+        {
+            let mut config = self.gui_task_config.write();
+            config.gui_config = host_params.read_gui_config();
+        }
+        self.gui_must_update_config.store(true, Ordering::Relaxed);
+    }
+
+    fn read_host_dynamic_config(&self, host_params: &PluginDynamicParams) -> DynamicBPMDetectionConfig {
+        let mut config = self.gui_task_config.write();
+        config.dynamic_bpm_detection_config = host_params.read_dynamic_config();
+        self.gui_must_update_config.store(true, Ordering::Relaxed);
+
+        config.dynamic_bpm_detection_config.clone()
+    }
+
+    fn read_gui_origin_dynamic_config(&self) -> DynamicBPMDetectionConfig {
+        self.gui_task_config.read().dynamic_bpm_detection_config.clone()
+    }
 }
 
-struct DynamicConfigLane<'lane> {
-    dynamic_bpm_detection_config: &'lane mut DynamicBPMDetectionConfig,
-    config: &'lane RwLock<PluginConfig>,
-    gui_must_update_config: &'lane ArcAtomicBool,
-    host_params: &'lane PluginDynamicParams,
+pub(crate) struct GuiTaskOutput {
+    live_remote: Option<GuiRemote>,
+    remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
+    editor_state: Arc<EguiState>,
 }
 
-pub struct TempoControllerOutput {
+impl GuiTaskOutput {
+    #[must_use]
+    pub(crate) fn new(
+        live_remote: Option<GuiRemote>,
+        remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
+        editor_state: Arc<EguiState>,
+    ) -> Self {
+        Self { live_remote, remote_handoff, editor_state }
+    }
+
+    fn refresh_live_remote(&mut self) {
+        if !self.editor_state.is_open() {
+            self.live_remote = None;
+        }
+        if let Some(new_live_remote) = self.remote_handoff.take() {
+            self.live_remote = Some(new_live_remote);
+        }
+    }
+
+    fn receive_daw_bpm(&self, bpm: f32) {
+        if let Some(live_remote) = &self.live_remote {
+            live_remote.receive_daw_bpm(bpm);
+        }
+    }
+
+    fn request_repaint(&mut self) {
+        self.refresh_live_remote();
+        if let Some(live_remote) = &mut self.live_remote {
+            live_remote.request_repaint();
+        }
+    }
+
+    fn publish_bpm_detection_result(&mut self, bpm_detection_result: Option<(&[f32], f32)>) {
+        if let (true, Some(live_remote)) = (self.editor_state.is_open(), &mut self.live_remote) {
+            if let Some((histogram_data_points, bpm)) = bpm_detection_result {
+                live_remote.receive_bpm_histogram_data(histogram_data_points, bpm);
+            } else {
+                // happens when we still have no data but still have to see parameter changes
+                live_remote.request_repaint();
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum BpmPublication {
+    Required,
+    NotRequired,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ConfigApplyEffect {
+    ForceBpmRecompute,
+    NoImmediateBpmRecompute,
+}
+
+pub(crate) struct TempoControllerOutput {
     pending_port: ArcAtomicOptionNonZeroU16,
     connection: Option<TcpStream>,
     send_tempo: SendTempoOutputState,
@@ -104,7 +183,7 @@ pub struct TempoControllerOutput {
 
 impl TempoControllerOutput {
     #[must_use]
-    pub fn new(pending_port: ArcAtomicOptionNonZeroU16, send_tempo: SendTempoOutputState) -> Self {
+    pub(crate) fn new(pending_port: ArcAtomicOptionNonZeroU16, send_tempo: SendTempoOutputState) -> Self {
         Self { pending_port, connection: None, send_tempo }
     }
 
@@ -124,200 +203,179 @@ impl TempoControllerOutput {
 }
 
 impl TaskExecutor {
+    #[must_use]
+    pub(crate) fn new(
+        detection: DetectionRuntime,
+        gui_task_config_sync: GuiTaskConfigSync,
+        gui_output: GuiTaskOutput,
+        tempo_output: TempoControllerOutput,
+        params: Arc<MidiBpmDetectorParams>,
+    ) -> Self {
+        Self { detection, gui_task_config_sync, gui_output, tempo_output, params }
+    }
+
     pub fn execute(&mut self, task: Task) {
-        self.tempo_controller.connect_pending_port();
+        self.tempo_output.connect_pending_port();
 
         match task {
             Task::ProcessNotes { force_evaluate_bpm_detection } => {
-                let mut lane = ProcessNotesLane {
-                    bpm_detection: &mut self.bpm_detection,
-                    dynamic_bpm_detection_config: &self.dynamic_bpm_detection_config,
-                    gui_remote: &mut self.gui_remote,
-                    gui_remote_receiver: self.gui_remote_receiver.as_ref(),
-                    events_receiver: &mut self.events_receiver,
-                    editor_state: self.params.editor_state.as_ref(),
-                    tempo_controller: &mut self.tempo_controller,
-                };
-                process_notes(&mut lane, force_evaluate_bpm_detection);
-            }
-            Task::StaticBPMDetectionConfig(sync) => {
-                let mut lane = StaticConfigLane {
-                    bpm_detection: &mut self.bpm_detection,
-                    config: &self.config,
-                    gui_must_update_config: &self.gui_must_update_config,
-                    host_params: &self.params.static_params,
-                };
-                let force_process_notes = apply_static_config(&mut lane, sync);
-
-                if force_process_notes {
-                    let mut lane = ProcessNotesLane {
-                        bpm_detection: &mut self.bpm_detection,
-                        dynamic_bpm_detection_config: &self.dynamic_bpm_detection_config,
-                        gui_remote: &mut self.gui_remote,
-                        gui_remote_receiver: self.gui_remote_receiver.as_ref(),
-                        events_receiver: &mut self.events_receiver,
-                        editor_state: self.params.editor_state.as_ref(),
-                        tempo_controller: &mut self.tempo_controller,
-                    };
-                    process_notes_after_config_change(&mut lane);
+                if process_notes(
+                    &mut self.detection.bpm_detection,
+                    &mut self.detection.events_receiver,
+                    &mut self.gui_output,
+                    force_evaluate_bpm_detection,
+                ) == BpmPublication::Required
+                {
+                    publish_bpm_detection_result(
+                        &mut self.detection.bpm_detection,
+                        &self.detection.dynamic_bpm_detection_config,
+                        &mut self.gui_output,
+                        &mut self.tempo_output,
+                    );
                 }
             }
-            Task::GUIConfig(sync) => {
-                let mut lane = GuiConfigLane {
-                    config: &self.config,
-                    gui_must_update_config: &self.gui_must_update_config,
-                    host_params: &self.params.gui_params,
-                    gui_remote: &mut self.gui_remote,
-                    gui_remote_receiver: self.gui_remote_receiver.as_ref(),
-                    editor_state: self.params.editor_state.as_ref(),
-                };
-                apply_gui_config(&mut lane, sync);
+            Task::StaticBPMDetectionConfig(origin) => {
+                if apply_static_config(
+                    &mut self.detection.bpm_detection,
+                    &self.gui_task_config_sync,
+                    &self.params.static_params,
+                    origin,
+                ) == ConfigApplyEffect::ForceBpmRecompute
+                {
+                    self.tempo_output.connect_pending_port();
+                    if process_notes(
+                        &mut self.detection.bpm_detection,
+                        &mut self.detection.events_receiver,
+                        &mut self.gui_output,
+                        true,
+                    ) == BpmPublication::Required
+                    {
+                        publish_bpm_detection_result(
+                            &mut self.detection.bpm_detection,
+                            &self.detection.dynamic_bpm_detection_config,
+                            &mut self.gui_output,
+                            &mut self.tempo_output,
+                        );
+                    }
+                }
             }
-            Task::DynamicBPMDetectionConfig(sync) => {
-                let mut lane = DynamicConfigLane {
-                    dynamic_bpm_detection_config: &mut self.dynamic_bpm_detection_config,
-                    config: &self.config,
-                    gui_must_update_config: &self.gui_must_update_config,
-                    host_params: &self.params.dynamic_params,
-                };
-                let force_process_notes = apply_dynamic_config(&mut lane, sync);
-
-                if force_process_notes {
-                    let mut lane = ProcessNotesLane {
-                        bpm_detection: &mut self.bpm_detection,
-                        dynamic_bpm_detection_config: &self.dynamic_bpm_detection_config,
-                        gui_remote: &mut self.gui_remote,
-                        gui_remote_receiver: self.gui_remote_receiver.as_ref(),
-                        events_receiver: &mut self.events_receiver,
-                        editor_state: self.params.editor_state.as_ref(),
-                        tempo_controller: &mut self.tempo_controller,
-                    };
-                    process_notes_after_config_change(&mut lane);
+            Task::GUIConfig(origin) => {
+                apply_gui_config(&self.gui_task_config_sync, &self.params.gui_params, &mut self.gui_output, origin);
+            }
+            Task::DynamicBPMDetectionConfig(origin) => {
+                if apply_dynamic_config(
+                    &mut self.detection.dynamic_bpm_detection_config,
+                    &self.gui_task_config_sync,
+                    &self.params.dynamic_params,
+                    origin,
+                ) == ConfigApplyEffect::ForceBpmRecompute
+                {
+                    self.tempo_output.connect_pending_port();
+                    if process_notes(
+                        &mut self.detection.bpm_detection,
+                        &mut self.detection.events_receiver,
+                        &mut self.gui_output,
+                        true,
+                    ) == BpmPublication::Required
+                    {
+                        publish_bpm_detection_result(
+                            &mut self.detection.bpm_detection,
+                            &self.detection.dynamic_bpm_detection_config,
+                            &mut self.gui_output,
+                            &mut self.tempo_output,
+                        );
+                    }
                 }
             }
         }
     }
 }
 
-fn process_notes(lane: &mut ProcessNotesLane<'_>, force_evaluate_bpm_detection: bool) {
+fn process_notes(
+    bpm_detection: &mut BPMDetection,
+    events_receiver: &mut EventsReceiver,
+    gui_output: &mut GuiTaskOutput,
+    force_evaluate_bpm_detection: bool,
+) -> BpmPublication {
     let mut evaluate_bpm_detection = force_evaluate_bpm_detection;
-    refresh_gui_remote(lane.gui_remote, lane.gui_remote_receiver, lane.editor_state);
-    for event in lane.events_receiver.pop_iter() {
+    gui_output.refresh_live_remote();
+    for event in events_receiver.pop_iter() {
         match event {
             Event::TimedNoteOn(timed_note_on) => {
                 evaluate_bpm_detection = true;
-                lane.bpm_detection.receive_note_on(timed_note_on);
+                bpm_detection.receive_note_on(timed_note_on);
             }
             Event::DawBPM(bpm) => {
-                if let Some(gui_remote) = lane.gui_remote.as_ref() {
-                    gui_remote.receive_daw_bpm(bpm);
-                }
+                gui_output.receive_daw_bpm(bpm);
             }
         }
     }
-    lane.events_receiver.sync();
+    events_receiver.sync();
 
-    if evaluate_bpm_detection {
-        let mut lane = PublishBpmLane {
-            bpm_detection: &mut *lane.bpm_detection,
-            dynamic_bpm_detection_config: lane.dynamic_bpm_detection_config,
-            gui_remote: &mut *lane.gui_remote,
-            editor_state: lane.editor_state,
-            tempo_controller: &mut *lane.tempo_controller,
-        };
-        publish_bpm_detection_result(&mut lane);
-    }
+    if evaluate_bpm_detection { BpmPublication::Required } else { BpmPublication::NotRequired }
 }
 
-fn publish_bpm_detection_result(lane: &mut PublishBpmLane<'_>) {
-    let bpm_detection_result = lane.bpm_detection.compute_bpm(lane.dynamic_bpm_detection_config);
+fn publish_bpm_detection_result(
+    bpm_detection: &mut BPMDetection,
+    dynamic_bpm_detection_config: &DynamicBPMDetectionConfig,
+    gui_output: &mut GuiTaskOutput,
+    tempo_output: &mut TempoControllerOutput,
+) {
+    let bpm_detection_result = bpm_detection.compute_bpm(dynamic_bpm_detection_config);
     if let Some((_, bpm)) = bpm_detection_result {
-        lane.tempo_controller.send_bpm(bpm);
+        tempo_output.send_bpm(bpm);
     }
-
-    if let (true, Some(gui_remote)) = (lane.editor_state.is_open(), lane.gui_remote.as_mut()) {
-        if let Some((histogram_data_points, bpm)) = bpm_detection_result {
-            gui_remote.receive_bpm_histogram_data(histogram_data_points, bpm);
-        } else {
-            // happens when we still have no data but still have to see parameter changes
-            gui_remote.request_repaint();
-        }
-    }
+    gui_output.publish_bpm_detection_result(bpm_detection_result);
 }
 
-fn apply_static_config(lane: &mut StaticConfigLane<'_>, sync: ParameterSyncOrigin) -> bool {
-    match sync {
+fn apply_static_config(
+    bpm_detection: &mut BPMDetection,
+    gui_task_config_sync: &GuiTaskConfigSync,
+    host_params: &PluginStaticParams,
+    origin: ParameterSyncOrigin,
+) -> ConfigApplyEffect {
+    match origin {
         ParameterSyncOrigin::Host => {
-            let config = {
-                let mut config = lane.config.write();
-                config.static_bpm_detection_config = lane.host_params.read_static_config();
-                config.static_bpm_detection_config.clone()
-            };
-            lane.gui_must_update_config.store(true, Ordering::Relaxed);
-            lane.bpm_detection.update_static_config(config);
-            true
+            bpm_detection.update_static_config(gui_task_config_sync.read_host_static_config(host_params));
+            ConfigApplyEffect::ForceBpmRecompute
         }
         ParameterSyncOrigin::Gui => {
-            let config = lane.config.read();
-            let static_bpm_detection_config = &config.static_bpm_detection_config;
-            lane.bpm_detection.update_static_config(static_bpm_detection_config.clone());
+            bpm_detection.update_static_config(gui_task_config_sync.read_gui_origin_static_config());
             // TODO GUI has a delay + bpm recompute mechanism on its side, but when it's daw,
             // note receiver delays but recompute happens here, which is hard to follow
-            false
+            ConfigApplyEffect::NoImmediateBpmRecompute
         }
     }
 }
 
-fn apply_gui_config(lane: &mut GuiConfigLane<'_>, sync: ParameterSyncOrigin) {
-    if sync == ParameterSyncOrigin::Host {
-        {
-            let mut config = lane.config.write();
-            config.gui_config = lane.host_params.read_gui_config();
-        }
-        lane.gui_must_update_config.store(true, Ordering::Relaxed);
+fn apply_gui_config(
+    gui_task_config_sync: &GuiTaskConfigSync,
+    host_params: &PluginGUIParams,
+    gui_output: &mut GuiTaskOutput,
+    origin: ParameterSyncOrigin,
+) {
+    if origin == ParameterSyncOrigin::Host {
+        gui_task_config_sync.sync_host_gui_config(host_params);
     }
 
-    refresh_gui_remote(lane.gui_remote, lane.gui_remote_receiver, lane.editor_state);
-    if let Some(gui_remote) = lane.gui_remote.as_mut() {
-        gui_remote.request_repaint();
-    }
+    gui_output.request_repaint();
 }
 
-fn apply_dynamic_config(lane: &mut DynamicConfigLane<'_>, sync: ParameterSyncOrigin) -> bool {
-    match sync {
+fn apply_dynamic_config(
+    dynamic_bpm_detection_config: &mut DynamicBPMDetectionConfig,
+    gui_task_config_sync: &GuiTaskConfigSync,
+    host_params: &PluginDynamicParams,
+    origin: ParameterSyncOrigin,
+) -> ConfigApplyEffect {
+    match origin {
         ParameterSyncOrigin::Host => {
-            {
-                let mut config = lane.config.write();
-
-                config.dynamic_bpm_detection_config = lane.host_params.read_dynamic_config();
-                *lane.dynamic_bpm_detection_config = config.dynamic_bpm_detection_config.clone();
-            }
-            lane.gui_must_update_config.store(true, Ordering::Relaxed);
-            true
+            *dynamic_bpm_detection_config = gui_task_config_sync.read_host_dynamic_config(host_params);
+            ConfigApplyEffect::ForceBpmRecompute
         }
         ParameterSyncOrigin::Gui => {
-            let config = lane.config.read();
-            *lane.dynamic_bpm_detection_config = config.dynamic_bpm_detection_config.clone();
-            false
+            *dynamic_bpm_detection_config = gui_task_config_sync.read_gui_origin_dynamic_config();
+            ConfigApplyEffect::NoImmediateBpmRecompute
         }
-    }
-}
-
-fn process_notes_after_config_change(lane: &mut ProcessNotesLane<'_>) {
-    lane.tempo_controller.connect_pending_port();
-    process_notes(lane, true);
-}
-
-fn refresh_gui_remote(
-    gui_remote: &mut Option<GuiRemote>,
-    gui_remote_receiver: &AtomicCell<Option<GuiRemote>>,
-    editor_state: &EguiState,
-) {
-    if !editor_state.is_open() {
-        *gui_remote = None;
-    }
-    if let Some(new_gui_remote) = gui_remote_receiver.take() {
-        *gui_remote = Some(new_gui_remote);
     }
 }
 

@@ -15,19 +15,19 @@ use crate::{
 pub struct GuiEditor {
     pub editor_state: Arc<EguiState>,
     pub bpm_detection_app: Option<BPMDetectionApp<BaseConfig>>,
-    pub gui_remote_receiver: Arc<AtomicCell<Option<GuiRemote>>>,
+    pub gui_remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
     pub force_evaluate_bpm_detection: ArcAtomicBool,
-    pub config: Arc<RwLock<PluginConfig>>,
+    pub gui_task_config: Arc<RwLock<PluginConfig>>,
     pub gui_must_update_config: ArcAtomicBool,
     pub params: Arc<MidiBpmDetectorParams>,
 }
 
 impl GuiEditor {
     pub fn build(&mut self, egui_ctx: &Context, async_executor: AsyncExecutor<MidiBpmDetector>) {
-        let config = self.config.read().clone();
+        let config = self.gui_task_config.read().clone();
         let live_config = BaseConfig::new(
             config.clone(),
-            self.config.clone(),
+            self.gui_task_config.clone(),
             async_executor,
             self.force_evaluate_bpm_detection.clone(),
             self.params.clone(),
@@ -43,7 +43,7 @@ impl GuiEditor {
         });
         let bpm_detection_app = gui_builder.build(egui_ctx.clone());
         self.bpm_detection_app = Some(bpm_detection_app);
-        self.gui_remote_receiver.store(Some(gui_remote));
+        self.gui_remote_handoff.store(Some(gui_remote));
         self.force_evaluate_bpm_detection.store(true, Ordering::Relaxed);
     }
 
@@ -60,13 +60,13 @@ impl GuiEditor {
                 live_config.base_config.apply_delayed_updates();
 
                 if self.gui_must_update_config.take(Ordering::Relaxed) {
-                    live_config.base_config.config = self.config.read().clone();
+                    live_config.base_config.config = self.gui_task_config.read().clone();
                 }
 
                 // error may happen if corresponding remote was dropped
                 if bpm_detection_gui.update_context(egui_ctx, &mut live_config).is_ok() {
                     if live_config.base_config.has_config_changes_via_ui {
-                        let mut config = self.config.write();
+                        let mut config = self.gui_task_config.write();
                         *config = live_config.base_config.config.clone();
                         live_config.base_config.has_config_changes_via_ui = false;
                     }
