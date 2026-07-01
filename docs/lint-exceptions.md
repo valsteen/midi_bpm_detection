@@ -64,7 +64,7 @@ crates:
 These exceptions are signs of code that may deserve splitting or clearer names:
 
 - `too_many_lines`
-  - Present in BPM scoring, native worker loop, and plugin parameter construction.
+  - Present in BPM scoring and native worker loop.
   - These are complexity markers. Refactor when working in those areas, but avoid mechanical extraction that hides the
     flow.
 - `too_many_arguments`

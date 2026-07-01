@@ -21,7 +21,7 @@ use sync::ArcAtomicOptionNonZeroU16;
 
 use crate::{
     DeferredConfigUpdate,
-    plugin_config::PluginConfig,
+    plugin_config::{PluginConfig, SendTempoOutputState},
     plugin_parameter_adapters::{
         PluginOnOffParam, to_plugin_duration_param, to_plugin_float_param, to_plugin_int_param, to_plugin_on_off_param,
         to_plugin_u16_logarithmic_param,
@@ -105,6 +105,76 @@ pub struct MidiBpmDetectorParams {
 }
 
 impl PluginDynamicParams {
+    fn new(config: &DynamicBPMDetectionConfig, change_marker: &HostParameterChangeMarker) -> Self {
+        let update_changed_at_f32 = change_marker.callback();
+        let update_changed_at_u8 = change_marker.callback();
+        let dynamic_parameters = DynamicBPMDetectionConfig::PARAMETERS;
+
+        Self {
+            beats_lookback: to_plugin_int_param(&dynamic_parameters.beats_lookback(), config, &update_changed_at_u8),
+            normal_distribution_weight: to_plugin_on_off_param(
+                "normal_distribution_weight",
+                &dynamic_parameters.normal_distribution_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            time_distance_weight: to_plugin_on_off_param(
+                "time_distance_weight",
+                &dynamic_parameters.time_distance_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            velocity_current_note_weight: to_plugin_on_off_param(
+                "velocity_current_note_weight",
+                &dynamic_parameters.velocity_current_note_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            velocity_note_from_weight: to_plugin_on_off_param(
+                "velocity_note_from_weight",
+                &dynamic_parameters.velocity_note_from_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            in_beat_range_weight: to_plugin_on_off_param(
+                "in_beat_range_weight",
+                &dynamic_parameters.in_beat_range_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            multiplier_weight: to_plugin_on_off_param(
+                "multiplier_weight",
+                &dynamic_parameters.multiplier_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            subdivision_weight: to_plugin_on_off_param(
+                "subdivision_weight",
+                &dynamic_parameters.subdivision_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            octave_distance_weight: to_plugin_on_off_param(
+                "octave_distance_weight",
+                &dynamic_parameters.octave_distance_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            pitch_distance_weight: to_plugin_on_off_param(
+                "pitch_distance_weight",
+                &dynamic_parameters.pitch_distance_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+            high_tempo_bias_weight: to_plugin_on_off_param(
+                "high_tempo_bias_weight",
+                &dynamic_parameters.high_tempo_bias_weight(),
+                config,
+                &update_changed_at_f32,
+            ),
+        }
+    }
+
     pub(crate) fn add_remote_controls(&self, page: &mut impl RemoteControlsPage) {
         let mut visitor = DynamicRemoteControlParams { params: self, page };
 
@@ -122,6 +192,24 @@ impl PluginDynamicParams {
 }
 
 impl PluginGUIParams {
+    fn new(config: &GUIConfig, change_marker: &HostParameterChangeMarker) -> Self {
+        let update_changed_at_f32 = change_marker.callback();
+        let gui_parameters = GUIConfig::PARAMETERS;
+
+        Self {
+            interpolation_duration: to_plugin_duration_param(
+                &gui_parameters.interpolation_duration(),
+                config,
+                &update_changed_at_f32,
+            ),
+            interpolation_curve: to_plugin_float_param(
+                &gui_parameters.interpolation_curve(),
+                config,
+                &update_changed_at_f32,
+            ),
+        }
+    }
+
     pub(crate) fn read_gui_config(&self) -> GUIConfig {
         GUIConfig {
             interpolation_duration: std::time::Duration::from_secs_f32(
@@ -133,6 +221,23 @@ impl PluginGUIParams {
 }
 
 impl PluginStaticParams {
+    fn new(config: &StaticBPMDetectionConfig, change_marker: &HostParameterChangeMarker) -> Self {
+        let update_changed_at_f32 = change_marker.callback();
+        let update_changed_at_u16 = change_marker.callback();
+        let static_parameters = StaticBPMDetectionConfig::PARAMETERS;
+
+        Self {
+            bpm_center: to_plugin_float_param(&static_parameters.bpm_center(), config, &update_changed_at_f32),
+            bpm_range: to_plugin_int_param(&static_parameters.bpm_range(), config, &update_changed_at_u16),
+            sample_rate: to_plugin_u16_logarithmic_param(
+                &static_parameters.sample_rate(),
+                config,
+                &update_changed_at_f32,
+            ),
+            normal_distribution: NormalDistributionParams::new(&config.normal_distribution, &update_changed_at_f32),
+        }
+    }
+
     pub(crate) fn read_static_config(&self) -> StaticBPMDetectionConfig {
         StaticBPMDetectionConfig {
             bpm_center: self.bpm_center.unmodulated_plain_value(),
@@ -144,6 +249,21 @@ impl PluginStaticParams {
 }
 
 impl NormalDistributionParams {
+    fn new(config: &NormalDistributionConfig, update_changed_at_f32: &Arc<dyn Fn(f32) + Send + Sync>) -> Self {
+        let normal_distribution_parameters = NormalDistributionConfig::PARAMETERS;
+
+        Self {
+            std_dev: to_plugin_float_param(&normal_distribution_parameters.std_dev(), config, update_changed_at_f32),
+            resolution: to_plugin_float_param(
+                &normal_distribution_parameters.resolution(),
+                config,
+                update_changed_at_f32,
+            ),
+            cutoff: to_plugin_float_param(&normal_distribution_parameters.cutoff(), config, update_changed_at_f32),
+            factor: to_plugin_float_param(&normal_distribution_parameters.factor(), config, update_changed_at_f32),
+        }
+    }
+
     fn read_config(&self) -> NormalDistributionConfig {
         NormalDistributionConfig {
             std_dev: f64::from(self.std_dev.unmodulated_plain_value()),
@@ -279,17 +399,17 @@ impl DynamicBPMDetectionParameterVisitor<DynamicBPMDetectionConfig> for DynamicH
     }
 }
 
-struct UpdaterFactory {
+struct HostParameterChangeMarker {
     current_sample: Arc<AtomicUsize>,
     changed_at: DeferredConfigUpdate,
 }
 
-impl UpdaterFactory {
+impl HostParameterChangeMarker {
     fn new(current_sample: Arc<AtomicUsize>, changed_at: DeferredConfigUpdate) -> Self {
         Self { current_sample, changed_at }
     }
 
-    fn update_changed_at<T>(&self) -> Arc<dyn Fn(T) + Send + Sync>
+    fn callback<T>(&self) -> Arc<dyn Fn(T) + Send + Sync>
     where
         T: 'static + Send,
     {
@@ -301,7 +421,6 @@ impl UpdaterFactory {
     }
 }
 
-#[allow(clippy::too_many_lines)]
 impl MidiBpmDetectorParams {
     pub fn new(
         config: &mut PluginConfig,
@@ -311,158 +430,39 @@ impl MidiBpmDetectorParams {
         current_sample: &Arc<AtomicUsize>,
         daw_port: &ArcAtomicOptionNonZeroU16,
     ) -> Self {
-        let static_updater_factory =
-            UpdaterFactory::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
-        let gui_updater_factory = UpdaterFactory::new(current_sample.clone(), gui_config_changed_at.clone());
-        let dynamic_updater_factory =
-            UpdaterFactory::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
-        let update_static_changed_at_f32 = static_updater_factory.update_changed_at();
-        let update_static_changed_at_u16 = static_updater_factory.update_changed_at();
-        let update_gui_changed_at_f32 = gui_updater_factory.update_changed_at();
-        let update_dynamic_changed_at_f32 = dynamic_updater_factory.update_changed_at();
-        let update_dynamic_changed_at_u8 = dynamic_updater_factory.update_changed_at();
-        let dynamic_config = &config.dynamic_bpm_detection_config;
-        let gui_parameters = GUIConfig::PARAMETERS;
-        let static_parameters = StaticBPMDetectionConfig::PARAMETERS;
-        let normal_distribution_parameters = NormalDistributionConfig::PARAMETERS;
-        let dynamic_parameters = DynamicBPMDetectionConfig::PARAMETERS;
+        let static_change_marker =
+            HostParameterChangeMarker::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
+        let gui_change_marker = HostParameterChangeMarker::new(current_sample.clone(), gui_config_changed_at.clone());
+        let dynamic_change_marker =
+            HostParameterChangeMarker::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
 
         Self {
             editor_state: EguiState::from_size(1200, 600),
-            send_tempo: BoolParam::new("Send tempo", config.send_tempo.enabled()).with_callback(Arc::new({
-                let send_tempo = config.send_tempo.clone();
-                move |value| {
-                    send_tempo.set_from_host(value);
-                }
-            })),
-            gui_params: PluginGUIParams {
-                interpolation_duration: to_plugin_duration_param(
-                    &gui_parameters.interpolation_duration(),
-                    &config.gui_config,
-                    &update_gui_changed_at_f32,
-                ),
-                interpolation_curve: to_plugin_float_param(
-                    &gui_parameters.interpolation_curve(),
-                    &config.gui_config,
-                    &update_gui_changed_at_f32,
-                ),
-            },
-            static_params: PluginStaticParams {
-                bpm_center: to_plugin_float_param(
-                    &static_parameters.bpm_center(),
-                    &config.static_bpm_detection_config,
-                    &update_static_changed_at_f32,
-                ),
-                bpm_range: to_plugin_int_param(
-                    &static_parameters.bpm_range(),
-                    &config.static_bpm_detection_config,
-                    &update_static_changed_at_u16,
-                ),
-                sample_rate: to_plugin_u16_logarithmic_param(
-                    &static_parameters.sample_rate(),
-                    &config.static_bpm_detection_config,
-                    &update_static_changed_at_f32,
-                ),
-                normal_distribution: NormalDistributionParams {
-                    std_dev: to_plugin_float_param(
-                        &normal_distribution_parameters.std_dev(),
-                        &config.static_bpm_detection_config.normal_distribution,
-                        &update_static_changed_at_f32,
-                    ),
-                    resolution: to_plugin_float_param(
-                        &normal_distribution_parameters.resolution(),
-                        &config.static_bpm_detection_config.normal_distribution,
-                        &update_static_changed_at_f32,
-                    ),
-                    cutoff: to_plugin_float_param(
-                        &normal_distribution_parameters.cutoff(),
-                        &config.static_bpm_detection_config.normal_distribution,
-                        &update_static_changed_at_f32,
-                    ),
-                    factor: to_plugin_float_param(
-                        &normal_distribution_parameters.factor(),
-                        &config.static_bpm_detection_config.normal_distribution,
-                        &update_static_changed_at_f32,
-                    ),
-                },
-            },
-            dynamic_params: PluginDynamicParams {
-                beats_lookback: to_plugin_int_param(
-                    &dynamic_parameters.beats_lookback(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_u8,
-                ),
-                normal_distribution_weight: to_plugin_on_off_param(
-                    "normal_distribution_weight",
-                    &dynamic_parameters.normal_distribution_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                time_distance_weight: to_plugin_on_off_param(
-                    "time_distance_weight",
-                    &dynamic_parameters.time_distance_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                velocity_current_note_weight: to_plugin_on_off_param(
-                    "velocity_current_note_weight",
-                    &dynamic_parameters.velocity_current_note_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                velocity_note_from_weight: to_plugin_on_off_param(
-                    "velocity_note_from_weight",
-                    &dynamic_parameters.velocity_note_from_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                in_beat_range_weight: to_plugin_on_off_param(
-                    "in_beat_range_weight",
-                    &dynamic_parameters.in_beat_range_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                multiplier_weight: to_plugin_on_off_param(
-                    "multiplier_weight",
-                    &dynamic_parameters.multiplier_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                subdivision_weight: to_plugin_on_off_param(
-                    "subdivision_weight",
-                    &dynamic_parameters.subdivision_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                octave_distance_weight: to_plugin_on_off_param(
-                    "octave_distance_weight",
-                    &dynamic_parameters.octave_distance_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                pitch_distance_weight: to_plugin_on_off_param(
-                    "pitch_distance_weight",
-                    &dynamic_parameters.pitch_distance_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-                high_tempo_bias_weight: to_plugin_on_off_param(
-                    "high_tempo_bias_weight",
-                    &dynamic_parameters.high_tempo_bias_weight(),
-                    dynamic_config,
-                    &update_dynamic_changed_at_f32,
-                ),
-            },
-            daw_port: IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 })
-                .non_automatable()
-                .with_callback(Arc::new({
-                    let daw_port = daw_port.clone();
-                    move |value| {
-                        daw_port.store(NonZeroU16::new(value.to_u16().unwrap()), Ordering::Relaxed);
-                    }
-                })),
+            send_tempo: send_tempo_param(&config.send_tempo),
+            gui_params: PluginGUIParams::new(&config.gui_config, &gui_change_marker),
+            static_params: PluginStaticParams::new(&config.static_bpm_detection_config, &static_change_marker),
+            dynamic_params: PluginDynamicParams::new(&config.dynamic_bpm_detection_config, &dynamic_change_marker),
+            daw_port: daw_port_param(daw_port),
         }
     }
+}
+
+fn send_tempo_param(send_tempo: &SendTempoOutputState) -> BoolParam {
+    BoolParam::new("Send tempo", send_tempo.enabled()).with_callback(Arc::new({
+        let send_tempo = send_tempo.clone();
+        move |value| {
+            send_tempo.set_from_host(value);
+        }
+    }))
+}
+
+fn daw_port_param(daw_port: &ArcAtomicOptionNonZeroU16) -> IntParam {
+    IntParam::new("DAW Port", 0, IntRange::Linear { min: 0, max: 65535 }).non_automatable().with_callback(Arc::new({
+        let daw_port = daw_port.clone();
+        move |value| {
+            daw_port.store(NonZeroU16::new(value.to_u16().unwrap()), Ordering::Relaxed);
+        }
+    }))
 }
 
 #[cfg(test)]
