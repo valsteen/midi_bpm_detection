@@ -23,8 +23,3 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - Keep plugin and WASM behavior unchanged unless the task explicitly targets them.
 - Keep realtime/audio-thread constraints explicit in code and docs.
 - When changing behavior, verify with the narrowest useful command first, then broaden verification when the blast radius grows.
-
-## Current Direction
-
-- The `desktop` crate is the native app path; the old TUI-first native shell has been retired.
-- The desktop crate should own native MIDI device selection and startup orchestration while reusing the shared `gui` crate.

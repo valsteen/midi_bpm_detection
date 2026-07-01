@@ -35,21 +35,17 @@ desktop bootstrap
   `BPMDetection`.
 - MIDI output command: a side effect for the native MIDI output thread, such as play, stop, or tempo feedback SysEx.
 
-## Desktop Shell Archeology
+## Desktop Runtime Boundary
 
-The native desktop entry point started as a TUI because that looked like the quickest way to build the first experiment:
-select a MIDI controller, show log-like feedback, and drive the BPM detector. In practice the TUI became its own source
-of complexity, and the project now uses `rust/crates/desktop` as the native app path.
+The native desktop path starts egui directly and keeps MIDI work behind explicit service/controller boundaries.
 
-This means the TUI/event-bus shape should not be treated as final architecture. It is an artifact of the first working
-proof of concept. The broad `tui::Event` and `Action` types encode terminal input, MIDI device discovery, MIDI messages,
-screen commands, config updates, GUI launch commands, and service actions. That made early wiring possible, but it also
-means unrelated components can become coupled through one large message surface.
+Do not couple unrelated behavior through a runtime-wide event surface. Producers and consumers should connect during
+bootstrap through narrow typed protocols, then communicate directly through those protocols.
 
-The native GUI path keeps the useful pieces and drops the terminal shell:
+The native GUI path keeps the service boundaries explicit:
 
-- controller selection moved into egui;
-- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all event bus;
+- the GUI presents user-facing native MIDI controls through the desktop integration layer;
+- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all action bus;
 - producers and consumers are connected during bootstrap through narrow typed protocols, then communicate directly
   through those protocols;
 - async is avoided for the fixed set of native background workers unless cooperative scheduling is actually needed.
@@ -62,7 +58,8 @@ The native desktop binary starts egui directly and keeps MIDI work behind explic
 - `PendingDesktopControllerRuntime` creates a command sender before `DesktopController` exists.
 - `MidiService` is created during bootstrap so native MIDI setup and macOS hotplug registration happen before the
   desktop controller wraps the service.
-- `DesktopController` owns device selection, selected input lifetime, and config propagation into `MidiService`.
+- `DesktopController` coordinates UI-facing native MIDI commands, selected input lifetime, and config propagation into
+  `MidiService`.
 - The command worker starts only after the controller exists, so queued callbacks never operate on an unset controller.
 - `AppBuilderShell` receives `DesktopBaseConfig` only after the controller/runtime are ready.
 
@@ -76,10 +73,10 @@ That layer should depend on both crates, but neither shared crate should depend 
   hotplug callbacks, or desktop-only playback/clock controls.
 - `bpm_detection_midi` should stay UI-free. It should own native MIDI service mechanics, not egui widgets or window
   lifecycle.
-- The desktop controller should own the relationship between the two: native device selection, selected input lifetime,
-  MIDI display/debug state if still useful, config propagation, and desktop-only MIDI side effects.
+- The desktop controller should own the relationship between the two: UI-facing native MIDI commands, selected input
+  lifetime, MIDI display/debug state if still useful, config propagation, and desktop-only MIDI side effects.
 
-The controller exposes capabilities that map to user intent rather than TUI actions:
+The controller exposes capabilities that map to user intent rather than a generic action bus:
 
 ```text
 DesktopController
@@ -92,8 +89,8 @@ DesktopController
   -> stop native services on shutdown
 ```
 
-This is intentionally not a direct translation of the old TUI `Action` enum. For example, keyboard navigation actions
-were terminal interaction details and disappeared. `select_midi_input(port)` is a desktop capability and remains.
+These are desktop capabilities, not a runtime-wide UI action protocol. For example, `select_midi_input(port)` belongs at
+the desktop/native MIDI boundary, while keyboard navigation belongs to the GUI surface that handles it.
 
 The current desktop runtime uses a pending command runtime during bootstrap. The command sender exists before
 `DesktopController` exists, but the command worker is only started once the controller has been fully constructed. This
@@ -165,8 +162,8 @@ These names and boundaries are current working vocabulary, not final doctrine:
 - `MidiIn` is more than raw input: it also starts the BPM worker and forwards play/stop/config commands.
 - `MidiService::execute()` is flexible, but the caller still needs to reason carefully about what it moves into the
   closure and how results should get back to the caller.
-- The old TUI event bus was early desktop-shell scaffolding. If behavior starts coupling through a large runtime-wide
-  event enum again, treat that as a refactor candidate rather than a design rule.
+- If behavior starts coupling through a large runtime-wide event enum, treat that as a refactor candidate rather than a
+  design rule.
 - The native MIDI clock path is desktop/experimental support. The plugin production path uses a controller bridge
   instead of acting as a MIDI clock provider.
 - If the output thread's disabled-clock polling becomes a real problem, review an event-plus-state shape: writers update

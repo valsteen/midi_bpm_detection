@@ -154,8 +154,8 @@ runtime that wires them together.
 
 - `rust/crates/desktop`
   - Native desktop GUI app.
-  - Owns native MIDI device selection and startup orchestration for desktop mode.
-  - Uses `bpm_detection_midi::MidiService` through a desktop controller boundary.
+  - Connects the shared GUI to the native MIDI runtime through a desktop controller boundary.
+  - Uses `bpm_detection_midi::MidiService` for native MIDI service behavior.
   - Reuses the shared `gui` crate for visualization and configuration.
 
 - `rust/crates/wasm`
@@ -208,17 +208,10 @@ The important difference is where that pipeline is allowed to do work:
 
 ## Desktop Mode
 
-Native MIDI input selection belongs to desktop mode, not plugin mode, because the DAW owns the plugin's MIDI input
-routing. It may or may not belong in WASM mode depending on how browser MIDI input support evolves. For native desktop
-mode, selecting and hot-swapping the MIDI input should stay in the GUI or a small native desktop controller attached to
-the GUI.
+Desktop mode integrates the reusable GUI with the native MIDI service. The desktop controller should expose typed
+capabilities for native MIDI service actions instead of routing behavior through a runtime-wide event enum.
 
-The old TUI event/action bus was useful while the first proof of concept grew, but it also centralized unrelated
-concerns: terminal rendering, keybindings, screen switching, MIDI hotplug events, MIDI service commands, GUI lifecycle,
-and config propagation. That crate has been retired. The desktop GUI should communicate with the native MIDI service
-through typed capabilities rather than a runtime-wide event enum.
-
-Pieces preserved from that migration:
+Current boundary notes:
 
 - `bpm_detection_midi::MidiService`'s closure-command surface, where callers submit a closure that runs on the MIDI
   service thread. This matches the preferred peer-boundary direction: the service owns its synchronization ceremony, and
