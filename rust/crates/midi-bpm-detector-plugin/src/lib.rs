@@ -163,9 +163,7 @@ impl Default for MidiBpmDetector {
             events_receiver,
             config: shared_config.clone(),
             gui_must_update_config: gui_must_update_config.clone(),
-            daw_port,
-            daw_connection: None,
-            send_tempo: config.send_tempo.clone(),
+            tempo_controller: task_executor::TempoControllerOutput::new(daw_port, config.send_tempo.clone()),
         };
 
         let force_evaluate_bpm_detection = ArcAtomicBool::new(false);

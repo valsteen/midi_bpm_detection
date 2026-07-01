@@ -111,9 +111,7 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
         events_receiver: events_receiver.freeze(),
         config: shared_config.clone(),
         gui_must_update_config: gui_must_update_config.clone(),
-        daw_port,
-        daw_connection: Some(client),
-        send_tempo,
+        tempo_controller: TempoControllerOutput { pending_port: daw_port, connection: Some(client), send_tempo },
     };
 
     executor.execute(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));
@@ -197,9 +195,7 @@ fn host_origin_static_sync_copies_static_values_and_forces_recompute() {
         events_receiver: events_receiver.freeze(),
         config: shared_config.clone(),
         gui_must_update_config: gui_must_update_config.clone(),
-        daw_port,
-        daw_connection: Some(client),
-        send_tempo,
+        tempo_controller: TempoControllerOutput { pending_port: daw_port, connection: Some(client), send_tempo },
     };
 
     executor.execute(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host));
@@ -271,9 +267,7 @@ fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
         events_receiver: events_receiver.freeze(),
         config: shared_config.clone(),
         gui_must_update_config: gui_must_update_config.clone(),
-        daw_port,
-        daw_connection: Some(client),
-        send_tempo,
+        tempo_controller: TempoControllerOutput { pending_port: daw_port, connection: Some(client), send_tempo },
     };
 
     executor.execute(Task::GUIConfig(ParameterSyncOrigin::Host));
