@@ -290,6 +290,8 @@ constraints:
 
 These constraints should be treated as design rules when changing plugin-mode code. If a change requires allocation,
 blocking I/O, lock contention, or unbounded work, it belongs outside the realtime callback.
+Fixed-capacity buffers in plugin and core runtime paths are part of this contract. Do not replace them with heap-backed
+collections to satisfy test harness limits; solve those limits in tests instead.
 
 ## Plugin Dependency Notes
 

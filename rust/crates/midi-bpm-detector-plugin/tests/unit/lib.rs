@@ -117,6 +117,16 @@ fn deferred_config_update_preserves_first_change_sample_until_taken() {
 
 #[test]
 fn normal_distribution_remote_controls_match_canonical_settings_order() {
+    std::thread::Builder::new()
+        .name(String::from("normal_distribution_remote_controls"))
+        .stack_size(32 * 1024 * 1024)
+        .spawn(assert_normal_distribution_remote_controls_match_canonical_settings_order)
+        .expect("normal distribution remote-control test thread should start")
+        .join()
+        .expect("normal distribution remote-control test should not panic");
+}
+
+fn assert_normal_distribution_remote_controls_match_canonical_settings_order() {
     let plugin = MidiBpmDetector::default();
     let mut context = RemoteControlContext::default();
 

@@ -22,6 +22,9 @@ boundary rules so the entrypoint stays small.
   processing buffers; they are not an ordinary event stream.
 - Be careful when introducing cross-thread communication. Document which side owns the thread, which side calls into it,
   and whether calls can fail or block.
+- Fixed-capacity buffers in plugin/core runtime paths are intentional. If a test overflows its stack while constructing
+  those structures, fix the test harness stack or test shape; do not replace production storage with heap-backed
+  collections.
 
 ## Communication Patterns
 
