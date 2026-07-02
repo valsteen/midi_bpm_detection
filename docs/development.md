@@ -276,6 +276,7 @@ scripts/dev.sh clippy-wasm
 scripts/dev.sh build-wasm
 scripts/dev.sh serve-wasm
 scripts/dev.sh verify-wasm
+scripts/dev.sh verify-wasm-pages-dist
 scripts/dev.sh publish-wasm-pages
 ```
 
@@ -292,6 +293,10 @@ cd crates/wasm && NO_COLOR=false trunk serve --port 8080 --open false
 Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
 `--no-color` option. The helper script sets this for the Trunk commands.
 
+`build-wasm` removes the previous generated `dist/` directory before running Trunk, then checks that the generated
+`index.html` and service worker only reference files that exist in `dist/`. `verify-wasm-pages-dist` runs that generated
+asset consistency check without rebuilding.
+
 `verify-wasm` runs `doctor-wasm`, `fmt-check`, `check-wasm`, `test-wasm`, `clippy-wasm`, and `build-wasm`.
 
 ### GitHub Pages Publish
@@ -302,10 +307,10 @@ The browser demo is published from the `gh-pages` branch root. To verify, rebuil
 scripts/dev.sh publish-wasm-pages
 ```
 
-The command refuses to publish from a dirty source tree by default, runs `verify-wasm`, copies `crates/wasm/dist/` into a
-temporary `gh-pages` worktree, commits the generated static files as `build from <source-sha>`, and pushes
-`HEAD:gh-pages` to the `upstream` remote. Set `ALLOW_DIRTY_WASM_PUBLISH=1` only when you intentionally want to publish
-an uncommitted local build.
+The command refuses to publish from a dirty source tree by default, runs `verify-wasm`, rechecks the generated Pages
+assets, copies `crates/wasm/dist/` into a temporary `gh-pages` worktree, commits the generated static files as
+`build from <source-sha>`, and pushes `HEAD:gh-pages` to the `upstream` remote. Set `ALLOW_DIRTY_WASM_PUBLISH=1` only
+when you intentionally want to publish an uncommitted local build.
 
 After the push, GitHub will show a `Pages build and deployment` Actions run. That run is GitHub Pages deploying the
 already-built files from `gh-pages`; this repository's CI workflow only validates the WASM app with `trunk build`.

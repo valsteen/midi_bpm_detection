@@ -52,6 +52,8 @@ WASM commands:
   build-wasm      Build the Trunk web app
   serve-wasm      Serve the Trunk web app for browser testing
   verify-wasm     Run the usual wasm build/lint checks
+  verify-wasm-pages-dist
+                 Check that generated Pages files reference existing assets
   publish-wasm-pages
                  Verify, build, commit, and push the GitHub Pages demo
 EOF
@@ -101,6 +103,48 @@ run_desktop_env() {
     "$@"
 }
 
+verify_wasm_pages_dist() {
+    local dist_dir="${1:-$WASM_DIST_DIR}"
+    local index_file="$dist_dir/index.html"
+    local service_worker_file="$dist_dir/sw.js"
+    local failed=0
+
+    if [[ ! -f "$index_file" ]]; then
+        echo "Missing generated WASM index: $index_file" >&2
+        return 1
+    fi
+
+    while IFS= read -r asset_url; do
+        local asset_path="${asset_url#/midi_bpm_detection/}"
+        asset_path="${asset_path%%\?*}"
+        asset_path="${asset_path%%#*}"
+
+        if [[ ! -f "$dist_dir/$asset_path" ]]; then
+            echo "Generated index references missing asset: $asset_path" >&2
+            failed=1
+        fi
+    done < <(grep -Eo "/midi_bpm_detection/[^\"' <>)]+" "$index_file" | sort -u)
+
+    if [[ -f "$service_worker_file" ]]; then
+        while IFS= read -r cached_asset; do
+            local cached_path="${cached_asset#./}"
+            cached_path="${cached_path%%\?*}"
+            cached_path="${cached_path%%#*}"
+
+            if [[ -n "$cached_path" && ! -f "$dist_dir/$cached_path" ]]; then
+                echo "Generated service worker references missing asset: $cached_path" >&2
+                failed=1
+            fi
+        done < <(grep -Eo "['\"]\./[^'\"]+['\"]" "$service_worker_file" | tr -d "'\"" | sort -u)
+    fi
+
+    if [[ "$failed" -eq 0 ]]; then
+        echo "Generated WASM Pages assets are internally consistent."
+    fi
+
+    return "$failed"
+}
+
 publish_wasm_pages() {
     require_command git "Install Git with: https://git-scm.com/downloads" || exit 1
     require_command rsync "Install rsync or copy crates/wasm/dist to the gh-pages branch manually." || exit 1
@@ -119,6 +163,7 @@ publish_wasm_pages() {
     fi
 
     "$0" verify-wasm
+    "$0" verify-wasm-pages-dist
 
     git -C "$REPO_ROOT" fetch "$PAGES_REMOTE" "$PAGES_BRANCH"
 
@@ -236,8 +281,10 @@ case "$command" in
     build-wasm)
         (
             cd crates/wasm
+            rm -rf dist
             NO_COLOR=false trunk build
         )
+        "$0" verify-wasm-pages-dist
         ;;
     serve-wasm)
         echo "Open: $WASM_DEV_URL"
@@ -253,6 +300,9 @@ case "$command" in
         "$0" test-wasm
         "$0" clippy-wasm
         "$0" build-wasm
+        ;;
+    verify-wasm-pages-dist)
+        verify_wasm_pages_dist
         ;;
     publish-wasm-pages)
         publish_wasm_pages
