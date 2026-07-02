@@ -83,7 +83,6 @@ unsafe impl Params for PluginOnOffParam {
 pub(crate) trait ToParam<ValueType> {
     type Param: Param;
     type ParamType;
-    type Type;
 
     fn to_param(&self, val: ValueType, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param;
 }
@@ -182,7 +181,6 @@ macro_rules! impl_to_param_for_float {
         impl<Config> ToParam<$float_type> for Parameter<Config, $float_type> {
             type Param = FloatParam;
             type ParamType = f32;
-            type Type = $float_type;
 
             fn to_param(&self, val: $float_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
                 let range = if self.spec.logarithmic {
@@ -214,7 +212,6 @@ macro_rules! impl_to_param_for_integer {
         impl<Config> ToParam<$int_type> for Parameter<Config, $int_type> {
             type Param = IntParam;
             type ParamType = i32;
-            type Type = i32;
 
             fn to_param(&self, val: $int_type, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
                 let mut param = IntParam::new(
@@ -258,7 +255,6 @@ fn build_float_param<Config, ValueType>(
 impl<Config> ToParam<Duration> for Parameter<Config, Duration> {
     type Param = FloatParam;
     type ParamType = f32;
-    type Type = f32;
 
     fn to_param(&self, val: Duration, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
         build_float_param(self, val.as_secs_f32(), callback)
@@ -268,7 +264,6 @@ impl<Config> ToParam<Duration> for Parameter<Config, Duration> {
 impl<Config> ToParam<OnOff<f32>> for Parameter<Config, OnOff<f32>> {
     type Param = FloatParam;
     type ParamType = f32;
-    type Type = f32;
 
     fn to_param(&self, val: OnOff<f32>, callback: &Arc<dyn Fn(Self::ParamType) + Send + Sync>) -> Self::Param {
         build_float_param(self, val.value(), callback)
