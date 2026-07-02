@@ -1,22 +1,44 @@
-var cacheName = 'egui-template-pwa';
-var filesToCache = [
-  './',
-  './index.html',
-  './wasm.js',
-  './beat-detector-wasm_bg.wasm',
+const cacheName = 'midi-bpm-detector-static-v1';
+const filesToCache = [
+  './manifest.json',
+  './icon-1024.png',
+  './icon-256.png',
+  './icon_ios_touch_192.png',
+  './maskable_icon_x512.png',
 ];
 
-/* Start the service worker and cache all of the app's content */
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(cacheName).then(function (cache) {
       return cache.addAll(filesToCache);
     })
   );
+  self.skipWaiting();
 });
 
-/* Serve cached content when offline */
+self.addEventListener('activate', function (e) {
+  e.waitUntil(
+    caches.keys().then(function (cacheNames) {
+      return Promise.all(
+        cacheNames
+          .filter(function (activeCacheName) {
+            return activeCacheName !== cacheName;
+          })
+          .map(function (staleCacheName) {
+            return caches.delete(staleCacheName);
+          })
+      );
+    }).then(function () {
+      return self.clients.claim();
+    })
+  );
+});
+
 self.addEventListener('fetch', function (e) {
+  if (e.request.mode === 'navigate') {
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then(function (response) {
       return response || fetch(e.request);
