@@ -276,6 +276,7 @@ scripts/dev.sh clippy-wasm
 scripts/dev.sh build-wasm
 scripts/dev.sh serve-wasm
 scripts/dev.sh verify-wasm
+scripts/dev.sh publish-wasm-pages
 ```
 
 Equivalent commands:
@@ -292,6 +293,22 @@ Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `
 `--no-color` option. The helper script sets this for the Trunk commands.
 
 `verify-wasm` runs `doctor-wasm`, `fmt-check`, `check-wasm`, `test-wasm`, `clippy-wasm`, and `build-wasm`.
+
+### GitHub Pages Publish
+
+The browser demo is published from the `gh-pages` branch root. To verify, rebuild, commit, and push a new Pages build:
+
+```shell
+scripts/dev.sh publish-wasm-pages
+```
+
+The command refuses to publish from a dirty source tree by default, runs `verify-wasm`, copies `crates/wasm/dist/` into a
+temporary `gh-pages` worktree, commits the generated static files as `build from <source-sha>`, and pushes
+`HEAD:gh-pages` to the `upstream` remote. Set `ALLOW_DIRTY_WASM_PUBLISH=1` only when you intentionally want to publish
+an uncommitted local build.
+
+After the push, GitHub will show a `Pages build and deployment` Actions run. That run is GitHub Pages deploying the
+already-built files from `gh-pages`; this repository's CI workflow only validates the WASM app with `trunk build`.
 
 ### Browser Check
 

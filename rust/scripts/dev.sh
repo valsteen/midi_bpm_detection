@@ -2,11 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT/.." && pwd)"
 cd "$ROOT"
 
 WASM_BINDGEN_CLI_VERSION="0.2.125"
 WASM_PORT="${WASM_PORT:-8080}"
 WASM_DEV_URL="http://127.0.0.1:${WASM_PORT}/midi_bpm_detection/#dev"
+WASM_DIST_DIR="$ROOT/crates/wasm/dist"
+PAGES_REMOTE="${PAGES_REMOTE:-upstream}"
+PAGES_BRANCH="${PAGES_BRANCH:-gh-pages}"
+PAGES_URL="https://valsteen.github.io/midi_bpm_detection/"
 
 usage() {
     cat <<'EOF'
@@ -47,6 +52,8 @@ WASM commands:
   build-wasm      Build the Trunk web app
   serve-wasm      Serve the Trunk web app for browser testing
   verify-wasm     Run the usual wasm build/lint checks
+  publish-wasm-pages
+                 Verify, build, commit, and push the GitHub Pages demo
 EOF
 }
 
@@ -92,6 +99,56 @@ run_desktop_env() {
     BPM_DETECTION_CONFIG="$ROOT/.data" \
     BPM_DETECTION_DATA="$ROOT/.data" \
     "$@"
+}
+
+publish_wasm_pages() {
+    require_command git "Install Git with: https://git-scm.com/downloads" || exit 1
+    require_command rsync "Install rsync or copy crates/wasm/dist to the gh-pages branch manually." || exit 1
+
+    if [[ "${ALLOW_DIRTY_WASM_PUBLISH:-0}" != "1" ]]; then
+        local source_status
+        source_status="$(git -C "$REPO_ROOT" status --porcelain)"
+        if [[ -n "$source_status" ]]; then
+            echo "Refusing to publish from a dirty source tree." >&2
+            echo "Commit, stash, or discard local changes first." >&2
+            echo "Set ALLOW_DIRTY_WASM_PUBLISH=1 to publish anyway." >&2
+            echo >&2
+            echo "$source_status" >&2
+            return 1
+        fi
+    fi
+
+    "$0" verify-wasm
+
+    git -C "$REPO_ROOT" fetch "$PAGES_REMOTE" "$PAGES_BRANCH"
+
+    local source_revision
+    source_revision="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+
+    local pages_worktree
+    pages_worktree="$(mktemp -d "${TMPDIR:-/tmp}/midi-bpm-detector-gh-pages.XXXXXX")"
+    rmdir "$pages_worktree"
+
+    cleanup_pages_worktree() {
+        git -C "$REPO_ROOT" worktree remove --force "$pages_worktree" >/dev/null 2>&1 || true
+    }
+    trap cleanup_pages_worktree RETURN
+
+    git -C "$REPO_ROOT" worktree add --detach "$pages_worktree" FETCH_HEAD
+
+    rsync -a --delete --exclude ".git" "$WASM_DIST_DIR"/ "$pages_worktree"/
+    cp "$REPO_ROOT/LICENSE" "$pages_worktree/LICENSE"
+
+    if [[ -z "$(git -C "$pages_worktree" status --porcelain)" ]]; then
+        echo "No GitHub Pages changes to publish."
+        return 0
+    fi
+
+    git -C "$pages_worktree" add -A
+    git -C "$pages_worktree" commit -m "build from $source_revision"
+    git -C "$pages_worktree" push "$PAGES_REMOTE" HEAD:"$PAGES_BRANCH"
+
+    echo "Published WASM demo to $PAGES_URL"
 }
 
 command="${1:-}"
@@ -196,6 +253,9 @@ case "$command" in
         "$0" test-wasm
         "$0" clippy-wasm
         "$0" build-wasm
+        ;;
+    publish-wasm-pages)
+        publish_wasm_pages
         ;;
     "" | help | -h | --help)
         usage
