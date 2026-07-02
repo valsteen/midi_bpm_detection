@@ -1,4 +1,4 @@
-use parameter::{Asf64, Parameter, ParameterSpec, parameter_group};
+use parameter::{Asf64, Parameter, ParameterField, ParameterSpec, parameter_group};
 
 #[parameter_group]
 struct ExampleConfig {
@@ -113,6 +113,40 @@ fn generated_accessor_trait_exposes_group_specific_parameter_entry_points() {
 }
 
 #[test]
+fn generated_field_visitor_exposes_source_order_field_identity() {
+    let mut fields = Fields(Vec::new());
+
+    ExampleConfig::PARAMETERS.visit_fields(&mut fields);
+
+    assert_eq!(fields.0, [("value", "Example value"), ("weight", "Weight"),]);
+}
+
+#[test]
+fn generated_field_accessors_expose_named_field_identity() {
+    let value_field = ExampleConfig::PARAMETERS.value_field();
+    let weight_field = ExampleConfig::PARAMETERS.weight_field();
+
+    assert_eq!(value_field.field_name, "value");
+    assert_eq!(value_field.parameter.spec.label, "Example value");
+    assert_eq!(weight_field.field_name, "weight");
+    assert_eq!(weight_field.parameter.spec.label, "Weight");
+}
+
+#[test]
+fn generated_accessor_trait_exposes_group_specific_field_entry_points() {
+    fn visit_example_fields<Config: ExampleConfigAccessor>() -> Vec<&'static str>
+    where
+        Fields: ExampleParameterFieldVisitor<Config>,
+    {
+        let mut fields = Fields(Vec::new());
+        Config::example_parameters().visit_fields(&mut fields);
+        fields.0.into_iter().map(|(field_name, _)| field_name).collect()
+    }
+
+    assert_eq!(visit_example_fields::<ExampleConfig>(), ["value", "weight"]);
+}
+
+#[test]
 fn generated_validation_checks_parameter_ranges_in_visit_order() {
     let mut config = ExampleConfig::default();
 
@@ -146,6 +180,14 @@ struct Labels(Vec<&'static str>);
 impl ExampleParameterVisitor<ExampleConfig> for Labels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<ExampleConfig, ValueType>) {
         self.0.push(parameter.spec.label);
+    }
+}
+
+struct Fields(Vec<(&'static str, &'static str)>);
+
+impl ExampleParameterFieldVisitor<ExampleConfig> for Fields {
+    fn field<ValueType: Asf64>(&mut self, field: ParameterField<ExampleConfig, ValueType>) {
+        self.0.push((field.field_name, field.parameter.spec.label));
     }
 }
 

@@ -33,12 +33,8 @@ fn plugin_on_off_param_uses_parameter_accessor_to_read_initial_value() {
     let callback: Arc<dyn Fn(f32) + Send + Sync> = Arc::new(|_: f32| {});
     let config = DynamicBPMDetectionConfig { time_distance_weight: OnOff::Off(1.5), ..Default::default() };
 
-    let plugin_param = to_plugin_on_off_param(
-        "time_distance_weight",
-        &DynamicBPMDetectionConfig::PARAMETERS.time_distance_weight(),
-        &config,
-        &callback,
-    );
+    let plugin_param =
+        to_plugin_on_off_param(&DynamicBPMDetectionConfig::PARAMETERS.time_distance_weight_field(), &config, &callback);
 
     assert_eq!(plugin_param.read(), OnOff::Off(1.5));
 }

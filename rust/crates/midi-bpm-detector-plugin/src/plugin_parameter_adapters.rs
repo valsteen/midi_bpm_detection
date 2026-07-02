@@ -12,7 +12,7 @@ use nih_plug::{
     prelude::{FloatRange, IntRange, ParamPtr, ParamSetter},
 };
 use num_traits::ToPrimitive;
-use parameter::{OnOff, Parameter};
+use parameter::{OnOff, Parameter, ParameterField};
 
 pub struct PluginOnOffParam {
     id: &'static str,
@@ -89,14 +89,14 @@ pub(crate) trait ToParam<ValueType> {
 }
 
 pub(crate) fn to_plugin_on_off_param<Config: DynamicBPMDetectionConfigAccessor>(
-    id: &'static str,
-    parameter: &Parameter<Config, OnOff<f32>>,
+    field: &ParameterField<Config, OnOff<f32>>,
     config: &Config,
     callback: &Arc<dyn Fn(f32) + Send + Sync>,
 ) -> PluginOnOffParam {
+    let parameter = &field.parameter;
     let value = (parameter.get)(config);
 
-    PluginOnOffParam::new(id, parameter.to_param(value, callback), value)
+    PluginOnOffParam::new(field.field_name, parameter.to_param(value, callback), value)
 }
 
 pub(crate) fn to_plugin_float_param<Config, ValueType>(

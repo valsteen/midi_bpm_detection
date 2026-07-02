@@ -8,6 +8,8 @@
 //! - a default metadata catalog with one `ParameterSpec<T>` associated const per field;
 //! - a parameter catalog type with one `Parameter<Config, T>` associated const per field;
 //! - a visitor trait and source-order `visit` traversal;
+//! - named field identity accessors;
+//! - a field visitor trait and source-order `visit_fields` traversal;
 //! - `Default` and `validate` impls for the config struct.
 
 use proc_macro::TokenStream;
@@ -261,11 +263,18 @@ fn expand_parameter_group(
     let default_impl = expand_default_impl(struct_ident, &group.parameters, &group.parameter_specs, &fields);
     let visitor_trait =
         expand_visitor_trait(&group.accessor, &group.visitor, &group.parameter_crate, &fields.parameter_fields);
+    let field_visitor_trait = expand_field_visitor_trait(
+        &group.accessor,
+        &group.field_visitor,
+        &group.parameter_crate,
+        &fields.parameter_fields,
+    );
     let parameters_impl = expand_parameters_impl(
         &group.accessor,
         &group.parameters,
         &group.parameter_specs,
         &group.visitor,
+        &group.field_visitor,
         &group.parameter_crate,
         &fields.parameter_fields,
     );
@@ -286,6 +295,8 @@ fn expand_parameter_group(
 
         #visitor_trait
 
+        #field_visitor_trait
+
         #parameters_impl
     })
 }
@@ -296,6 +307,7 @@ struct ParsedGroup {
     parameter_specs: Ident,
     default_parameters_alias: Ident,
     visitor: Ident,
+    field_visitor: Ident,
     parameter_crate: Path,
     method_prefix: Ident,
 }
@@ -313,6 +325,7 @@ impl ParsedGroup {
                 .default_parameters
                 .unwrap_or_else(|| format_ident!("Default{base_name}Parameters")),
             visitor: args.visitor.unwrap_or_else(|| format_ident!("{base_name}ParameterVisitor")),
+            field_visitor: format_ident!("{base_name}ParameterFieldVisitor"),
             parameter_crate: args.parameter_crate.unwrap_or_else(|| syn::parse_quote!(parameter)),
             method_prefix: format_ident!("{}", snake_case(&base_name)),
         })
@@ -522,11 +535,41 @@ fn expand_visitor_trait(
     }
 }
 
+fn expand_field_visitor_trait(
+    accessor: &Ident,
+    field_visitor: &Ident,
+    parameter_crate: &Path,
+    fields: &[ParameterField],
+) -> proc_macro2::TokenStream {
+    let visitor_methods = fields.iter().map(|field| {
+        let field_name = &field.field;
+        let ty = &field.ty;
+        quote! {
+            fn #field_name(&mut self, field: #parameter_crate::ParameterField<Config, #ty>) {
+                self.field(field);
+            }
+        }
+    });
+
+    quote! {
+        pub trait #field_visitor<Config: #accessor> {
+            fn field<ValueType: #parameter_crate::Asf64>(
+                &mut self,
+                _field: #parameter_crate::ParameterField<Config, ValueType>,
+            ) {
+            }
+
+            #(#visitor_methods)*
+        }
+    }
+}
+
 fn expand_parameters_impl(
     accessor: &Ident,
     parameters: &Ident,
     parameter_specs: &Ident,
     visitor: &Ident,
+    field_visitor: &Ident,
     parameter_crate: &Path,
     fields: &[ParameterField],
 ) -> proc_macro2::TokenStream {
@@ -554,10 +597,35 @@ fn expand_parameters_impl(
             }
         }
     });
+    let field_methods = fields.iter().map(|field| {
+        let field_name = &field.field;
+        let field_method = format_ident!("{field_name}_field");
+        let const_name = &field.const_name;
+        let ty = &field.ty;
+        quote! {
+            #[must_use]
+            pub fn #field_method(&self) -> #parameter_crate::ParameterField<Config, #ty> {
+                #parameter_crate::ParameterField {
+                    field_name: ::std::stringify!(#field_name),
+                    parameter: Self::#const_name,
+                }
+            }
+        }
+    });
     let visit_calls = fields.iter().map(|field| {
         let field_name = &field.field;
         let const_name = &field.const_name;
         quote! { visitor.#field_name(Self::#const_name); }
+    });
+    let visit_field_calls = fields.iter().map(|field| {
+        let field_name = &field.field;
+        let const_name = &field.const_name;
+        quote! {
+            visitor.#field_name(#parameter_crate::ParameterField {
+                field_name: ::std::stringify!(#field_name),
+                parameter: Self::#const_name,
+            });
+        }
     });
 
     quote! {
@@ -571,9 +639,14 @@ fn expand_parameters_impl(
 
             #(#consts)*
             #(#methods)*
+            #(#field_methods)*
 
             pub fn visit(&self, visitor: &mut impl #visitor<Config>) {
                 #(#visit_calls)*
+            }
+
+            pub fn visit_fields(&self, visitor: &mut impl #field_visitor<Config>) {
+                #(#visit_field_calls)*
             }
         }
 

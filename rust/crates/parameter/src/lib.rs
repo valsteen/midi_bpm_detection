@@ -35,6 +35,15 @@ pub struct Parameter<Config, ValueType> {
     pub set: fn(&mut Config, ValueType),
 }
 
+/// Source field identity paired with generated typed parameter metadata.
+///
+/// `field_name` is the Rust config field name from the `#[parameter_group]`
+/// input. It is generic traversal metadata, not a plugin host ID contract.
+pub struct ParameterField<Config, ValueType> {
+    pub field_name: &'static str,
+    pub parameter: Parameter<Config, ValueType>,
+}
+
 impl<Config, ValueType> Parameter<Config, ValueType> {
     pub const fn new(
         spec: ParameterSpec<ValueType>,

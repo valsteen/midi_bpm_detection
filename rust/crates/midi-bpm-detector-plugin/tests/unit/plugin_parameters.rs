@@ -1,7 +1,11 @@
 use std::sync::{Arc, atomic::AtomicUsize};
 
-use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::parameters::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, NormalDistributionConfig,
+    StaticBPMDetectionConfig,
+};
 use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
+use parameter::{Asf64, ParameterField};
 
 use super::*;
 use crate::DeferredConfigUpdate;
@@ -110,6 +114,24 @@ fn dynamic_on_off_persistent_keys_match_parameter_ids() {
 }
 
 #[test]
+fn dynamic_generated_field_names_match_host_parameter_ids() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+    let param_ids = params.param_map().into_iter().map(|(id, _, _)| id).collect::<Vec<_>>();
+    let mut field_names = DynamicFieldNames(Vec::new());
+
+    DynamicBPMDetectionConfig::PARAMETERS.visit_fields(&mut field_names);
+
+    for field_name in field_names.0 {
+        assert!(param_ids.contains(&String::from(field_name)), "{field_name} is missing from host parameter IDs");
+    }
+}
+
+#[test]
 fn daw_port_is_visible_non_automatable_rendezvous_parameter() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
@@ -123,6 +145,14 @@ fn daw_port_is_visible_non_automatable_rendezvous_parameter() {
     assert!(flags.contains(ParamFlags::NON_AUTOMATABLE));
     assert!(!flags.contains(ParamFlags::HIDDEN));
     assert!(!flags.contains(ParamFlags::HIDE_IN_GENERIC_UI));
+}
+
+struct DynamicFieldNames(Vec<&'static str>);
+
+impl DynamicBPMDetectionParameterFieldVisitor<DynamicBPMDetectionConfig> for DynamicFieldNames {
+    fn field<ValueType: Asf64>(&mut self, field: ParameterField<DynamicBPMDetectionConfig, ValueType>) {
+        self.0.push(field.field_name);
+    }
 }
 
 #[test]
