@@ -51,6 +51,12 @@ fn test_config() {
 }
 
 #[wasm_bindgen_test]
+fn built_in_wasm_config_matches_wasm_schema() {
+    let config = WASMConfig::default();
+    assert_eq!(config.static_bpm_detection_config.bpm_center, 100.0);
+}
+
+#[wasm_bindgen_test]
 fn gui_parameter_setters_update_local_config_without_queueing_detection_config() {
     let (sender, mut receiver) = mpsc::channel(4);
     let mut config = base_config(sender);
