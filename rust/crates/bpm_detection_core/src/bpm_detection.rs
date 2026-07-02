@@ -13,6 +13,69 @@ use crate::{
 
 pub const NOTE_CAPACITY: usize = 10000;
 
+struct IntervalCandidate {
+    beat_duration: Duration,
+    in_range_score_input: f32,
+    multiple_beat_score_input: f32,
+    subdivision_score_input: f32,
+}
+
+// The detector is looking for BPM, but it scores beat-duration candidates.
+//
+// For each pair of note-on events, the raw material is the observed note interval:
+// the elapsed duration between those two events. If that duration is outside the
+// configured BPM window, it may still imply an accepted beat duration after folding
+// by powers of two. With an accepted beat-duration range of 500ms..1000ms (120..60 BPM):
+//
+// - 750ms (80 BPM) stays 750ms (80 BPM): already in range.
+// - 1600ms (37.5 BPM) is divided to 800ms (75 BPM): the notes may span multiple beats.
+// - 200ms (300 BPM) is multiplied to 800ms (75 BPM): the notes may be beat subdivisions.
+//
+// The returned score inputs are not configured weights and not final scores. The scoring
+// loop applies the corresponding `*_weight` after log-normalizing each finite input.
+fn fold_observed_interval_into_candidate_beat_range(
+    mut observed_note_interval: Duration,
+    shortest_candidate_beat_duration: Duration,
+    longest_candidate_beat_duration: Duration,
+) -> IntervalCandidate {
+    let mut in_range_score_input: f32 = 1.0;
+    let mut subdivision_score_input = f32::NAN;
+    let mut multiple_beat_score_input = f32::NAN;
+
+    if observed_note_interval > longest_candidate_beat_duration {
+        in_range_score_input = f32::NAN;
+        loop {
+            observed_note_interval = observed_note_interval / 2;
+            multiple_beat_score_input =
+                if multiple_beat_score_input.is_nan() { 1.0 } else { multiple_beat_score_input / 2. };
+            if observed_note_interval < longest_candidate_beat_duration {
+                break;
+            }
+        }
+    } else if observed_note_interval > Duration::milliseconds(1)
+        && observed_note_interval < shortest_candidate_beat_duration
+    {
+        in_range_score_input = f32::NAN;
+        for _ in 0..=8 {
+            observed_note_interval = observed_note_interval * 2;
+            subdivision_score_input = if subdivision_score_input.is_nan() { 1.0 } else { subdivision_score_input / 2. };
+            if observed_note_interval > shortest_candidate_beat_duration {
+                break;
+            }
+        }
+        if observed_note_interval < shortest_candidate_beat_duration {
+            subdivision_score_input = f32::NAN;
+        }
+    }
+
+    IntervalCandidate {
+        beat_duration: observed_note_interval,
+        in_range_score_input,
+        multiple_beat_score_input,
+        subdivision_score_input,
+    }
+}
+
 pub struct BPMDetection {
     interval_high: Duration,
     interval_low: Duration,
@@ -89,7 +152,6 @@ impl BPMDetection {
         Some((&self.histogram_data_points, bpm))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn process_combinations(
         &mut self,
         newest: &Duration,
@@ -103,38 +165,16 @@ impl BPMDetection {
 
         for [note_from, note_to] in self.note_events.iter().array_combinations() {
             let note_age = *newest - note_to.timestamp;
-            let mut interval = note_to.timestamp - note_from.timestamp;
-
-            let (interval, in_range, multiplier, subdivision) = {
-                let mut in_range: f32 = 1.0;
-                let mut subdivision = f32::NAN;
-                let mut multiplier = f32::NAN;
-
-                if interval > self.interval_high {
-                    in_range = f32::NAN;
-                    loop {
-                        interval = interval / 2;
-                        multiplier = if multiplier.is_nan() { 1.0 } else { multiplier / 2. };
-                        if interval < self.interval_high {
-                            break;
-                        }
-                    }
-                } else if interval > Duration::milliseconds(1) && interval < self.interval_low {
-                    in_range = f32::NAN;
-                    for _ in 0..=8 {
-                        interval = interval * 2;
-                        subdivision = if subdivision.is_nan() { 1.0 } else { subdivision / 2. };
-                        if interval > self.interval_low {
-                            break;
-                        }
-                    }
-                    if interval < self.interval_low {
-                        subdivision = f32::NAN;
-                    }
-                }
-
-                (interval, in_range, multiplier, subdivision)
-            };
+            let IntervalCandidate {
+                beat_duration: interval,
+                in_range_score_input,
+                multiple_beat_score_input,
+                subdivision_score_input,
+            } = fold_observed_interval_into_candidate_beat_range(
+                note_to.timestamp - note_from.timestamp,
+                self.interval_low,
+                self.interval_high,
+            );
 
             if self.static_bpm_detection_config.duration_to_index(interval, self.histogram_data_points.len()).is_none()
             {
@@ -168,9 +208,9 @@ impl BPMDetection {
                 (age, dynamic_bpm_detection_config.time_distance_weight.weight()),
                 (octave_distance, dynamic_bpm_detection_config.octave_distance_weight.weight()),
                 (pitch_distance, dynamic_bpm_detection_config.pitch_distance_weight.weight()),
-                (multiplier, dynamic_bpm_detection_config.multiplier_weight.weight()),
-                (subdivision, dynamic_bpm_detection_config.subdivision_weight.weight()),
-                (in_range, dynamic_bpm_detection_config.in_beat_range_weight.weight()),
+                (multiple_beat_score_input, dynamic_bpm_detection_config.multiplier_weight.weight()),
+                (subdivision_score_input, dynamic_bpm_detection_config.subdivision_weight.weight()),
+                (in_range_score_input, dynamic_bpm_detection_config.in_beat_range_weight.weight()),
                 (high_tempo_bias_score, dynamic_bpm_detection_config.high_tempo_bias_weight.weight()),
             ]
             .into_iter()

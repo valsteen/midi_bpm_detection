@@ -87,6 +87,10 @@ fn assert_score_unchanged(actual: f32, expected: f32) {
     assert!((actual - expected).abs() <= f32::EPSILON, "expected score sum {actual} to match baseline {expected}");
 }
 
+fn assert_f32_eq(actual: f32, expected: f32) {
+    assert!((actual - expected).abs() <= f32::EPSILON, "expected {actual} to match {expected}");
+}
+
 fn assert_successful_scoring(interval: Duration, expected_normalized_interval: Duration) {
     let (histogram, bpm) = compute_bpm_for_interval(interval);
     let positive_bins = histogram.iter().filter(|weight| **weight > 0.0).count();
@@ -97,6 +101,48 @@ fn assert_successful_scoring(interval: Duration, expected_normalized_interval: D
         (bpm - expected_bpm).abs() <= BPM_TOLERANCE,
         "expected BPM {bpm} to stay within {BPM_TOLERANCE} of normalized interval BPM {expected_bpm}",
     );
+}
+
+#[test]
+fn range_folding_keeps_observed_interval_in_range() {
+    let candidate = fold_observed_interval_into_candidate_beat_range(
+        Duration::milliseconds(750),
+        Duration::milliseconds(500),
+        Duration::milliseconds(1_000),
+    );
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(750));
+    assert_f32_eq(candidate.in_range_score_input, 1.0);
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
+fn range_folding_divides_long_observed_interval_as_multiple_beat_score_input() {
+    let candidate = fold_observed_interval_into_candidate_beat_range(
+        Duration::milliseconds(1_600),
+        Duration::milliseconds(500),
+        Duration::milliseconds(1_000),
+    );
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(800));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert_f32_eq(candidate.multiple_beat_score_input, 1.0);
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
+fn range_folding_multiplies_short_observed_interval_as_subdivision_score_input() {
+    let candidate = fold_observed_interval_into_candidate_beat_range(
+        Duration::milliseconds(200),
+        Duration::milliseconds(500),
+        Duration::milliseconds(1_000),
+    );
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(800));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert_f32_eq(candidate.subdivision_score_input, 0.5);
 }
 
 #[test]
