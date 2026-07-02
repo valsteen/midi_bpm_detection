@@ -1,7 +1,7 @@
 # Lint Exceptions
 
 This file records current approved lint exceptions for both build roots: Rust `allow` attributes and Kotlin/Detekt
-suppressions.
+suppressions. Kotlin currently has no approved suppressions or Detekt ignores.
 
 Policy:
 
@@ -13,11 +13,7 @@ Policy:
 - When a small helper exists only to wrap synchronization or another focused concern, prefer moving it to the focused
   crate that owns that concern instead of leaving it in a domain crate or creating a generic `utils` crate.
 
-## Current Baseline
-
-Kotlin currently has no approved suppressions or Detekt ignores.
-
-### Broad Exceptions
+## Broad Exceptions
 
 These are the main cleanup risk. They are not immediate behavior bugs, but they hide categories of warnings across whole
 crates:
@@ -35,7 +31,7 @@ crates:
   - Present in the plugin crate.
   - Treat this as readability debt in a dense integration layer, not as permission to introduce confusing local names.
 
-### Local Exceptions That Look Intentional
+## Local Exceptions That Look Intentional
 
 - `fake_midi_output.rs`: `unnecessary_wraps`
   - The fake output constructor mirrors the real output constructor, which can fail. Keeping the same shape simplifies
@@ -49,7 +45,7 @@ crates:
   - The equal arms carry different lifecycle comments: "editor is open but GUI not created yet" versus "editor is
     closed." This is a readability exception, not a behavior workaround.
 
-### Refactor Markers
+## Refactor Markers
 
 These exceptions are signs of code that may deserve splitting or clearer names:
 
@@ -63,7 +59,7 @@ These exceptions are signs of code that may deserve splitting or clearer names:
   - Present around boundaries where moved values line up with thread/worker ownership.
   - Re-check when changing ownership or cloning behavior.
 
-### Numeric Conversion Lints
+## Numeric Conversion Lints
 
 The broad cast lint suppressions are the highest-risk remaining category. They are probably legitimate in many GUI,
 parameter, and timestamp conversion paths, but each one should be narrowed or replaced with checked conversion when
