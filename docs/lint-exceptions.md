@@ -17,9 +17,6 @@ Policy:
 
 Kotlin currently has no approved suppressions or Detekt ignores.
 
-- `too_many_lines`
-  - No standing exception. Treat future occurrences as refactoring signals, not as approved baseline exceptions.
-
 ### Broad Exceptions
 
 These are the main cleanup risk. They are not immediate behavior bugs, but they hide categories of warnings across whole
