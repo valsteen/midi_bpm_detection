@@ -1,6 +1,7 @@
 # Lint Exceptions
 
-This file records approved lint exceptions for both build roots: Rust `allow` attributes and Kotlin/Detekt suppressions.
+This file records current approved lint exceptions for both build roots: Rust `allow` attributes and Kotlin/Detekt
+suppressions.
 
 Policy:
 
@@ -12,25 +13,14 @@ Policy:
 - When a small helper exists only to wrap synchronization or another focused concern, prefer moving it to the focused
   crate that owns that concern instead of leaving it in a domain crate or creating a generic `utils` crate.
 
-## Audit Notes
-
-Rust reviewed on 2026-06-24 against the tracked crates while keeping the 2026-06-21 cleanup notes below.
+## Current Baseline
 
 Kotlin currently has no approved suppressions or Detekt ignores.
 
-Removed during this audit:
-
-- `forbidden_lint_groups`
-  - These suppressions were unexplained and did not affect `clippy-all`; they were removed.
-- `non_canonical_partial_ord_impl` on `MidiInputPort`
-  - The type no longer pretends to have global ordering. Device lists now sort explicitly by `MidiInputPort::sort_key()`.
-- `unused_variables`, `dead_code`, `unused`, and `no_effect_underscore_binding`
-  - Removed where the code could express intent directly through underscore names or by deleting stale helpers.
 - `too_many_lines`
-  - Removed from the plugin task executor, plugin parameter construction, core BPM scoring, and native worker loop during
-    follow-up refactor work. Treat future occurrences as refactoring signals, not as approved baseline exceptions.
+  - No standing exception. Treat future occurrences as refactoring signals, not as approved baseline exceptions.
 
-### Broad Legacy Exceptions
+### Broad Exceptions
 
 These are the main cleanup risk. They are not immediate behavior bugs, but they hide categories of warnings across whole
 crates:
@@ -76,13 +66,8 @@ These exceptions are signs of code that may deserve splitting or clearer names:
   - Present around boundaries where moved values line up with thread/worker ownership.
   - Re-check when changing ownership or cloning behavior.
 
-### Current Priority
+### Numeric Conversion Lints
 
-The broad cast lint suppressions are now the highest-risk remaining category. They are probably legitimate in many GUI,
-parameter, and timestamp conversion paths, but each one should be narrowed or replaced with checked conversion when that
-code is touched.
-
-Example from this audit: optional atomic wrappers belong to `sync`, not `bpm_detection_midi` or the plugin crate, because
-they are synchronization primitives with no MIDI dependency. They should still preserve domain invariants at their public
-surface: sample/timestamp wrappers must preserve `Some(0)`, while disabled TCP ports are represented as
-`Option<NonZeroU16>` instead of accepting `Some(0)` and interpreting it as missing.
+The broad cast lint suppressions are the highest-risk remaining category. They are probably legitimate in many GUI,
+parameter, and timestamp conversion paths, but each one should be narrowed or replaced with checked conversion when
+that code is touched.

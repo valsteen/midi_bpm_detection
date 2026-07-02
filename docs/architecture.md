@@ -300,8 +300,7 @@ of upstream crates, not as a permanent divergence goal.
 
 The fork exists for plugin/editor compatibility work that the project currently needs: mutable background task execution,
 alignment with the shared egui stack, small compatibility fixes for the current egui generation, and a compact raw-MIDI
-escape hatch. The abandoned SysEx-tempo experiment should not be treated as the production integration strategy; plugin
-tempo feedback now uses the localhost controller bridge described in [plugin flow](plugin-flow.md).
+escape hatch. Plugin tempo feedback uses the localhost controller bridge described in [plugin flow](plugin-flow.md).
 
 Forks should follow a forward-only policy:
 
@@ -310,9 +309,8 @@ Forks should follow a forward-only policy:
 - pin commits in this repository so plugin builds are reproducible;
 - periodically check whether upstream has caught up enough to drop the fork or reduce its diff.
 
-The dependency rule is forward movement over patching obsolete transitive crates. For example, the egui/wgpu update that
-removed `block v0.1.6` moved to the upstream generation where Metal uses `block2`/`objc2`, then kept fork changes limited
-to compatibility work needed by the plugin editor and shared desktop/WASM GUI.
+The dependency rule is forward movement over patching obsolete transitive crates. Prefer current upstream dependency
+generations, and keep fork changes limited to compatibility work needed by the plugin editor and shared desktop/WASM GUI.
 
 ## Configuration Shape
 

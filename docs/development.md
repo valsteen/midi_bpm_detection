@@ -221,8 +221,8 @@ The workspace enables `clippy::pedantic` as warnings. Treat Clippy warnings as i
 new `#[allow(...)]` without human confirmation. If a lint is confirmed to be inappropriate, keep the allow narrow and add
 a short reason near the affected code instead of disabling the lint broadly.
 
-Existing lint exceptions are tracked in [lint exceptions](lint-exceptions.md). Treat that file as an audit baseline, not
-as permission to add more exceptions silently.
+Existing lint exceptions are tracked in [lint exceptions](lint-exceptions.md). Treat that file as the current review
+baseline, not as permission to add more exceptions silently.
 
 Add `-- -D warnings` manually when you want CI-style strictness.
 
