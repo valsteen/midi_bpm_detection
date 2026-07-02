@@ -25,7 +25,7 @@ struct IntervalCandidate {
 // For each pair of note-on events, the raw material is the observed note interval:
 // the elapsed duration between those two events. If that duration is outside the
 // configured BPM window, it may still imply an accepted beat duration after folding
-// by powers of two. With an accepted beat-duration range of 500ms..1000ms (120..60 BPM):
+// by powers of two. With an inclusive accepted beat-duration range of 500ms..1000ms (120..60 BPM):
 //
 // - 750ms (80 BPM) stays 750ms (80 BPM): already in range.
 // - 1600ms (37.5 BPM) is divided to 800ms (75 BPM): the notes may span multiple beats.
@@ -48,7 +48,7 @@ fn fold_observed_interval_into_candidate_beat_range(
             observed_note_interval = observed_note_interval / 2;
             multiple_beat_score_input =
                 if multiple_beat_score_input.is_nan() { 1.0 } else { multiple_beat_score_input / 2. };
-            if observed_note_interval < longest_candidate_beat_duration {
+            if observed_note_interval <= longest_candidate_beat_duration {
                 break;
             }
         }
@@ -59,7 +59,7 @@ fn fold_observed_interval_into_candidate_beat_range(
         for _ in 0..=8 {
             observed_note_interval = observed_note_interval * 2;
             subdivision_score_input = if subdivision_score_input.is_nan() { 1.0 } else { subdivision_score_input / 2. };
-            if observed_note_interval > shortest_candidate_beat_duration {
+            if observed_note_interval >= shortest_candidate_beat_duration {
                 break;
             }
         }
