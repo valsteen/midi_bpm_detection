@@ -40,6 +40,25 @@ fn normal_distribution_only_dynamic_config() -> DynamicBPMDetectionConfig {
     }
 }
 
+fn metadata_weight_dynamic_config(
+    multiplier_weight: OnOff<f32>,
+    subdivision_weight: OnOff<f32>,
+) -> DynamicBPMDetectionConfig {
+    DynamicBPMDetectionConfig {
+        beats_lookback: 8,
+        normal_distribution_weight: OnOff::Off(1.0),
+        time_distance_weight: OnOff::Off(1.0),
+        velocity_current_note_weight: OnOff::Off(1.0),
+        velocity_note_from_weight: OnOff::Off(1.0),
+        in_beat_range_weight: OnOff::Off(1.0),
+        multiplier_weight,
+        subdivision_weight,
+        octave_distance_weight: OnOff::Off(1.0),
+        pitch_distance_weight: OnOff::Off(1.0),
+        high_tempo_bias_weight: OnOff::Off(1.0),
+    }
+}
+
 fn compute_bpm_for_interval(interval: Duration) -> (Vec<f32>, f32) {
     let mut bpm_detection = BPMDetection::new(scoring_static_config());
     bpm_detection.receive_note_on(timed_note_on_at(Duration::zero()));
@@ -50,6 +69,22 @@ fn compute_bpm_for_interval(interval: Duration) -> (Vec<f32>, f32) {
         .expect("two note-on events with elapsed time should produce a BPM");
 
     (histogram.to_vec(), bpm)
+}
+
+fn score_sum_for_interval(interval: Duration, dynamic_config: &DynamicBPMDetectionConfig) -> f32 {
+    let mut bpm_detection = BPMDetection::new(scoring_static_config());
+    bpm_detection.receive_note_on(timed_note_on_at(Duration::zero()));
+    bpm_detection.receive_note_on(timed_note_on_at(interval));
+
+    let (histogram, _) = bpm_detection
+        .compute_bpm(dynamic_config)
+        .expect("two note-on events with elapsed time should produce histogram scores");
+
+    histogram.iter().sum()
+}
+
+fn assert_score_unchanged(actual: f32, expected: f32) {
+    assert!((actual - expected).abs() <= f32::EPSILON, "expected score sum {actual} to match baseline {expected}");
 }
 
 fn assert_successful_scoring(interval: Duration, expected_normalized_interval: Duration) {
@@ -94,6 +129,34 @@ fn compute_bpm_normalizes_long_interval_by_multiplier() {
     let long_interval = bpm_to_beat_duration(45.0);
 
     assert_successful_scoring(long_interval, normalized_beat_duration);
+}
+
+#[test]
+fn compute_bpm_scores_long_interval_multiplier_metadata_with_multiplier_weight() {
+    let long_interval = bpm_to_beat_duration(45.0);
+    let baseline =
+        score_sum_for_interval(long_interval, &metadata_weight_dynamic_config(OnOff::Off(1.0), OnOff::Off(1.0)));
+    let with_multiplier =
+        score_sum_for_interval(long_interval, &metadata_weight_dynamic_config(OnOff::On(1.0), OnOff::Off(1.0)));
+    let with_subdivision =
+        score_sum_for_interval(long_interval, &metadata_weight_dynamic_config(OnOff::Off(1.0), OnOff::On(1.0)));
+
+    assert!(with_multiplier > baseline * 9.0);
+    assert_score_unchanged(with_subdivision, baseline);
+}
+
+#[test]
+fn compute_bpm_scores_short_interval_subdivision_metadata_with_subdivision_weight() {
+    let short_interval = bpm_to_beat_duration(180.0);
+    let baseline =
+        score_sum_for_interval(short_interval, &metadata_weight_dynamic_config(OnOff::Off(1.0), OnOff::Off(1.0)));
+    let with_multiplier =
+        score_sum_for_interval(short_interval, &metadata_weight_dynamic_config(OnOff::On(1.0), OnOff::Off(1.0)));
+    let with_subdivision =
+        score_sum_for_interval(short_interval, &metadata_weight_dynamic_config(OnOff::Off(1.0), OnOff::On(1.0)));
+
+    assert_score_unchanged(with_multiplier, baseline);
+    assert!(with_subdivision > baseline * 9.0);
 }
 
 #[test]

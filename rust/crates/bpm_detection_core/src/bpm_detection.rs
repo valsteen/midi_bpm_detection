@@ -105,7 +105,7 @@ impl BPMDetection {
             let note_age = *newest - note_to.timestamp;
             let mut interval = note_to.timestamp - note_from.timestamp;
 
-            let (interval, in_range, subdivision, multiplier) = {
+            let (interval, in_range, multiplier, subdivision) = {
                 let mut in_range: f32 = 1.0;
                 let mut subdivision = f32::NAN;
                 let mut multiplier = f32::NAN;
