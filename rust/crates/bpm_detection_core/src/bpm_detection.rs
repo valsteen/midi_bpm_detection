@@ -1,3 +1,5 @@
+use std::time::Duration as StdDuration;
+
 use arraydeque::{ArrayDeque, Wrapping};
 use chrono::Duration;
 use itertools::Itertools;
@@ -12,6 +14,9 @@ use crate::{
 };
 
 pub const NOTE_CAPACITY: usize = 10000;
+
+const NANOS_PER_SECOND: u128 = 1_000_000_000;
+const SHORT_INTERVAL_MAX_FOLD_COUNT: u32 = 9;
 
 struct IntervalCandidate {
     beat_duration: Duration,
@@ -37,43 +42,87 @@ fn fold_observed_interval_into_candidate_beat_range(
     mut observed_note_interval: Duration,
     shortest_candidate_beat_duration: Duration,
     longest_candidate_beat_duration: Duration,
-) -> IntervalCandidate {
+) -> Option<IntervalCandidate> {
     let mut in_range_score_input: f32 = 1.0;
     let mut subdivision_score_input = f32::NAN;
     let mut multiple_beat_score_input = f32::NAN;
 
     if observed_note_interval > longest_candidate_beat_duration {
         in_range_score_input = f32::NAN;
-        loop {
-            observed_note_interval = observed_note_interval / 2;
-            multiple_beat_score_input =
-                if multiple_beat_score_input.is_nan() { 1.0 } else { multiple_beat_score_input / 2. };
-            if observed_note_interval <= longest_candidate_beat_duration {
-                break;
-            }
+        let fold_count = power_of_two_fold_count(observed_note_interval, longest_candidate_beat_duration)?;
+        observed_note_interval = divide_duration_by_power_of_two(observed_note_interval, fold_count)?;
+        multiple_beat_score_input = folded_score_input(fold_count);
+    } else if observed_note_interval < shortest_candidate_beat_duration {
+        if observed_note_interval <= Duration::milliseconds(1) {
+            return None;
         }
-    } else if observed_note_interval > Duration::milliseconds(1)
-        && observed_note_interval < shortest_candidate_beat_duration
-    {
         in_range_score_input = f32::NAN;
-        for _ in 0..=8 {
-            observed_note_interval = observed_note_interval * 2;
-            subdivision_score_input = if subdivision_score_input.is_nan() { 1.0 } else { subdivision_score_input / 2. };
-            if observed_note_interval >= shortest_candidate_beat_duration {
-                break;
-            }
-        }
-        if observed_note_interval < shortest_candidate_beat_duration {
-            subdivision_score_input = f32::NAN;
+        let required_fold_count = power_of_two_fold_count(shortest_candidate_beat_duration, observed_note_interval)?;
+        let applied_fold_count = required_fold_count.min(SHORT_INTERVAL_MAX_FOLD_COUNT);
+        observed_note_interval = multiply_duration_by_power_of_two(observed_note_interval, applied_fold_count)?;
+        if required_fold_count <= SHORT_INTERVAL_MAX_FOLD_COUNT {
+            subdivision_score_input = folded_score_input(applied_fold_count);
         }
     }
 
-    IntervalCandidate {
+    Some(IntervalCandidate {
         beat_duration: observed_note_interval,
         in_range_score_input,
         multiple_beat_score_input,
         subdivision_score_input,
+    })
+}
+
+fn power_of_two_fold_count(numerator: Duration, denominator: Duration) -> Option<u32> {
+    let numerator = positive_duration_nanoseconds(numerator)?;
+    let denominator = positive_duration_nanoseconds(denominator)?;
+    if denominator == 0 {
+        return None;
     }
+
+    Some(ceil_log2(numerator.div_ceil(denominator)))
+}
+
+fn positive_duration_nanoseconds(duration: Duration) -> Option<u128> {
+    duration.to_std().ok().map(|duration| duration.as_nanos())
+}
+
+fn ceil_log2(value: u128) -> u32 {
+    // Integer ceil(log2(value)): subtract one so exact powers of two do not round up.
+    // The remaining bit width is the number of power-of-two folds needed to cover `value`.
+    u128::BITS - value.saturating_sub(1).leading_zeros()
+}
+
+fn divide_duration_by_power_of_two(duration: Duration, fold_count: u32) -> Option<Duration> {
+    let fold_factor = power_of_two_factor(fold_count)?;
+    let nanoseconds = positive_duration_nanoseconds(duration)?;
+
+    duration_from_nanoseconds(nanoseconds / fold_factor)
+}
+
+fn multiply_duration_by_power_of_two(duration: Duration, fold_count: u32) -> Option<Duration> {
+    let fold_factor = power_of_two_factor(fold_count)?;
+    let nanoseconds = positive_duration_nanoseconds(duration)?;
+
+    duration_from_nanoseconds(nanoseconds.checked_mul(fold_factor)?)
+}
+
+fn power_of_two_factor(fold_count: u32) -> Option<u128> {
+    1_u128.checked_shl(fold_count)
+}
+
+fn duration_from_nanoseconds(nanoseconds: u128) -> Option<Duration> {
+    let seconds = u64::try_from(nanoseconds / NANOS_PER_SECOND).ok()?;
+    let subsecond_nanoseconds = u32::try_from(nanoseconds % NANOS_PER_SECOND).ok()?;
+    let duration = StdDuration::new(seconds, subsecond_nanoseconds);
+
+    Duration::from_std(duration).ok()
+}
+
+fn folded_score_input(fold_count: u32) -> f32 {
+    let exponent = fold_count.saturating_sub(1).min(i32::MAX as u32) as i32;
+
+    2.0_f32.powi(-exponent)
 }
 
 pub struct BPMDetection {
@@ -165,16 +214,19 @@ impl BPMDetection {
 
         for [note_from, note_to] in self.note_events.iter().array_combinations() {
             let note_age = *newest - note_to.timestamp;
-            let IntervalCandidate {
+            let Some(IntervalCandidate {
                 beat_duration: interval,
                 in_range_score_input,
                 multiple_beat_score_input,
                 subdivision_score_input,
-            } = fold_observed_interval_into_candidate_beat_range(
+            }) = fold_observed_interval_into_candidate_beat_range(
                 note_to.timestamp - note_from.timestamp,
                 self.interval_low,
                 self.interval_high,
-            );
+            )
+            else {
+                continue;
+            };
 
             if self.static_bpm_detection_config.duration_to_index(interval, self.histogram_data_points.len()).is_none()
             {

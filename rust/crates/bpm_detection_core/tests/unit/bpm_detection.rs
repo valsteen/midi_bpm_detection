@@ -103,13 +103,23 @@ fn assert_successful_scoring(interval: Duration, expected_normalized_interval: D
     );
 }
 
+fn fold_candidate(
+    observed_note_interval: Duration,
+    shortest_candidate_beat_duration: Duration,
+    longest_candidate_beat_duration: Duration,
+) -> IntervalCandidate {
+    fold_observed_interval_into_candidate_beat_range(
+        observed_note_interval,
+        shortest_candidate_beat_duration,
+        longest_candidate_beat_duration,
+    )
+    .expect("interval should fold into a candidate")
+}
+
 #[test]
 fn range_folding_keeps_observed_interval_in_range() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(750),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(750), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(750));
     assert_f32_eq(candidate.in_range_score_input, 1.0);
@@ -119,11 +129,8 @@ fn range_folding_keeps_observed_interval_in_range() {
 
 #[test]
 fn range_folding_keeps_shortest_candidate_beat_duration_in_range() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(500),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(500), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(500));
     assert_f32_eq(candidate.in_range_score_input, 1.0);
@@ -133,11 +140,8 @@ fn range_folding_keeps_shortest_candidate_beat_duration_in_range() {
 
 #[test]
 fn range_folding_keeps_longest_candidate_beat_duration_in_range() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(1_000),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(1_000), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(1_000));
     assert_f32_eq(candidate.in_range_score_input, 1.0);
@@ -147,11 +151,8 @@ fn range_folding_keeps_longest_candidate_beat_duration_in_range() {
 
 #[test]
 fn range_folding_divides_exact_long_boundary_to_longest_candidate_beat_duration() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(2_000),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(2_000), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(1_000));
     assert!(candidate.in_range_score_input.is_nan());
@@ -160,12 +161,42 @@ fn range_folding_divides_exact_long_boundary_to_longest_candidate_beat_duration(
 }
 
 #[test]
+fn range_folding_divides_exact_multi_fold_long_boundary_to_longest_candidate_beat_duration() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(4_000), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(1_000));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert_f32_eq(candidate.multiple_beat_score_input, 0.5);
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
+fn range_folding_divides_long_interval_just_under_power_of_two_ratio() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(3_999), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::microseconds(999_750));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert_f32_eq(candidate.multiple_beat_score_input, 0.5);
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
+fn range_folding_divides_long_interval_just_over_power_of_two_ratio() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(4_001), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::microseconds(500_125));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert_f32_eq(candidate.multiple_beat_score_input, 0.25);
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
 fn range_folding_multiplies_exact_short_boundary_to_shortest_candidate_beat_duration() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(250),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(250), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(500));
     assert!(candidate.in_range_score_input.is_nan());
@@ -174,12 +205,80 @@ fn range_folding_multiplies_exact_short_boundary_to_shortest_candidate_beat_dura
 }
 
 #[test]
-fn range_folding_divides_long_observed_interval_as_multiple_beat_score_input() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(1_600),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
+fn range_folding_multiplies_exact_multi_fold_short_boundary_to_shortest_candidate_beat_duration() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(125), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(500));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert_f32_eq(candidate.subdivision_score_input, 0.5);
+}
+
+#[test]
+fn range_folding_multiplies_short_interval_just_under_power_of_two_ratio() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(124), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(992));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert_f32_eq(candidate.subdivision_score_input, 0.25);
+}
+
+#[test]
+fn range_folding_multiplies_short_interval_just_over_power_of_two_ratio() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(126), Duration::milliseconds(500), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::milliseconds(504));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert_f32_eq(candidate.subdivision_score_input, 0.5);
+}
+
+#[test]
+fn range_folding_ignores_one_millisecond_or_smaller_note_clusters() {
+    assert!(
+        fold_observed_interval_into_candidate_beat_range(
+            Duration::microseconds(999),
+            Duration::milliseconds(500),
+            Duration::milliseconds(1_000),
+        )
+        .is_none()
     );
+    assert!(
+        fold_observed_interval_into_candidate_beat_range(
+            Duration::milliseconds(1),
+            Duration::milliseconds(500),
+            Duration::milliseconds(1_000),
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn range_folding_ignores_duration_arithmetic_overflow() {
+    assert!(
+        fold_observed_interval_into_candidate_beat_range(Duration::MAX / 511, Duration::MAX, Duration::MAX).is_none()
+    );
+}
+
+#[test]
+fn range_folding_preserves_short_interval_fold_cap() {
+    let candidate =
+        fold_candidate(Duration::microseconds(1_001), Duration::milliseconds(600), Duration::milliseconds(1_000));
+
+    assert_eq!(candidate.beat_duration, Duration::microseconds(512_512));
+    assert!(candidate.in_range_score_input.is_nan());
+    assert!(candidate.multiple_beat_score_input.is_nan());
+    assert!(candidate.subdivision_score_input.is_nan());
+}
+
+#[test]
+fn range_folding_divides_long_observed_interval_as_multiple_beat_score_input() {
+    let candidate =
+        fold_candidate(Duration::milliseconds(1_600), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(800));
     assert!(candidate.in_range_score_input.is_nan());
@@ -189,11 +288,8 @@ fn range_folding_divides_long_observed_interval_as_multiple_beat_score_input() {
 
 #[test]
 fn range_folding_multiplies_short_observed_interval_as_subdivision_score_input() {
-    let candidate = fold_observed_interval_into_candidate_beat_range(
-        Duration::milliseconds(200),
-        Duration::milliseconds(500),
-        Duration::milliseconds(1_000),
-    );
+    let candidate =
+        fold_candidate(Duration::milliseconds(200), Duration::milliseconds(500), Duration::milliseconds(1_000));
 
     assert_eq!(candidate.beat_duration, Duration::milliseconds(800));
     assert!(candidate.in_range_score_input.is_nan());
