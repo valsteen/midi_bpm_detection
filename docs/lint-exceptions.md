@@ -26,6 +26,9 @@ Removed during this audit:
   - The type no longer pretends to have global ordering. Device lists now sort explicitly by `MidiInputPort::sort_key()`.
 - `unused_variables`, `dead_code`, `unused`, and `no_effect_underscore_binding`
   - Removed where the code could express intent directly through underscore names or by deleting stale helpers.
+- `too_many_lines`
+  - Removed from the plugin task executor, plugin parameter construction, core BPM scoring, and native worker loop during
+    follow-up refactor work. Treat future occurrences as refactoring signals, not as approved baseline exceptions.
 
 ### Broad Legacy Exceptions
 
@@ -63,10 +66,6 @@ crates:
 
 These exceptions are signs of code that may deserve splitting or clearer names:
 
-- `too_many_lines`
-  - Present in BPM scoring and native worker loop.
-  - These are complexity markers. Refactor when working in those areas, but avoid mechanical extraction that hides the
-    flow.
 - `too_many_arguments`
   - Present in generic parameter construction and GUI methods.
   - May be better represented by a small builder/config object if the call sites become harder to read.

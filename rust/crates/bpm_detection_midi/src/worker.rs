@@ -25,24 +25,6 @@ const CLOCK_BUSY_WAIT_MARGIN: StdDuration = StdDuration::from_millis(1);
 const BPM_EVALUATION_DEBOUNCE: StdDuration = StdDuration::from_millis(50);
 const MIDI_OUTPUT_IDLE_POLL_INTERVAL: StdDuration = StdDuration::from_millis(50);
 
-/// Native desktop BPM worker.
-///
-/// This receives worker commands from `MidiIn`, updates `BPMDetection`, and publishes detected BPM/histogram
-/// data back to the desktop UI. It does not own the virtual MIDI output directly; output is serialized through the
-/// MIDI output thread so clock ticks, play/stop, and tempo `SysEx` share one owner.
-pub struct Worker<B>
-where
-    B: BPMDetectionReceiver,
-{
-    bpm_detection_receiver: B,
-    #[allow(clippy::struct_field_names)]
-    worker_commands_receiver: Receiver<BpmWorkerCommand>,
-    midi_output_sender: Sender<MidiOutputCommand>,
-    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    clock_interval_microseconds: Arc<AtomicU64>,
-    send_tempo: ArcAtomicBool,
-}
-
 /// Commands owned by the native MIDI output thread.
 ///
 /// These are not MIDI input events. They are side effects emitted by the desktop mode: transport messages, clock ticks
@@ -52,6 +34,29 @@ enum MidiOutputCommand {
     Play,
     Stop,
     Tempo(f32),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WorkerLoopStep {
+    Continue,
+    EvaluateBpm,
+    Stop,
+}
+
+impl WorkerLoopStep {
+    fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::EvaluateBpm, _) | (_, Self::EvaluateBpm) => Self::EvaluateBpm,
+            (Self::Stop, _) | (_, Self::Stop) => Self::Stop,
+            (Self::Continue, Self::Continue) => Self::Continue,
+        }
+    }
+}
+
+enum WorkerCommandWait {
+    Command(BpmWorkerCommand),
+    Timeout,
+    Disconnected,
 }
 
 #[derive(Default)]
@@ -90,123 +95,179 @@ impl BpmEvaluationSchedule {
     }
 }
 
-impl<B> Worker<B>
+/// Runs the native desktop BPM worker.
+///
+/// This receives worker commands from `MidiIn`, updates `BPMDetection`, and publishes detected BPM/histogram data back
+/// to the desktop UI. It does not own the virtual MIDI output directly; output is serialized through the MIDI output
+/// thread so clock ticks, play/stop, and tempo `SysEx` share one owner.
+fn run_worker_loop<B>(mut command_intake: WorkerCommandIntake, mut bpm_publisher: DetectedBpmPublisher<B>)
 where
     B: BPMDetectionReceiver,
 {
-    #[allow(clippy::needless_pass_by_value)]
-    #[allow(clippy::too_many_lines)]
-    fn worker_loop(&mut self, static_bpm_detection_config: StaticBPMDetectionConfig) {
-        let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
-        let mut bpm_evaluation_schedule = BpmEvaluationSchedule::default();
+    loop {
+        match command_intake.next_step() {
+            WorkerLoopStep::Continue => (),
+            WorkerLoopStep::EvaluateBpm => {
+                if let Some((histogram_data_points, bpm)) = command_intake.compute_bpm() {
+                    bpm_publisher.publish(histogram_data_points, bpm);
+                }
+            }
+            WorkerLoopStep::Stop => break,
+        }
+    }
+}
+
+struct WorkerCommandIntake {
+    commands_receiver: Receiver<BpmWorkerCommand>,
+    midi_output_sender: Sender<MidiOutputCommand>,
+    dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
+    bpm_detection: BPMDetection,
+    bpm_evaluation_schedule: BpmEvaluationSchedule,
+}
+
+impl WorkerCommandIntake {
+    fn new(
+        commands_receiver: Receiver<BpmWorkerCommand>,
+        midi_output_sender: Sender<MidiOutputCommand>,
+        static_bpm_detection_config: StaticBPMDetectionConfig,
+        dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
+    ) -> Self {
+        Self {
+            commands_receiver,
+            midi_output_sender,
+            dynamic_bpm_detection_config,
+            bpm_detection: BPMDetection::new(static_bpm_detection_config),
+            bpm_evaluation_schedule: BpmEvaluationSchedule::default(),
+        }
+    }
+
+    fn next_step(&mut self) -> WorkerLoopStep {
+        let worker_command = match self.wait_for_worker_command() {
+            WorkerCommandWait::Command(worker_command) => Some(worker_command),
+            WorkerCommandWait::Timeout => None,
+            WorkerCommandWait::Disconnected => return WorkerLoopStep::Stop,
+        };
+
+        let mut worker_loop_step = self.complete_due_bpm_evaluation();
+
+        if let Some(worker_command) = worker_command {
+            worker_loop_step = worker_loop_step.merge(self.drain_worker_command_batch(worker_command));
+        }
+
+        worker_loop_step
+    }
+
+    fn compute_bpm(&mut self) -> Option<(&[f32], f32)> {
+        self.bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config)
+    }
+
+    fn wait_for_worker_command(&self) -> WorkerCommandWait {
+        // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
+        let Some(wait_for) = self.bpm_evaluation_schedule.wait_for() else {
+            return match self.commands_receiver.recv() {
+                Ok(worker_command) => WorkerCommandWait::Command(worker_command),
+                Err(_) => WorkerCommandWait::Disconnected,
+            };
+        };
+
+        // This is not a polling loop. `recv_timeout` sleeps until either a worker command arrives or the scheduled BPM
+        // evaluation becomes due.
+        match self.commands_receiver.recv_timeout(wait_for) {
+            Ok(worker_command) => WorkerCommandWait::Command(worker_command),
+            Err(RecvTimeoutError::Timeout) => WorkerCommandWait::Timeout,
+            Err(RecvTimeoutError::Disconnected) => WorkerCommandWait::Disconnected,
+        }
+    }
+
+    fn complete_due_bpm_evaluation(&mut self) -> WorkerLoopStep {
+        if !self.bpm_evaluation_schedule.is_due() {
+            return WorkerLoopStep::Continue;
+        }
+
+        if let Some(scheduled_bpm_detection_config) = self.bpm_evaluation_schedule.complete_due_evaluation() {
+            // Static config changes rebuild buffers/precomputed data, so apply them at the debounce boundary.
+            self.bpm_detection.update_static_config(scheduled_bpm_detection_config);
+        }
+        WorkerLoopStep::EvaluateBpm
+    }
+
+    fn drain_worker_command_batch(&mut self, first_worker_command: BpmWorkerCommand) -> WorkerLoopStep {
+        let mut worker_loop_step = self.handle_worker_command(first_worker_command);
 
         loop {
-            // Dynamic/static config edits are debounce points: wait briefly for related changes, then recompute once.
-            let worker_command = if let Some(wait_for) = bpm_evaluation_schedule.wait_for() {
-                // This is not a polling loop. `recv_timeout` sleeps until either a worker command arrives or the
-                // scheduled BPM evaluation becomes due.
-                match self.worker_commands_receiver.recv_timeout(wait_for) {
-                    Ok(worker_command) => Some(worker_command),
-                    Err(RecvTimeoutError::Timeout) => None,
-                    Err(RecvTimeoutError::Disconnected) => break,
+            match self.commands_receiver.try_recv() {
+                Ok(worker_command) => {
+                    worker_loop_step = worker_loop_step.merge(self.handle_worker_command(worker_command));
                 }
-            } else {
-                let Ok(worker_command) = self.worker_commands_receiver.recv() else {
-                    break;
-                };
-                Some(worker_command)
-            };
-
-            let mut should_evaluate_bpm = false;
-
-            if bpm_evaluation_schedule.is_due() {
-                should_evaluate_bpm = true;
-                if let Some(scheduled_bpm_detection_config) = bpm_evaluation_schedule.complete_due_evaluation() {
-                    // Static config changes rebuild buffers/precomputed data, so apply them at the debounce boundary.
-                    bpm_detection.update_static_config(scheduled_bpm_detection_config);
+                Err(TryRecvError::Empty) => return worker_loop_step,
+                Err(TryRecvError::Disconnected) => {
+                    return if worker_loop_step == WorkerLoopStep::EvaluateBpm {
+                        WorkerLoopStep::EvaluateBpm
+                    } else {
+                        WorkerLoopStep::Stop
+                    };
                 }
-            }
-
-            if let Some(worker_command) = worker_command {
-                // Consume all pending commands, then compute BPM once for the whole batch.
-                let mut worker_commands_disconnected = false;
-                should_evaluate_bpm |=
-                    self.handle_worker_command(worker_command, &mut bpm_detection, &mut bpm_evaluation_schedule);
-                loop {
-                    match self.worker_commands_receiver.try_recv() {
-                        Ok(worker_command) => {
-                            should_evaluate_bpm |= self.handle_worker_command(
-                                worker_command,
-                                &mut bpm_detection,
-                                &mut bpm_evaluation_schedule,
-                            );
-                        }
-                        Err(TryRecvError::Empty) => break,
-                        Err(TryRecvError::Disconnected) => {
-                            worker_commands_disconnected = true;
-                            break;
-                        }
-                    }
-                }
-                if worker_commands_disconnected && !should_evaluate_bpm {
-                    break;
-                }
-            }
-
-            if should_evaluate_bpm {
-                let Some((histogram_data_points, bpm)) = bpm_detection.compute_bpm(&self.dynamic_bpm_detection_config)
-                else {
-                    continue;
-                };
-
-                // Detected BPM drives two desktop side effects: MIDI clock interval and optional tempo SysEx.
-                self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
-                if self.send_tempo.load(Ordering::Relaxed)
-                    && let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Tempo(bpm))
-                {
-                    error!("could not send tempo to MIDI output thread : {err:?}");
-                }
-
-                self.bpm_detection_receiver.receive_bpm_histogram_data(histogram_data_points, bpm);
             }
         }
     }
 
-    fn handle_worker_command(
-        &mut self,
-        worker_command: BpmWorkerCommand,
-        bpm_detection: &mut BPMDetection,
-        bpm_evaluation_schedule: &mut BpmEvaluationSchedule,
-    ) -> bool {
+    fn handle_worker_command(&mut self, worker_command: BpmWorkerCommand) -> WorkerLoopStep {
         match worker_command {
             BpmWorkerCommand::TimedNoteOn(event) => {
-                bpm_detection.receive_note_on(event);
-                true
+                self.bpm_detection.receive_note_on(event);
+                WorkerLoopStep::EvaluateBpm
             }
             BpmWorkerCommand::Play => {
                 if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Play) {
                     error!("could not send play to MIDI output thread : {err:?}");
                 }
-                false
+                WorkerLoopStep::Continue
             }
             BpmWorkerCommand::Stop => {
                 if let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Stop) {
                     error!("could not send stop to MIDI output thread : {err:?}");
                 }
-                false
+                WorkerLoopStep::Continue
             }
-            BpmWorkerCommand::DynamicBPMDetectionConfig(dynamic_bpm_detection_config) => {
+            BpmWorkerCommand::DynamicBPMDetectionConfig(new_dynamic_bpm_detection_config) => {
                 // Dynamic config changes scoring weights only; reuse the existing detection buffers.
-                self.dynamic_bpm_detection_config = dynamic_bpm_detection_config;
-                bpm_evaluation_schedule.schedule_evaluation();
-                false
+                self.dynamic_bpm_detection_config = new_dynamic_bpm_detection_config;
+                self.bpm_evaluation_schedule.schedule_evaluation();
+                WorkerLoopStep::Continue
             }
             BpmWorkerCommand::StaticBPMDetectionConfig(bpm_detection_config) => {
                 // Static config changes detection model shape and is applied after the debounce delay.
-                bpm_evaluation_schedule.schedule_static_update(bpm_detection_config);
-                false
+                self.bpm_evaluation_schedule.schedule_static_update(bpm_detection_config);
+                WorkerLoopStep::Continue
             }
         }
+    }
+}
+
+struct DetectedBpmPublisher<B>
+where
+    B: BPMDetectionReceiver,
+{
+    receiver: B,
+    midi_output_sender: Sender<MidiOutputCommand>,
+    clock_interval_microseconds: Arc<AtomicU64>,
+    send_tempo: ArcAtomicBool,
+}
+
+impl<B> DetectedBpmPublisher<B>
+where
+    B: BPMDetectionReceiver,
+{
+    fn publish(&mut self, histogram_data_points: &[f32], bpm: f32) {
+        // Detected BPM drives two desktop side effects: MIDI clock interval and optional tempo SysEx.
+        self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
+        if self.send_tempo.load(Ordering::Relaxed)
+            && let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Tempo(bpm))
+        {
+            error!("could not send tempo to MIDI output thread : {err:?}");
+        }
+
+        self.receiver.receive_bpm_histogram_data(histogram_data_points, bpm);
     }
 }
 
@@ -226,18 +287,22 @@ pub fn spawn(
         midi_output,
     )?;
 
-    let mut worker = Worker {
-        bpm_detection_receiver,
+    let command_intake = WorkerCommandIntake::new(
         worker_commands_receiver,
-        midi_output_sender,
+        midi_output_sender.clone(),
+        static_bpm_detection_config,
         dynamic_bpm_detection_config,
+    );
+    let bpm_publisher = DetectedBpmPublisher {
+        receiver: bpm_detection_receiver,
+        midi_output_sender,
         clock_interval_microseconds,
         send_tempo: midi_service_config.send_tempo.clone(),
     };
 
     thread::Builder::new()
         .name("BPM worker".to_string())
-        .spawn(move || worker.worker_loop(static_bpm_detection_config))?;
+        .spawn(move || run_worker_loop(command_intake, bpm_publisher))?;
     Ok(())
 }
 
