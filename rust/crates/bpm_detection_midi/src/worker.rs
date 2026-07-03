@@ -287,12 +287,7 @@ pub fn spawn(
         midi_output,
     )?;
 
-    let command_intake = WorkerCommandIntake::new(
-        worker_commands_receiver,
-        midi_output_sender.clone(),
-        static_bpm_detection_config,
-        dynamic_bpm_detection_config,
-    );
+    let worker_midi_output_sender = midi_output_sender.clone();
     let bpm_publisher = DetectedBpmPublisher {
         receiver: bpm_detection_receiver,
         midi_output_sender,
@@ -300,9 +295,18 @@ pub fn spawn(
         send_tempo: midi_service_config.send_tempo.clone(),
     };
 
-    thread::Builder::new()
-        .name("BPM worker".to_string())
-        .spawn(move || run_worker_loop(command_intake, bpm_publisher))?;
+    thread::Builder::new().name("BPM worker".to_string()).spawn(move || {
+        // `WorkerCommandIntake::new` builds `BPMDetection`, whose fixed-capacity note buffer is large. Keep that
+        // construction on the owning worker thread; constructing it on the MIDI service/main startup path can
+        // overflow smaller thread stacks, especially in debug builds.
+        let command_intake = WorkerCommandIntake::new(
+            worker_commands_receiver,
+            worker_midi_output_sender,
+            static_bpm_detection_config,
+            dynamic_bpm_detection_config,
+        );
+        run_worker_loop(command_intake, bpm_publisher);
+    })?;
     Ok(())
 }
 
