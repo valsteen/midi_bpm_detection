@@ -38,9 +38,6 @@ crates:
     target-specific construction.
 - `midi_output_trait.rs`: `dead_code`
   - Some output capabilities are not used by every build mode, but the trait represents the native MIDI output surface.
-- `gui.rs`: `match_same_arms`
-  - The equal arms carry different lifecycle comments: "editor is open but GUI not created yet" versus "editor is
-    closed." This is a readability exception, not a behavior workaround.
 
 ## Refactor Markers
 
