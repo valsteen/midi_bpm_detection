@@ -10,6 +10,8 @@ members = [
     "crates/sync",
     "crates/parameter",
     "crates/parameter/macros",
+    "crates/parameter-nih-plug",
+    "crates/parameter-nih-plug/macros",
     "crates/wasm",
     "crates/midi-bpm-detector-plugin",
     "crates/midi-bpm-detector-plugin/xtask",

@@ -31,6 +31,15 @@ the entrypoint stays small.
 - Avoid macro calls in ordinary Rust code unless they remove meaningful boilerplate or encode an established local
   pattern. Even familiar macros must earn their use; prefer direct syntax when it is clearer for IDE navigation and human
   readers.
+- When a macro is approved, keep the call site Rust-shaped. Attribute and derive macros over ordinary Rust items are the
+  preferred shape because rust-analyzer, autocomplete, and usage search still see real structs, fields, and types.
+- Do not add function-like macros that define substantial Rust items through a custom field-list DSL. If the source would
+  make a reader ask what field syntax, adapter names, or options are allowed, redesign it as ordinary Rust plus small
+  attributes or stop for design review.
+- Keep the real source of truth visible at the call site. Field names and field types should stay in Rust syntax rather
+  than in custom adapter catalogs unless there is a specific reviewed reason.
+- If generated Rust needs extra metadata, attach small metadata attributes to the real item or field instead of moving
+  the whole shape into a custom DSL.
 
 ## Dependencies
 
