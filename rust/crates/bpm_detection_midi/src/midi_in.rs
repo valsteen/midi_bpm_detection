@@ -43,9 +43,8 @@ impl<B> MidiIn<B>
 where
     B: BPMDetectionReceiver,
 {
-    #[allow(clippy::needless_pass_by_value)]
     fn new(
-        midi_service_config: MidiServiceConfig,
+        midi_service_config: &MidiServiceConfig,
         bpm_detection_config: StaticBPMDetectionConfig,
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_device_changes_notification: impl Fn() + Send + 'static,
@@ -56,7 +55,7 @@ where
         let (worker_commands_sender, worker_commands_receiver) = std::sync::mpsc::channel();
 
         worker::spawn(
-            &midi_service_config,
+            midi_service_config,
             bpm_detection_config,
             dynamic_bpm_detection_config,
             worker_commands_receiver,
@@ -66,7 +65,7 @@ where
 
         Ok(Self {
             #[cfg(target_os = "macos")]
-            midi_config: midi_service_config,
+            midi_config: midi_service_config.clone(),
             midi_input: MidiInput::new(PROJECT_NAME)?,
             start_timestamp: ArcAtomicOptionU64::none(),
             worker_sender: worker_commands_sender,
@@ -209,7 +208,7 @@ where
         thread::Builder::new().name("MIDI Service".to_string()).spawn(move || {
             let mut midi_input_connection = None; // just a value holder. Dropping it means we stop listening
             let midi_in = match MidiIn::new(
-                midi_service_config,
+                &midi_service_config,
                 bpm_detection_config,
                 dynamic_bpm_detection_config,
                 #[cfg(target_os = "macos")]

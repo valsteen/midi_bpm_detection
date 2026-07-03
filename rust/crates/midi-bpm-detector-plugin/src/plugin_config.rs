@@ -36,7 +36,7 @@ impl SendTempoOutputState {
     }
 
     pub fn toggle_from_shortcut(&self) {
-        self.enabled.fetch_xor(true, Ordering::Acquire);
+        let _ = self.enabled.fetch_xor(true, Ordering::Acquire);
         self.host_param_update_requested.store(true, Ordering::Release);
     }
 

@@ -31,7 +31,6 @@ pub struct GuiRemote {
     pub(crate) should_save: Arc<AtomicBool>,
 }
 
-#[allow(clippy::struct_field_names)]
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct HistogramDataPoints {

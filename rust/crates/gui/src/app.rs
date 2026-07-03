@@ -33,7 +33,6 @@ pub struct BPMDetectionGUI {
     pub(crate) should_save: Weak<AtomicBool>,
 }
 
-#[allow(clippy::too_many_arguments)]
 impl BPMDetectionGUI {
     #[minitrace::trace]
     fn attach_barchart<Config: BPMDetectionConfig>(
