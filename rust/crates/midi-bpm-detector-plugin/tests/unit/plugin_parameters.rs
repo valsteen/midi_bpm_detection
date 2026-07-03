@@ -1,4 +1,7 @@
-use std::sync::{Arc, atomic::AtomicUsize};
+use std::{
+    sync::{Arc, atomic::AtomicUsize},
+    time::Duration,
+};
 
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, NormalDistributionConfig,
@@ -9,6 +12,11 @@ use parameter::{Asf64, ParameterField};
 
 use super::*;
 use crate::DeferredConfigUpdate;
+
+fn assert_gui_config_eq(actual: &GUIConfig, expected: &GUIConfig) {
+    assert_eq!(actual.interpolation_duration, expected.interpolation_duration);
+    assert!((actual.interpolation_curve - expected.interpolation_curve).abs() < f32::EPSILON);
+}
 
 struct RemoteControlNames(Vec<String>);
 
@@ -198,4 +206,18 @@ fn static_params_read_initialized_host_values_as_static_config() {
         MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
 
     assert_eq!(params.static_params.read_static_config(), source_static_config);
+}
+
+#[test]
+fn gui_params_read_initialized_host_values_as_gui_config() {
+    let source_gui_config =
+        GUIConfig { interpolation_duration: Duration::from_secs_f32(0.82), interpolation_curve: 1.25 };
+    let mut config = PluginConfig { gui_config: source_gui_config.clone(), ..PluginConfig::default() };
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+
+    assert_gui_config_eq(&params.gui_params.read_gui_config(), &source_gui_config);
 }

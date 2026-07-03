@@ -4,19 +4,26 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfig,
+    NormalDistributionConfigAccessor, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
 };
 use errors::info;
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
-use nih_plug::prelude::{AsyncExecutor, ParamSetter};
-use parameter::OnOff;
+use nih_plug::{
+    params::{FloatParam, IntParam},
+    prelude::{AsyncExecutor, ParamSetter},
+};
+use num_traits::ToPrimitive;
+use parameter::{OnOff, Parameter};
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
     parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
     plugin_config::PluginConfig,
-    plugin_parameter_adapters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
+    plugin_parameter_adapters::{
+        PluginOnOffParam, apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param,
+    },
 };
 
 pub struct BaseConfig {
@@ -118,6 +125,56 @@ pub(crate) struct LiveConfig<'_self> {
     pub(crate) param_setter: &'_self ParamSetter<'_self>,
 }
 
+fn mirror_float_param<Config, ValueType>(
+    config: &mut Config,
+    parameter: &Parameter<Config, ValueType>,
+    param: &FloatParam,
+    value: ValueType,
+    param_setter: &ParamSetter,
+) where
+    ValueType: 'static + ToPrimitive + Copy,
+{
+    (parameter.set)(config, value);
+    apply_float_param(param, value, param_setter);
+}
+
+fn mirror_int_param<Config, ValueType>(
+    config: &mut Config,
+    parameter: &Parameter<Config, ValueType>,
+    param: &IntParam,
+    value: ValueType,
+    param_setter: &ParamSetter,
+) where
+    ValueType: 'static + ToPrimitive + Copy,
+{
+    (parameter.set)(config, value);
+    apply_int_param(param, value, param_setter);
+}
+
+fn mirror_duration_param<Config>(
+    config: &mut Config,
+    parameter: &Parameter<Config, Duration>,
+    param: &FloatParam,
+    value: Duration,
+    param_setter: &ParamSetter,
+) {
+    (parameter.set)(config, value);
+    apply_duration_param(param, value, param_setter);
+}
+
+fn mirror_on_off_param<Config>(
+    config: &mut Config,
+    parameter: &Parameter<Config, OnOff<f32>>,
+    param: &PluginOnOffParam,
+    value: OnOff<f32>,
+    param_setter: &ParamSetter,
+) {
+    let previous_value = (parameter.get)(config);
+
+    apply_onoff_param(param, previous_value, value, param_setter);
+    (parameter.set)(config, value);
+}
+
 impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     fn std_dev(&self) -> f64 {
         self.base_config.config.static_bpm_detection_config.normal_distribution.std_dev
@@ -136,40 +193,44 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_std_dev(&mut self, val: f64) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.std_dev = val;
-        apply_float_param(
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
+            &NormalDistributionConfig::PARAMETERS.std_dev(),
             &self.base_config.params.static_params.normal_distribution.std_dev,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.std_dev,
+            val,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
     }
 
     fn set_resolution(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.resolution = val;
-        apply_float_param(
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
+            &NormalDistributionConfig::PARAMETERS.resolution(),
             &self.base_config.params.static_params.normal_distribution.resolution,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.resolution,
+            val,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
     }
 
     fn set_cutoff(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.cutoff = val;
-        apply_float_param(
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
+            &NormalDistributionConfig::PARAMETERS.cutoff(),
             &self.base_config.params.static_params.normal_distribution.cutoff,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.cutoff,
+            val,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
     }
 
     fn set_factor(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.normal_distribution.factor = val;
-        apply_float_param(
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
+            &NormalDistributionConfig::PARAMETERS.factor(),
             &self.base_config.params.static_params.normal_distribution.factor,
-            self.base_config.config.static_bpm_detection_config.normal_distribution.factor,
+            val,
             self.param_setter,
         );
         self.base_config.delay_static_changes();
@@ -222,118 +283,123 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_beats_lookback(&mut self, val: u8) {
-        self.base_config.config.dynamic_bpm_detection_config.beats_lookback = val;
-        apply_int_param(&self.base_config.params.dynamic_params.beats_lookback, val, self.param_setter);
+        mirror_int_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.beats_lookback(),
+            &self.base_config.params.dynamic_params.beats_lookback,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_normal_distribution_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.normal_distribution_weight(),
             &self.base_config.params.dynamic_params.normal_distribution_weight,
-            self.base_config.config.dynamic_bpm_detection_config.normal_distribution_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.normal_distribution_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_time_distance_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.time_distance_weight(),
             &self.base_config.params.dynamic_params.time_distance_weight,
-            self.base_config.config.dynamic_bpm_detection_config.time_distance_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.time_distance_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_velocity_current_note_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.velocity_current_note_weight(),
             &self.base_config.params.dynamic_params.velocity_current_note_weight,
-            self.base_config.config.dynamic_bpm_detection_config.velocity_current_note_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.velocity_current_note_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_velocity_note_from_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.velocity_note_from_weight(),
             &self.base_config.params.dynamic_params.velocity_note_from_weight,
-            self.base_config.config.dynamic_bpm_detection_config.velocity_note_from_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.velocity_note_from_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_in_beat_range_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.in_beat_range_weight(),
             &self.base_config.params.dynamic_params.in_beat_range_weight,
-            self.base_config.config.dynamic_bpm_detection_config.in_beat_range_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.in_beat_range_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_multiplier_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.multiplier_weight(),
             &self.base_config.params.dynamic_params.multiplier_weight,
-            self.base_config.config.dynamic_bpm_detection_config.multiplier_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.multiplier_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_subdivision_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.subdivision_weight(),
             &self.base_config.params.dynamic_params.subdivision_weight,
-            self.base_config.config.dynamic_bpm_detection_config.subdivision_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.subdivision_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_octave_distance_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.octave_distance_weight(),
             &self.base_config.params.dynamic_params.octave_distance_weight,
-            self.base_config.config.dynamic_bpm_detection_config.octave_distance_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.octave_distance_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_pitch_distance_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.pitch_distance_weight(),
             &self.base_config.params.dynamic_params.pitch_distance_weight,
-            self.base_config.config.dynamic_bpm_detection_config.pitch_distance_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.pitch_distance_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 
     fn set_high_tempo_bias_weight(&mut self, val: OnOff<f32>) {
-        apply_onoff_param(
+        mirror_on_off_param(
+            &mut self.base_config.config.dynamic_bpm_detection_config,
+            &DynamicBPMDetectionConfig::PARAMETERS.high_tempo_bias_weight(),
             &self.base_config.params.dynamic_params.high_tempo_bias_weight,
-            self.base_config.config.dynamic_bpm_detection_config.high_tempo_bias_weight,
             val,
             self.param_setter,
         );
-        self.base_config.config.dynamic_bpm_detection_config.high_tempo_bias_weight = val;
         self.base_config.delay_dynamic_changes();
     }
 }
@@ -352,20 +418,35 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_bpm_center(&mut self, val: f32) {
-        self.base_config.config.static_bpm_detection_config.bpm_center = val;
-        apply_float_param(&self.base_config.params.static_params.bpm_center, val, self.param_setter);
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config,
+            &StaticBPMDetectionConfig::PARAMETERS.bpm_center(),
+            &self.base_config.params.static_params.bpm_center,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_static_changes();
     }
 
     fn set_bpm_range(&mut self, val: u16) {
-        self.base_config.config.static_bpm_detection_config.bpm_range = val;
-        apply_int_param(&self.base_config.params.static_params.bpm_range, val, self.param_setter);
+        mirror_int_param(
+            &mut self.base_config.config.static_bpm_detection_config,
+            &StaticBPMDetectionConfig::PARAMETERS.bpm_range(),
+            &self.base_config.params.static_params.bpm_range,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_static_changes();
     }
 
     fn set_sample_rate(&mut self, val: u16) {
-        self.base_config.config.static_bpm_detection_config.sample_rate = val;
-        apply_float_param(&self.base_config.params.static_params.sample_rate, val, self.param_setter);
+        mirror_float_param(
+            &mut self.base_config.config.static_bpm_detection_config,
+            &StaticBPMDetectionConfig::PARAMETERS.sample_rate(),
+            &self.base_config.params.static_params.sample_rate,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_static_changes();
     }
 }
@@ -380,14 +461,24 @@ impl GUIConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_interpolation_duration(&mut self, val: Duration) {
-        self.base_config.config.gui_config.interpolation_duration = val;
-        apply_duration_param(&self.base_config.params.gui_params.interpolation_duration, val, self.param_setter);
+        mirror_duration_param(
+            &mut self.base_config.config.gui_config,
+            &gui::GUIConfig::PARAMETERS.interpolation_duration(),
+            &self.base_config.params.gui_params.interpolation_duration,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_gui_changes();
     }
 
     fn set_interpolation_curve(&mut self, val: f32) {
-        self.base_config.config.gui_config.interpolation_curve = val;
-        apply_float_param(&self.base_config.params.gui_params.interpolation_curve, val, self.param_setter);
+        mirror_float_param(
+            &mut self.base_config.config.gui_config,
+            &gui::GUIConfig::PARAMETERS.interpolation_curve(),
+            &self.base_config.params.gui_params.interpolation_curve,
+            val,
+            self.param_setter,
+        );
         self.base_config.delay_gui_changes();
     }
 }
