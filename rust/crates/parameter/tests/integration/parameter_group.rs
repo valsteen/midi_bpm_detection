@@ -113,6 +113,21 @@ fn generated_accessor_trait_exposes_group_specific_parameter_entry_points() {
 }
 
 #[test]
+fn generated_owner_trait_delegates_accessors_and_after_set_hook() {
+    let mut config = ExampleConfigWrapper { config: ExampleConfig::default(), after_sets: 0 };
+
+    assert_eq!(config.value(), 3);
+    assert_f32_eq(config.weight(), 1.25);
+
+    config.set_value(5);
+    config.set_weight(0.75);
+
+    assert_eq!(config.config.value, 5);
+    assert_f32_eq(config.config.weight, 0.75);
+    assert_eq!(config.after_sets, 2);
+}
+
+#[test]
 fn generated_field_visitor_exposes_source_order_field_identity() {
     let mut fields = Fields(Vec::new());
 
@@ -180,6 +195,25 @@ struct Labels(Vec<&'static str>);
 impl ExampleParameterVisitor<ExampleConfig> for Labels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<ExampleConfig, ValueType>) {
         self.0.push(parameter.spec.label);
+    }
+}
+
+struct ExampleConfigWrapper {
+    config: ExampleConfig,
+    after_sets: usize,
+}
+
+impl ExampleConfigOwner for ExampleConfigWrapper {
+    fn example_config(&self) -> &ExampleConfig {
+        &self.config
+    }
+
+    fn example_config_mut(&mut self) -> &mut ExampleConfig {
+        &mut self.config
+    }
+
+    fn after_example_config_set(&mut self) {
+        self.after_sets += 1;
     }
 }
 

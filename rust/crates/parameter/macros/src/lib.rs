@@ -4,7 +4,9 @@
 //! truth and generates the mechanical companion API around it:
 //!
 //! - an accessor trait with one getter and setter per `#[parameter(...)]` field;
-//! - an accessor impl for the concrete config struct;
+//! - an owner trait for delegating accessors through a nested concrete config;
+//! - an owner impl for the concrete config struct;
+//! - a blanket accessor impl for owner types;
 //! - a default metadata catalog with one `ParameterSpec<T>` associated const per field;
 //! - a parameter catalog type with one `Parameter<Config, T>` associated const per field;
 //! - a visitor trait and source-order `visit` traversal;
@@ -57,6 +59,7 @@ impl Parse for GroupArg {
 #[derive(Default)]
 struct GroupArgs {
     accessor: Option<Ident>,
+    owner: Option<Ident>,
     parameters: Option<Ident>,
     default_parameters: Option<Ident>,
     visitor: Option<Ident>,
@@ -73,6 +76,9 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
             match (arg.name.to_string().as_str(), arg.value) {
                 ("accessor", GroupArgValue::Ident(value)) => {
                     assign_group_arg_once(&mut parsed.accessor, value, arg.name)?;
+                }
+                ("owner", GroupArgValue::Ident(value)) => {
+                    assign_group_arg_once(&mut parsed.owner, value, arg.name)?;
                 }
                 ("parameters", GroupArgValue::Ident(value)) => {
                     assign_group_arg_once(&mut parsed.parameters, value, arg.name)?;
@@ -303,6 +309,7 @@ fn expand_parameter_group(
 
 struct ParsedGroup {
     accessor: Ident,
+    owner: Ident,
     parameters: Ident,
     parameter_specs: Ident,
     default_parameters_alias: Ident,
@@ -319,6 +326,7 @@ impl ParsedGroup {
 
         Ok(Self {
             accessor: args.accessor.unwrap_or_else(|| format_ident!("{struct_ident}Accessor")),
+            owner: args.owner.unwrap_or_else(|| format_ident!("{struct_ident}Owner")),
             parameters: args.parameters.unwrap_or_else(|| format_ident!("{base_name}Parameters")),
             parameter_specs: format_ident!("{base_name}ParameterSpecs"),
             default_parameters_alias: args
@@ -338,8 +346,12 @@ fn expand_accessor_impl(
     fields: &[ParameterField],
 ) -> proc_macro2::TokenStream {
     let accessor = &group.accessor;
+    let owner = &group.owner;
     let parameters = &group.parameters;
     let parameter_specs = &group.parameter_specs;
+    let owner_method = format_ident!("{}_config", group.method_prefix);
+    let owner_method_mut = format_ident!("{}_config_mut", group.method_prefix);
+    let after_set_method = format_ident!("after_{}_config_set", group.method_prefix);
     let parameter_method = format_ident!("{}_parameters", group.method_prefix);
     let parameter_specs_method = format_ident!("{}_parameter_specs", group.method_prefix);
     let getter_signatures = fields.iter().map(|field| {
@@ -357,7 +369,7 @@ fn expand_accessor_impl(
         let ty = &field.ty;
         quote! {
             fn #field_name(&self) -> #ty {
-                self.#field_name
+                self.#owner_method().#field_name
             }
         }
     });
@@ -367,12 +379,22 @@ fn expand_accessor_impl(
         let ty = &field.ty;
         quote! {
             fn #setter(&mut self, val: #ty) {
-                self.#field_name = val;
+                self.#owner_method_mut().#field_name = val;
+                self.#after_set_method();
             }
         }
     });
 
     quote! {
+        pub trait #owner {
+            #[must_use]
+            fn #owner_method(&self) -> &#struct_ident;
+
+            fn #owner_method_mut(&mut self) -> &mut #struct_ident;
+
+            fn #after_set_method(&mut self) {}
+        }
+
         pub trait #accessor {
             #(#getter_signatures)*
             #(#setter_signatures)*
@@ -394,7 +416,17 @@ fn expand_accessor_impl(
             }
         }
 
-        impl #accessor for #struct_ident {
+        impl #owner for #struct_ident {
+            fn #owner_method(&self) -> &#struct_ident {
+                self
+            }
+
+            fn #owner_method_mut(&mut self) -> &mut #struct_ident {
+                self
+            }
+        }
+
+        impl<Config: #owner> #accessor for Config {
             #(#concrete_field_reads)*
             #(#concrete_field_assignments)*
         }

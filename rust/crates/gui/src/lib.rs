@@ -23,7 +23,10 @@ pub use gui_remote::GuiRemote;
 use log::info;
 use sync::Mutex;
 
-pub use crate::{application_parameters::BPMDetectionConfig, config::GUIConfigAccessor};
+pub use crate::{
+    application_parameters::BPMDetectionConfig,
+    config::{GUIConfigAccessor, GUIConfigOwner},
+};
 use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramDataPoints};
 
 pub mod add_slider;
