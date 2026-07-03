@@ -9,7 +9,6 @@ use std::{
 
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor, NormalDistributionConfig, StaticBPMDetectionConfig,
-    StaticBPMDetectionParameterVisitor,
 };
 use gui::GUIConfig;
 use nih_plug::{
@@ -27,7 +26,6 @@ use crate::{
     plugin_config::{PluginConfig, SendTempoOutputState},
     plugin_parameter_adapters::{
         PluginOnOffParam, to_plugin_duration_param, to_plugin_float_param, to_plugin_int_param, to_plugin_on_off_param,
-        to_plugin_u16_logarithmic_param,
     },
 };
 
@@ -73,15 +71,13 @@ pub struct NormalDistributionParams {
     pub factor: FloatParam,
 }
 
-#[derive(Params)]
+#[nih_plugin_parameter_group(config = StaticBPMDetectionConfig, group = "StaticParams")]
 pub struct PluginStaticParams {
-    #[id = "bpm_center"]
     pub bpm_center: FloatParam,
-    #[id = "bpm_range"]
     pub bpm_range: IntParam,
-    #[id = "sample_rate"]
+    #[nih_plugin_parameter(adapter = "float_u16_logarithmic")]
     pub sample_rate: FloatParam,
-    #[nested(group = "normal_distribution")]
+    #[nih_plugin_nested(group = "normal_distribution")]
     pub normal_distribution: NormalDistributionParams,
 }
 
@@ -205,85 +201,8 @@ impl PluginGUIParams {
 }
 
 impl PluginStaticParams {
-    fn new(config: &StaticBPMDetectionConfig, change_marker: &HostParameterChangeMarker) -> Self {
-        let update_changed_at_f32 = change_marker.callback();
-        let update_changed_at_u16 = change_marker.callback();
-        let static_parameters = StaticBPMDetectionConfig::PARAMETERS;
-
-        Self {
-            bpm_center: to_plugin_float_param(&static_parameters.bpm_center(), config, &update_changed_at_f32),
-            bpm_range: to_plugin_int_param(&static_parameters.bpm_range(), config, &update_changed_at_u16),
-            sample_rate: to_plugin_u16_logarithmic_param(
-                &static_parameters.sample_rate(),
-                config,
-                &update_changed_at_f32,
-            ),
-            normal_distribution: NormalDistributionParams::new(&config.normal_distribution, &update_changed_at_f32),
-        }
-    }
-
     pub(crate) fn read_static_config(&self) -> StaticBPMDetectionConfig {
-        let mut config = StaticBPMDetectionConfig::default();
-
-        StaticPluginParameterMapping::visit(self, StaticHostConfigReader { config: &mut config });
-        config.normal_distribution = self.normal_distribution.read_config();
-
-        config
-    }
-}
-
-trait StaticPluginParameterConsumer {
-    fn float(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>, param: &FloatParam);
-
-    fn float_u16(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>, param: &FloatParam);
-
-    fn int(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>, param: &IntParam);
-}
-
-struct StaticPluginParameterMapping<'params, Consumer> {
-    params: &'params PluginStaticParams,
-    consumer: Consumer,
-}
-
-impl<Consumer: StaticPluginParameterConsumer> StaticPluginParameterMapping<'_, Consumer> {
-    fn visit(params: &PluginStaticParams, consumer: Consumer) {
-        let mut mapping = StaticPluginParameterMapping { params, consumer };
-
-        StaticBPMDetectionConfig::PARAMETERS.visit(&mut mapping);
-    }
-}
-
-impl<Consumer: StaticPluginParameterConsumer> StaticBPMDetectionParameterVisitor<StaticBPMDetectionConfig>
-    for StaticPluginParameterMapping<'_, Consumer>
-{
-    fn bpm_center(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>) {
-        self.consumer.float(parameter, &self.params.bpm_center);
-    }
-
-    fn bpm_range(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
-        self.consumer.int(parameter, &self.params.bpm_range);
-    }
-
-    fn sample_rate(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>) {
-        self.consumer.float_u16(parameter, &self.params.sample_rate);
-    }
-}
-
-struct StaticHostConfigReader<'config> {
-    config: &'config mut StaticBPMDetectionConfig,
-}
-
-impl StaticPluginParameterConsumer for StaticHostConfigReader<'_> {
-    fn float(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>, param: &FloatParam) {
-        (parameter.set)(self.config, param.unmodulated_plain_value());
-    }
-
-    fn float_u16(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>, param: &FloatParam) {
-        (parameter.set)(self.config, param.unmodulated_plain_value() as u16);
-    }
-
-    fn int(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>, param: &IntParam) {
-        (parameter.set)(self.config, param.unmodulated_plain_value() as u16);
+        self.read_config()
     }
 }
 
@@ -424,12 +343,18 @@ impl MidiBpmDetectorParams {
         let gui_change_marker = HostParameterChangeMarker::new(current_sample.clone(), gui_config_changed_at.clone());
         let dynamic_change_marker =
             HostParameterChangeMarker::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
+        let update_static_changed_at_f32 = static_change_marker.callback();
+        let update_static_changed_at_i32 = static_change_marker.callback();
 
         Self {
             editor_state: EguiState::from_size(1200, 600),
             send_tempo: send_tempo_param(&config.send_tempo),
             gui_params: PluginGUIParams::new(&config.gui_config, &gui_change_marker),
-            static_params: PluginStaticParams::new(&config.static_bpm_detection_config, &static_change_marker),
+            static_params: PluginStaticParams::new(
+                &config.static_bpm_detection_config,
+                &update_static_changed_at_f32,
+                &update_static_changed_at_i32,
+            ),
             dynamic_params: PluginDynamicParams::new(&config.dynamic_bpm_detection_config, &dynamic_change_marker),
             daw_port: daw_port_param(daw_port),
         }

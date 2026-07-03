@@ -96,6 +96,38 @@ fn static_plugin_parameter_ids_match_config_field_names() {
 }
 
 #[test]
+fn static_params_use_parameter_nih_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+
+    assert_generated_params::<PluginStaticParams>();
+}
+
+#[test]
+fn static_generated_field_names_and_groups_match_host_parameters_in_order() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+    let ids_and_groups =
+        params.static_params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
+
+    assert_eq!(
+        ids_and_groups,
+        [
+            (String::from("bpm_center"), String::new()),
+            (String::from("bpm_range"), String::new()),
+            (String::from("sample_rate"), String::new()),
+            (String::from("std_dev"), String::from("normal_distribution")),
+            (String::from("resolution"), String::from("normal_distribution")),
+            (String::from("cutoff"), String::from("normal_distribution")),
+            (String::from("factor"), String::from("normal_distribution")),
+        ]
+    );
+}
+
+#[test]
 fn dynamic_on_off_persistent_keys_match_parameter_ids() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));

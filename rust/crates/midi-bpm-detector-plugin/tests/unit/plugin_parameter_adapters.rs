@@ -66,7 +66,6 @@ fn plugin_params_use_parameter_accessors_to_read_initial_values() {
     let interpolation_curve = to_plugin_float_param(&gui_parameters.interpolation_curve(), &gui_config, &update_f32);
     let bpm_center = to_plugin_float_param(&static_parameters.bpm_center(), &static_config, &update_f32);
     let bpm_range = to_plugin_int_param(&static_parameters.bpm_range(), &static_config, &update_i32);
-    let sample_rate = to_plugin_u16_logarithmic_param(&static_parameters.sample_rate(), &static_config, &update_f32);
     let std_dev =
         to_plugin_float_param(&normal_distribution_parameters.std_dev(), &normal_distribution_config, &update_f32);
     let factor =
@@ -76,7 +75,6 @@ fn plugin_params_use_parameter_accessors_to_read_initial_values() {
     assert_float_eq(interpolation_curve.unmodulated_plain_value(), 1.25);
     assert_float_eq(bpm_center.unmodulated_plain_value(), 111.5);
     assert_eq!(bpm_range.unmodulated_plain_value(), 48);
-    assert_float_eq(sample_rate.unmodulated_plain_value(), 720.0);
     assert_float_eq(std_dev.unmodulated_plain_value(), 18.0);
     assert_float_eq(factor.unmodulated_plain_value(), 41.0);
 }

@@ -135,14 +135,6 @@ where
     parameter.to_param(value, callback)
 }
 
-pub(crate) fn to_plugin_u16_logarithmic_param<Config>(
-    parameter: &Parameter<Config, u16>,
-    config: &Config,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
-    u16_range_to_logarithmic_param(parameter, (parameter.get)(config), callback)
-}
-
 pub(crate) fn apply_float_param<V>(param: &FloatParam, value: V, setter: &ParamSetter)
 where
     V: 'static + ToPrimitive + Copy,
@@ -275,31 +267,6 @@ impl_to_param_for_float!(f64);
 
 impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
-
-pub(crate) fn u16_range_to_logarithmic_param<Config>(
-    parameter: &Parameter<Config, u16>,
-    val: u16,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
-    let mut param = FloatParam::new(
-        parameter.spec.label,
-        f32::from(val),
-        FloatRange::Skewed {
-            min: *parameter.spec.range.start() as f32,
-            max: *parameter.spec.range.end() as f32,
-            factor: 0.3,
-        },
-    )
-    .with_callback(callback.clone());
-    if let Some(unit) = parameter.spec.unit {
-        param = param.with_unit(unit);
-    }
-    param = param.with_step_size(parameter.spec.step.max(1.0) as f32);
-    if let Some(unit) = parameter.spec.unit {
-        param = param.with_unit(unit);
-    }
-    param
-}
 
 #[cfg(test)]
 #[path = "../tests/unit/plugin_parameter_adapters.rs"]

@@ -1,58 +1,122 @@
 use std::sync::Arc;
 
-use nih_plug::params::{FloatParam, Param, Params};
+use nih_plug::params::{FloatParam, IntParam, Param, Params};
 use parameter::parameter_group;
 use parameter_nih_plug::{GeneratedNihPlugParams, nih_plugin_parameter_group};
 
 #[parameter_group]
 #[derive(Clone, PartialEq, Debug)]
-pub struct ExampleConfig {
-    #[parameter(label = "Gain", range = 0.0..=2.0, default = 1.0)]
-    pub gain: f32,
-    #[parameter(label = "Precise", range = 0.0..=10.0, default = 3.5)]
-    pub precise: f64,
+pub struct ExampleChildConfig {
+    #[parameter(label = "Child gain", range = 0.0..=2.0, default = 1.0)]
+    pub child_gain: f32,
+    #[parameter(label = "Child precise", range = 0.0..=10.0, default = 3.5)]
+    pub child_precise: f64,
 }
 
-#[nih_plugin_parameter_group(config = ExampleConfig, group = "example")]
-pub struct ExampleParams {
+#[nih_plugin_parameter_group(config = ExampleChildConfig, group = "child")]
+pub struct ExampleChildParams {
+    pub child_gain: FloatParam,
+    pub child_precise: FloatParam,
+}
+
+#[parameter_group]
+#[derive(Clone, PartialEq, Debug)]
+pub struct ExampleParentConfig {
+    #[parameter(label = "Gain", range = 0.0..=2.0, default = 1.0)]
+    pub gain: f32,
+    #[parameter(label = "Count", range = 1.0..=16.0, default = 4)]
+    pub count: u16,
+    #[parameter(label = "Sample rate", range = 1.0..=1_000.0, step = 1.0, logarithmic = true, default = 450)]
+    pub sample_rate: u16,
+    pub child: ExampleChildConfig,
+}
+
+#[nih_plugin_parameter_group(config = ExampleParentConfig, group = "parent")]
+pub struct ExampleParentParams {
     pub gain: FloatParam,
-    pub precise: FloatParam,
+    pub count: IntParam,
+    #[nih_plugin_parameter(adapter = "float_u16_logarithmic")]
+    pub sample_rate: FloatParam,
+    #[nih_plugin_nested(group = "child")]
+    pub child: ExampleChildParams,
 }
 
 #[test]
 fn generated_group_maps_field_ids_in_catalog_order_without_local_groups() {
-    let callback = callback();
-    let params = ExampleParams::new(&ExampleConfig { gain: 1.25, precise: 4.75 }, &callback);
+    let callback = callback_f32();
+    let params = ExampleChildParams::new(&ExampleChildConfig { child_gain: 1.25, child_precise: 4.75 }, &callback);
     let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
 
-    assert_eq!(ids_and_groups, [(String::from("gain"), String::new()), (String::from("precise"), String::new())]);
+    assert_eq!(
+        ids_and_groups,
+        [(String::from("child_gain"), String::new()), (String::from("child_precise"), String::new())]
+    );
+}
+
+#[test]
+fn generated_group_maps_float_int_adapter_and_nested_fields_in_source_order() {
+    let callbacks = callbacks();
+    let params = ExampleParentParams::new(&example_parent_config(), &callbacks.f32, &callbacks.i32);
+    let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
+
+    assert_eq!(
+        ids_and_groups,
+        [
+            (String::from("gain"), String::new()),
+            (String::from("count"), String::new()),
+            (String::from("sample_rate"), String::new()),
+            (String::from("child_gain"), String::from("child")),
+            (String::from("child_precise"), String::from("child")),
+        ]
+    );
 }
 
 #[test]
 fn generated_group_reads_host_values_back_to_config() {
-    let callback = callback();
-    let source_config = ExampleConfig { gain: 1.25, precise: 4.75 };
-    let params = ExampleParams::new(&source_config, &callback);
+    let callbacks = callbacks();
+    let source_config = example_parent_config();
+    let params = ExampleParentParams::new(&source_config, &callbacks.f32, &callbacks.i32);
 
     assert_eq!(params.read_config(), source_config);
 }
 
 #[test]
 fn generated_group_preserves_parameter_metadata() {
-    let callback = callback();
-    let params = ExampleParams::new(&ExampleConfig { gain: 1.25, precise: 4.75 }, &callback);
+    let callbacks = callbacks();
+    let params = ExampleParentParams::new(&example_parent_config(), &callbacks.f32, &callbacks.i32);
 
     assert_eq!(params.gain.name(), "Gain");
-    assert_eq!(params.precise.name(), "Precise");
+    assert_eq!(params.count.name(), "Count");
+    assert_eq!(params.sample_rate.name(), "Sample rate");
+    assert_eq!(params.child.child_precise.name(), "Child precise");
 }
 
 #[test]
 fn generated_group_implements_marker_trait() {
     fn assert_generated<T: GeneratedNihPlugParams>() {}
 
-    assert_generated::<ExampleParams>();
+    assert_generated::<ExampleChildParams>();
+    assert_generated::<ExampleParentParams>();
 }
 
-fn callback() -> Arc<dyn Fn(f32) + Send + Sync> {
+fn example_parent_config() -> ExampleParentConfig {
+    ExampleParentConfig {
+        gain: 1.25,
+        count: 9,
+        sample_rate: 720,
+        child: ExampleChildConfig { child_gain: 1.5, child_precise: 4.75 },
+    }
+}
+
+struct Callbacks {
+    f32: Arc<dyn Fn(f32) + Send + Sync>,
+    i32: Arc<dyn Fn(i32) + Send + Sync>,
+}
+
+fn callbacks() -> Callbacks {
+    Callbacks { f32: callback_f32(), i32: Arc::new(|_: i32| {}) }
+}
+
+fn callback_f32() -> Arc<dyn Fn(f32) + Send + Sync> {
     Arc::new(|_: f32| {})
 }
