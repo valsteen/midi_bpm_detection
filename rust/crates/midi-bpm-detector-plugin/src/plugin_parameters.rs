@@ -8,8 +8,8 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor, NormalDistributionConfig,
-    NormalDistributionParameterVisitor, StaticBPMDetectionConfig, StaticBPMDetectionParameterVisitor,
+    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterVisitor, NormalDistributionConfig, StaticBPMDetectionConfig,
+    StaticBPMDetectionParameterVisitor,
 };
 use gui::GUIConfig;
 use nih_plug::{
@@ -19,6 +19,7 @@ use nih_plug::{
 use nih_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
+use parameter_nih_plug::nih_plugin_parameter_group;
 use sync::ArcAtomicOptionNonZeroU16;
 
 use crate::{
@@ -64,15 +65,11 @@ pub struct PluginDynamicParams {
     pub high_tempo_bias_weight: PluginOnOffParam,
 }
 
-#[derive(Params)]
+#[nih_plugin_parameter_group(config = NormalDistributionConfig, group = "normal_distribution")]
 pub struct NormalDistributionParams {
-    #[id = "std_dev"]
     pub std_dev: FloatParam,
-    #[id = "resolution"]
     pub resolution: FloatParam,
-    #[id = "cutoff"]
     pub cutoff: FloatParam,
-    #[id = "factor"]
     pub factor: FloatParam,
 }
 
@@ -235,34 +232,6 @@ impl PluginStaticParams {
     }
 }
 
-impl NormalDistributionParams {
-    fn new(config: &NormalDistributionConfig, update_changed_at_f32: &Arc<dyn Fn(f32) + Send + Sync>) -> Self {
-        let normal_distribution_parameters = NormalDistributionConfig::PARAMETERS;
-
-        Self {
-            std_dev: to_plugin_float_param(&normal_distribution_parameters.std_dev(), config, update_changed_at_f32),
-            resolution: to_plugin_float_param(
-                &normal_distribution_parameters.resolution(),
-                config,
-                update_changed_at_f32,
-            ),
-            cutoff: to_plugin_float_param(&normal_distribution_parameters.cutoff(), config, update_changed_at_f32),
-            factor: to_plugin_float_param(&normal_distribution_parameters.factor(), config, update_changed_at_f32),
-        }
-    }
-
-    fn read_config(&self) -> NormalDistributionConfig {
-        let mut config = NormalDistributionConfig::default();
-
-        NormalDistributionPluginParameterMapping::visit(
-            self,
-            NormalDistributionHostConfigReader { config: &mut config },
-        );
-
-        config
-    }
-}
-
 trait StaticPluginParameterConsumer {
     fn float(&mut self, parameter: Parameter<StaticBPMDetectionConfig, f32>, param: &FloatParam);
 
@@ -315,59 +284,6 @@ impl StaticPluginParameterConsumer for StaticHostConfigReader<'_> {
 
     fn int(&mut self, parameter: Parameter<StaticBPMDetectionConfig, u16>, param: &IntParam) {
         (parameter.set)(self.config, param.unmodulated_plain_value() as u16);
-    }
-}
-
-trait NormalDistributionPluginParameterConsumer {
-    fn float64(&mut self, parameter: Parameter<NormalDistributionConfig, f64>, param: &FloatParam);
-
-    fn float(&mut self, parameter: Parameter<NormalDistributionConfig, f32>, param: &FloatParam);
-}
-
-struct NormalDistributionPluginParameterMapping<'params, Consumer> {
-    params: &'params NormalDistributionParams,
-    consumer: Consumer,
-}
-
-impl<Consumer: NormalDistributionPluginParameterConsumer> NormalDistributionPluginParameterMapping<'_, Consumer> {
-    fn visit(params: &NormalDistributionParams, consumer: Consumer) {
-        let mut mapping = NormalDistributionPluginParameterMapping { params, consumer };
-
-        NormalDistributionConfig::PARAMETERS.visit(&mut mapping);
-    }
-}
-
-impl<Consumer: NormalDistributionPluginParameterConsumer> NormalDistributionParameterVisitor<NormalDistributionConfig>
-    for NormalDistributionPluginParameterMapping<'_, Consumer>
-{
-    fn std_dev(&mut self, parameter: Parameter<NormalDistributionConfig, f64>) {
-        self.consumer.float64(parameter, &self.params.std_dev);
-    }
-
-    fn resolution(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.consumer.float(parameter, &self.params.resolution);
-    }
-
-    fn cutoff(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.consumer.float(parameter, &self.params.cutoff);
-    }
-
-    fn factor(&mut self, parameter: Parameter<NormalDistributionConfig, f32>) {
-        self.consumer.float(parameter, &self.params.factor);
-    }
-}
-
-struct NormalDistributionHostConfigReader<'config> {
-    config: &'config mut NormalDistributionConfig,
-}
-
-impl NormalDistributionPluginParameterConsumer for NormalDistributionHostConfigReader<'_> {
-    fn float64(&mut self, parameter: Parameter<NormalDistributionConfig, f64>, param: &FloatParam) {
-        (parameter.set)(self.config, f64::from(param.unmodulated_plain_value()));
-    }
-
-    fn float(&mut self, parameter: Parameter<NormalDistributionConfig, f32>, param: &FloatParam) {
-        (parameter.set)(self.config, param.unmodulated_plain_value());
     }
 }
 

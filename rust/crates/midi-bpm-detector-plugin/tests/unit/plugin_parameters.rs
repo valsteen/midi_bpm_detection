@@ -5,7 +5,7 @@ use std::{
 
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, NormalDistributionConfig,
-    StaticBPMDetectionConfig,
+    NormalDistributionParameterFieldVisitor, StaticBPMDetectionConfig,
 };
 use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
 use parameter::{Asf64, ParameterField};
@@ -140,6 +140,58 @@ fn dynamic_generated_field_names_match_host_parameter_ids() {
 }
 
 #[test]
+fn normal_distribution_params_use_parameter_nih_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+
+    assert_generated_params::<NormalDistributionParams>();
+}
+
+#[test]
+fn normal_distribution_generated_field_names_match_host_parameter_ids_in_order() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+    let normal_param_ids = params
+        .static_params
+        .normal_distribution
+        .param_map()
+        .into_iter()
+        .map(|(id, _, group)| {
+            assert_eq!(group, "");
+            id
+        })
+        .collect::<Vec<_>>();
+    let mut field_names = NormalDistributionFieldNames(Vec::new());
+
+    NormalDistributionConfig::PARAMETERS.visit_fields(&mut field_names);
+
+    assert_eq!(normal_param_ids, field_names.0);
+}
+
+#[test]
+fn normal_distribution_params_keep_nested_static_group_name() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+    let normal_groups = params
+        .static_params
+        .param_map()
+        .into_iter()
+        .filter_map(|(id, _, group)| {
+            ["std_dev", "resolution", "cutoff", "factor"].contains(&id.as_str()).then_some(group)
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(normal_groups, ["normal_distribution"; 4]);
+}
+
+#[test]
 fn daw_port_is_visible_non_automatable_rendezvous_parameter() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
@@ -160,6 +212,14 @@ struct DynamicFieldNames(Vec<&'static str>);
 impl DynamicBPMDetectionParameterFieldVisitor<DynamicBPMDetectionConfig> for DynamicFieldNames {
     fn field<ValueType: Asf64>(&mut self, field: ParameterField<DynamicBPMDetectionConfig, ValueType>) {
         self.0.push(field.field_name);
+    }
+}
+
+struct NormalDistributionFieldNames(Vec<String>);
+
+impl NormalDistributionParameterFieldVisitor<NormalDistributionConfig> for NormalDistributionFieldNames {
+    fn field<ValueType: Asf64>(&mut self, field: ParameterField<NormalDistributionConfig, ValueType>) {
+        self.0.push(String::from(field.field_name));
     }
 }
 

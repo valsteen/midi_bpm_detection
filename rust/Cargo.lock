@@ -2704,6 +2704,7 @@ dependencies = [
  "nih_plug_egui",
  "num-traits",
  "parameter",
+ "parameter-nih-plug",
  "ringbuf",
  "serde",
  "sync",
@@ -3597,6 +3598,25 @@ dependencies = [
 
 [[package]]
 name = "parameter-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
+name = "parameter-nih-plug"
+version = "0.1.0"
+dependencies = [
+ "nih_plug",
+ "num-traits",
+ "parameter",
+ "parameter-nih-plug-macros",
+]
+
+[[package]]
+name = "parameter-nih-plug-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

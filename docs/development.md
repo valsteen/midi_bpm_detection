@@ -234,7 +234,7 @@ the external crate preserves the domain invariants this project needs.
 
 Prefer integrating an existing crate when it gives a clear, debuggable surface. If a crate is close but awkward, document
 the mismatch and consider opening an upstream issue before choosing a local implementation. Do not add new macros without
-explicit design approval.
+explicit design approval. For Rust macro API shape, follow the [Rust tooling guide](../rust/agent-guides/tooling.md).
 
 When touching type definitions or helper wrappers, check whether their dependency surface belongs in a more focused crate
 or module. Avoid accumulating generic utilities inside feature-driven crates; keep a helper local only when it is

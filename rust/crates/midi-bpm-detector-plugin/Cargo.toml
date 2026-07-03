@@ -17,6 +17,7 @@ errors = { path = "../errors" }
 gui = { path = "../gui" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../parameter" }
+parameter-nih-plug = { path = "../parameter-nih-plug" }
 sync = { path = "../sync" }
 
 nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", features = ["assert_process_allocs", "standalone"] }
