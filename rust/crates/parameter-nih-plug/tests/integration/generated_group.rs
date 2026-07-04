@@ -83,6 +83,69 @@ pub struct ExampleDurationParams {
     pub curve: FloatParam,
 }
 
+mod path_config {
+    use parameter::parameter_group;
+
+    #[parameter_group]
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct PathConfig {
+        #[parameter(label = "Path gain", range = 0.0..=2.0, default = 0.75)]
+        pub path_gain: f32,
+    }
+}
+
+#[nih_plugin_parameter_group(config = path_config::PathConfig, group = "path")]
+pub struct PathParams {
+    pub path_gain: FloatParam,
+}
+
+mod canonical_public_config {
+    mod config {
+        use parameter::parameter_group;
+
+        #[parameter_group]
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub struct ReexportedConfig {
+            #[parameter(label = "Re-exported gain", range = 0.0..=2.0, default = 0.75)]
+            pub reexported_gain: f32,
+        }
+    }
+
+    pub use config::*;
+}
+
+#[nih_plugin_parameter_group(config = canonical_public_config::ReexportedConfig, group = "reexported")]
+pub struct ReexportedParams {
+    pub reexported_gain: FloatParam,
+}
+
+mod acronym_public_config {
+    mod config {
+        use std::time::Duration;
+
+        use parameter::parameter_group;
+
+        #[parameter_group]
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub struct GUIConfig {
+            #[parameter(
+                label = "Interpolation duration",
+                unit = "s",
+                range = 0.050..=1.0,
+                default = Duration::from_millis(500)
+            )]
+            pub interpolation_duration: Duration,
+        }
+    }
+
+    pub use config::*;
+}
+
+#[nih_plugin_parameter_group(config = acronym_public_config::GUIConfig, group = "gui")]
+pub struct AcronymGUIParams {
+    pub interpolation_duration: FloatParam,
+}
+
 #[test]
 fn generated_group_maps_field_ids_in_catalog_order_without_local_groups() {
     let callback = callback_f32();
@@ -321,6 +384,67 @@ fn mirror_host_param_preserves_on_off_enabled_only_updates() {
 
     assert_eq!(config.weighted_gain, OnOff::On(0.75));
     assert!(params.weighted_gain.is_enabled());
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn generated_field_mirror_methods_use_parameter_field_descriptor_value_types() {
+    let callbacks = callbacks();
+    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
+    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+
+    params.mirror_weighted_gain(&mut config, OnOff::Off(0.625), &setter);
+
+    assert_eq!(config.weighted_gain, OnOff::Off(0.625));
+    assert!(!params.weighted_gain.is_enabled());
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn generated_field_mirror_methods_can_name_path_qualified_config_descriptors() {
+    let callback = callback_f32();
+    let source_config = path_config::PathConfig { path_gain: 0.75 };
+    let params = PathParams::new(&source_config, &callback);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+
+    params.mirror_path_gain(&mut config, 1.25, &setter);
+
+    assert!((config.path_gain - 1.25).abs() < f32::EPSILON);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn generated_field_mirror_methods_use_canonical_public_reexported_config_paths() {
+    let callback = callback_f32();
+    let source_config = canonical_public_config::ReexportedConfig { reexported_gain: 0.75 };
+    let params = ReexportedParams::new(&source_config, &callback);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+
+    params.mirror_reexported_gain(&mut config, 1.5, &setter);
+
+    assert!((config.reexported_gain - 1.5).abs() < f32::EPSILON);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn generated_field_mirror_methods_match_parameter_group_acronym_descriptor_names() {
+    let callback = callback_f32();
+    let source_config = acronym_public_config::GUIConfig { interpolation_duration: Duration::from_millis(500) };
+    let params = AcronymGUIParams::new(&source_config, &callback);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+
+    params.mirror_interpolation_duration(&mut config, Duration::from_millis(250), &setter);
+
+    assert_eq!(config.interpolation_duration, Duration::from_millis(250));
     assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
 }
 

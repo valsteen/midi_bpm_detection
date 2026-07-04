@@ -1,4 +1,4 @@
-use parameter::{Asf64, Parameter, ParameterField, ParameterSpec, parameter_group};
+use parameter::{Asf64, Parameter, ParameterField, ParameterFieldDescriptor, ParameterSpec, parameter_group};
 
 #[parameter_group]
 struct ExampleConfig {
@@ -143,6 +143,20 @@ fn generated_field_accessors_expose_named_field_identity() {
 
     assert_eq!(value_field.field_name, "value");
     assert_eq!(value_field.parameter.spec.label, "Example value");
+    assert_eq!(weight_field.field_name, "weight");
+    assert_eq!(weight_field.parameter.spec.label, "Weight");
+}
+
+#[test]
+fn generated_field_descriptors_expose_type_level_field_metadata() {
+    fn assert_value_descriptor<Descriptor: ParameterFieldDescriptor<ExampleConfig, Value = u8>>() {}
+
+    assert_value_descriptor::<ExampleValueField>();
+
+    let value_parameter: Parameter<ExampleConfig, u8> = ExampleValueField::parameter();
+    let weight_field: ParameterField<ExampleConfig, f32> = ExampleWeightField::field();
+
+    assert_eq!(value_parameter.spec.label, "Example value");
     assert_eq!(weight_field.field_name, "weight");
     assert_eq!(weight_field.parameter.spec.label, "Weight");
 }

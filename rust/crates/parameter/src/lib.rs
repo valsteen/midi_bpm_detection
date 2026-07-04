@@ -44,6 +44,20 @@ pub struct ParameterField<Config, ValueType> {
     pub parameter: Parameter<Config, ValueType>,
 }
 
+pub trait ParameterFieldDescriptor<Config> {
+    type Value: Asf64;
+
+    const FIELD_NAME: &'static str;
+
+    #[must_use]
+    fn parameter() -> Parameter<Config, Self::Value>;
+
+    #[must_use]
+    fn field() -> ParameterField<Config, Self::Value> {
+        ParameterField { field_name: Self::FIELD_NAME, parameter: Self::parameter() }
+    }
+}
+
 impl<Config, ValueType> Parameter<Config, ValueType> {
     pub const fn new(
         spec: ParameterSpec<ValueType>,

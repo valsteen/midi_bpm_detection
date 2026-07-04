@@ -23,10 +23,7 @@ pub use gui_remote::GuiRemote;
 use log::info;
 use sync::Mutex;
 
-pub use crate::{
-    application_parameters::BPMDetectionConfig,
-    config::{GUIConfigAccessor, GUIConfigOwner},
-};
+pub use crate::application_parameters::BPMDetectionConfig;
 use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramDataPoints};
 
 pub mod add_slider;
@@ -38,7 +35,7 @@ mod config;
 mod config_ui;
 mod gui_remote;
 
-pub use config::{DefaultGUIParameters, GUIConfig, GUIParameterSpecs, GUIParameters};
+pub use config::*;
 
 #[must_use]
 pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
