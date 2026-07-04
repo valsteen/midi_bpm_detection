@@ -9,6 +9,7 @@ errors = { path = "../errors" }
 build = { path = "../build" }
 sync = { path = "../sync" }
 parameter = { path = "../parameter" }
+parameter-on-off = { path = "../parameter-on-off" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 
 egui_plot = { version = "0.35.0" }

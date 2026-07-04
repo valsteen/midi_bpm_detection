@@ -8,7 +8,8 @@ use bpm_detection_core::parameters::{
     NormalDistributionParameterFieldVisitor, StaticBPMDetectionConfig,
 };
 use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
-use parameter::{Asf64, OnOff, ParameterField};
+use parameter::{Asf64, ParameterField};
+use parameter_on_off::OnOff;
 
 use super::*;
 use crate::DeferredConfigUpdate;

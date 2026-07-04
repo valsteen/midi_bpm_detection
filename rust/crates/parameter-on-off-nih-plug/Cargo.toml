@@ -1,0 +1,19 @@
+[package]
+name = "parameter-on-off-nih-plug"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+parameter = { path = "../parameter" }
+parameter-on-off = { path = "../parameter-on-off" }
+parameter-nih-plug = { path = "../parameter-nih-plug" }
+
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6" }
+num-traits = "0.2.19"
+
+[lints]
+workspace = true
+
+[[test]]
+name = "generated_group"
+path = "tests/integration/generated_group.rs"

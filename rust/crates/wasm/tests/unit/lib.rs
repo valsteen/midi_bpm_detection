@@ -5,7 +5,7 @@ use bpm_detection_core::parameters::{
 use errors::error_backtrace;
 use futures::channel::mpsc;
 use gui::{GUIConfig, GUIConfigAccessor};
-use parameter::OnOff;
+use parameter_on_off::OnOff;
 use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
 use wasm_bindgen_test::*;

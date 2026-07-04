@@ -14,7 +14,8 @@ use nih_plug::{
 };
 use nih_plug_egui::EguiState;
 use num_traits::ToPrimitive;
-use parameter_nih_plug::{OnOffParam, nih_plugin_parameter_group};
+use parameter_nih_plug::nih_plugin_parameter_group;
+use parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam};
 use sync::ArcAtomicOptionNonZeroU16;
 
 use crate::{
@@ -35,25 +36,25 @@ pub struct PluginGUIParams {
 )]
 pub struct PluginDynamicParams {
     pub beats_lookback: IntParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub normal_distribution_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub time_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub velocity_current_note_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub velocity_note_from_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub in_beat_range_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub multiplier_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub subdivision_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub octave_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub pitch_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = "on_off_f32")]
+    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub high_tempo_bias_weight: OnOffParam,
 }
 

@@ -21,6 +21,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
 
 [dev-dependencies]
+parameter-on-off = { path = "../parameter-on-off" }
 pretty_assertions = "1.4.1"
 
 [build-dependencies]
