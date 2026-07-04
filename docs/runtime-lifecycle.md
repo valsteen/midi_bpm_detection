@@ -1,8 +1,8 @@
 # Runtime Lifecycle
 
 This document shows how the runtime pieces are connected and what crosses each boundary after startup. It complements
-the crate-level map in [architecture.md](architecture.md), the production plugin notes in [plugin-flow.md](plugin-flow.md),
-and the native MIDI notes in [native-midi-flow.md](native-midi-flow.md).
+the Rust crate-level map in [Rust workspace architecture](../rust/architecture.md), the production plugin notes in
+[plugin-flow.md](plugin-flow.md), and the native MIDI notes in [native-midi-flow.md](native-midi-flow.md).
 
 The main design rule is that startup wires peers together, then those peers communicate through the narrow relationship
 they actually own. Bootstrap knows the graph. The graph should not turn into a runtime-wide event bus.

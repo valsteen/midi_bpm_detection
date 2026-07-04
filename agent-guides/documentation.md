@@ -5,7 +5,8 @@ the longer docs rules so the entrypoint stays small.
 
 ## Routing
 
-- Use `../docs/architecture.md` for stable architecture narrative.
+- Use `../docs/architecture.md` for stable cross-build-root architecture narrative.
+- Use `../rust/architecture.md` for Rust workspace crate maps, crate groups, and Rust runtime constraints.
 - Use `../docs/runtime-lifecycle.md` for bootstrap wiring, ownership boundaries, and runtime data-flow diagrams.
 - Use `../docs/plugin-flow.md` for plugin realtime/audio callback details.
 - Use `../docs/bitwig-tempo-bridge.md` for the narrow plugin-to-Bitwig-controller-extension tempo bridge.

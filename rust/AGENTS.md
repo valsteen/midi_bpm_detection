@@ -7,6 +7,7 @@ Rust workspace instructions for AI coding agents working under `rust/`.
 - The repository-level `../AGENTS.md` still applies.
 - Follow `../docs/engineering-style.md` for general implementation style.
 - Follow `../docs/refactoring-guide.md` for refactors, lint-driven work, and structural cleanup.
+- Follow `architecture.md` for human-facing Rust workspace architecture, crate grouping, and dependency direction.
 - Follow `agent-guides/tooling.md` for Cargo, rustfmt, Clippy, lint, dependency, and test-layout rules.
 - Follow `agent-guides/architecture.md` for Rust workspace boundaries, realtime constraints, and communication patterns.
 - Follow `agent-guides/documentation.md` for Rust-facing documentation routing and wording rules.

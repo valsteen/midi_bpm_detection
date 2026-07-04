@@ -85,16 +85,14 @@ Keep this distinction explicit:
 
 ## Runtime Ownership
 
-- `rust/crates/entrypoints/midi-bpm-detector-plugin/src/plugin_parameters.rs` owns the `DAW Port` host parameter.
-- `rust/crates/entrypoints/midi-bpm-detector-plugin/src/task_executor.rs` owns the TCP connection and writes BPM frames
-  outside the realtime callback.
-- `extension/extensions/beat-detection-controller/src/main/kotlin/beatdetection/BeatDetectionExtension.kt` owns Bitwig
-  device following, cursor pinning, remote connection setup, payload reception, and transport tempo writes.
-- `extension/extensions/beat-detection-controller/src/main/kotlin/beatdetection/TempoControllerFrame.kt` owns payload
-  decoding on the Kotlin side.
+- The Rust plugin parameter layer owns the `DAW Port` host parameter.
+- The Rust plugin background task owns the TCP connection and writes BPM frames outside the realtime callback.
+- The Bitwig controller extension owns device following, cursor pinning, remote connection setup, payload reception, and
+  transport tempo writes.
+- The extension's tempo-frame helper owns payload decoding on the Kotlin side.
 
 The realtime plugin callback never performs TCP writes. It only captures MIDI/audio-block facts and schedules background
-work. Socket connection and writes belong to `TaskExecutor`.
+work. Socket connection and writes belong to the plugin background task.
 
 ## Failure Behavior
 

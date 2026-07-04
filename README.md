@@ -30,8 +30,8 @@ applies incoming BPM updates to Bitwig's transport tempo.
 The project is still a work in progress. Tempo detection depends on play style and parameter tuning, and the host tempo
 feedback path is currently shaped around Bitwig integration.
 
-The core BPM evaluation lives in
-[rust/crates/bpm/bpm_detection_core/src/bpm_detection.rs](rust/crates/bpm/bpm_detection_core/src/bpm_detection.rs).
+The core BPM evaluation lives in the Rust BPM core crate; see
+[Rust workspace architecture](rust/architecture.md) for the crate layout.
 
 ## Quick Start
 
@@ -148,7 +148,8 @@ This Bitwig tempo-control path has been manually tested on macOS with Bitwig Stu
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): crate map, runtime modes, and architecture boundaries.
+- [Architecture](docs/architecture.md): cross-build-root overview, runtime modes, and architecture boundaries.
+- [Rust workspace architecture](rust/architecture.md): Rust crate map, crate groups, and Rust runtime constraints.
 - [Runtime lifecycle](docs/runtime-lifecycle.md): bootstrap wiring and data flows between plugin, desktop, WASM, GUI, and
   BPM detection components.
 - [Plugin flow](docs/plugin-flow.md): host buffer processing, realtime handoff, background work, and tempo feedback.
