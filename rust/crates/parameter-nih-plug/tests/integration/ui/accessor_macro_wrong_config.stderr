@@ -1,0 +1,157 @@
+error[E0277]: the trait bound `ExampleParams: __ExampleAccessorsConfigLaneMustMatchConfig` is not satisfied
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `__ExampleAccessorsConfigLaneMustMatchConfig` is not implemented for `ExampleParams`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:14:1
+   |
+14 | pub struct ExampleParams {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `__ExampleAccessorsConfigLaneMustMatchConfig` is implemented for `ExampleConfig`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+note: required by a bound in `ExampleLiveConfig::<'_>::__example_accessors_config_lane_must_match_config`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ExampleLiveConfig::<'_>::__example_accessors_config_lane_must_match_config`
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   |
+   |   expected `&ExampleConfig`, found `&ExampleParams`
+   |   expected `&ExampleConfig` because of return type
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+   = note: expected reference `&ExampleConfig`
+              found reference `&ExampleParams`
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `ExampleParams: __ExampleAccessorsConfigLaneMustMatchConfig` is not satisfied
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `__ExampleAccessorsConfigLaneMustMatchConfig` is not implemented for `ExampleParams`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:14:1
+   |
+14 | pub struct ExampleParams {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `__ExampleAccessorsConfigLaneMustMatchConfig` is implemented for `ExampleConfig`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+note: required by a bound in `ExampleLiveConfig::<'_>::__example_accessors_mut_config_lane_must_match_config`
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ExampleLiveConfig::<'_>::__example_accessors_mut_config_lane_must_match_config`
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   |
+   |   expected `&mut ExampleConfig`, found `&mut ExampleParams`
+   |   arguments to this function are incorrect
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+   = note: expected mutable reference `&mut ExampleConfig`
+              found mutable reference `&mut ExampleParams`
+note: type parameter defined here
+  --> tests/integration/ui/accessor_macro_wrong_config.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.params,
+22 | |     params = self.params,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)

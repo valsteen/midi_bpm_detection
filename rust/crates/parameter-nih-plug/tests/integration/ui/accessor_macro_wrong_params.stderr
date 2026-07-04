@@ -1,0 +1,85 @@
+error[E0277]: the trait bound `ExampleConfig: __ExampleAccessorsParamsLaneMustMatchParams` is not satisfied
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.config,
+22 | |     params = self.config,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `__ExampleAccessorsParamsLaneMustMatchParams` is not implemented for `ExampleConfig`
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:6:1
+   |
+ 6 | pub struct ExampleConfig {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `__ExampleAccessorsParamsLaneMustMatchParams` is implemented for `ExampleParams`
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.config,
+22 | |     params = self.config,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+note: required by a bound in `ExampleLiveConfig::<'_>::__example_accessors_params_lane_must_match_params`
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ExampleLiveConfig::<'_>::__example_accessors_params_lane_must_match_params`
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.config,
+22 | |     params = self.config,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   |
+   |   expected `&ExampleParams`, found `&ExampleConfig`
+   |   arguments to this function are incorrect
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.config,
+22 | |     params = self.config,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+   = note: expected reference `&ExampleParams`
+              found reference `&ExampleConfig`
+note: type parameter defined here
+  --> tests/integration/ui/accessor_macro_wrong_params.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig<'_>,
+21 | |     config = self.config,
+22 | |     params = self.config,
+23 | |     param_setter = self.param_setter,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)

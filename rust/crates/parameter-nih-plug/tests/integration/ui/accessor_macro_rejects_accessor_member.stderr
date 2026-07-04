@@ -1,0 +1,15 @@
+error: no rules expected `accessor`
+  --> tests/integration/ui/accessor_macro_rejects_accessor_member.rs:18:5
+   |
+11 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ when calling this macro
+...
+18 |     accessor = ExampleConfigAccessor,
+   |     ^^^^^^^^ no rules expected this token in macro call
+   |
+note: while trying to match `config`
+  --> tests/integration/ui/accessor_macro_rejects_accessor_member.rs:11:1
+   |
+11 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `nih_plugin_parameter_group` (in Nightly builds, run with -Z macro-backtrace for more info)

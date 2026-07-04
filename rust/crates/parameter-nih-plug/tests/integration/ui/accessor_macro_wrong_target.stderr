@@ -1,0 +1,44 @@
+error[E0609]: no field `config` on type `&WrongLiveConfig`
+  --> tests/integration/ui/accessor_macro_wrong_target.rs:21:19
+   |
+13 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ due to this macro variable
+...
+21 |     config = self.config,
+   |                   ^^^^^^ unknown field
+
+error[E0609]: no field `params` on type `&mut WrongLiveConfig`
+  --> tests/integration/ui/accessor_macro_wrong_target.rs:22:19
+   |
+13 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ due to this macro variable
+...
+22 |     params = self.params,
+   |                   ^^^^^^ unknown field
+
+error[E0609]: no field `config` on type `&mut WrongLiveConfig`
+  --> tests/integration/ui/accessor_macro_wrong_target.rs:21:19
+   |
+13 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ due to this macro variable
+...
+21 |     config = self.config,
+   |                   ^^^^^^ unknown field
+
+error[E0609]: no field `param_setter` on type `&mut WrongLiveConfig`
+  --> tests/integration/ui/accessor_macro_wrong_target.rs:23:25
+   |
+13 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ due to this macro variable
+...
+23 |     param_setter = self.param_setter,
+   |                         ^^^^^^^^^^^^ unknown field
+
+error[E0599]: no method named `after_set` found for mutable reference `&mut WrongLiveConfig` in the current scope
+  --> tests/integration/ui/accessor_macro_wrong_target.rs:24:22
+   |
+13 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ due to this macro variable
+...
+24 |     after_set = self.after_set(),
+   |                      ^^^^^^^^^ method not found in `&mut WrongLiveConfig`
