@@ -60,12 +60,20 @@ pub struct ExampleOnOffConfig {
     pub steps: u8,
 }
 
-#[nih_plugin_parameter_group(config = ExampleOnOffConfig, group = "on_off")]
+#[nih_plugin_parameter_group(config = ExampleOnOffConfig, group = "on_off", accessor_macro = example_on_off_accessors)]
 pub struct ExampleOnOffParams {
     #[nih_plugin_parameter(adapter = "on_off_f32")]
     pub weighted_gain: OnOffParam,
     pub plain_gain: FloatParam,
     pub steps: IntParam,
+}
+
+example_on_off_accessors! {
+    target = ExampleOnOffLive<'_, '_>,
+    config = self.config,
+    params = self.params,
+    param_setter = self.setter,
+    after_set = self.after_set(),
 }
 
 #[parameter_group]
@@ -404,6 +412,30 @@ fn generated_field_mirror_methods_use_parameter_field_descriptor_value_types() {
 }
 
 #[test]
+fn generated_accessor_helper_implements_live_accessor_without_repeating_fields() {
+    let callbacks = callbacks();
+    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
+    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut live = ExampleOnOffLive { config: source_config, params, setter: &setter, after_set_count: 0 };
+
+    assert_eq!(live.weighted_gain(), OnOff::On(0.5));
+    assert!((live.plain_gain() - 1.0).abs() < f32::EPSILON);
+    assert_eq!(live.steps(), 3);
+
+    live.set_weighted_gain(OnOff::Off(0.625));
+    live.set_plain_gain(1.75);
+    live.set_steps(6);
+
+    assert_eq!(live.config.weighted_gain, OnOff::Off(0.625));
+    assert!((live.config.plain_gain - 1.75).abs() < f32::EPSILON);
+    assert_eq!(live.config.steps, 6);
+    assert_eq!(live.after_set_count, 3);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End].repeat(3));
+}
+
+#[test]
 fn generated_field_mirror_methods_can_name_path_qualified_config_descriptors() {
     let callback = callback_f32();
     let source_config = path_config::PathConfig { path_gain: 0.75 };
@@ -460,6 +492,19 @@ fn example_parent_config() -> ExampleParentConfig {
 struct Callbacks {
     f32: Arc<dyn Fn(f32) + Send + Sync>,
     i32: Arc<dyn Fn(i32) + Send + Sync>,
+}
+
+struct ExampleOnOffLive<'a, 'setter> {
+    config: ExampleOnOffConfig,
+    params: ExampleOnOffParams,
+    setter: &'setter ParamSetter<'a>,
+    after_set_count: usize,
+}
+
+impl ExampleOnOffLive<'_, '_> {
+    fn after_set(&mut self) {
+        self.after_set_count += 1;
+    }
 }
 
 fn callbacks() -> Callbacks {

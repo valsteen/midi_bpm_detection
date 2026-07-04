@@ -1,0 +1,18 @@
+error[E0061]: this method takes 1 argument but 0 arguments were supplied
+  --> tests/integration/ui/accessor_macro_wrong_after_set.rs:21:22
+   |
+11 | #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   | ------------------------------------------------------------------------------------------------------------ argument #1 of type `u8` is missing
+...
+21 |     after_set = self.after_set(),
+   |                      ^^^^^^^^^
+   |
+note: method defined here
+  --> tests/integration/ui/accessor_macro_wrong_after_set.rs:31:8
+   |
+31 |     fn after_set(&mut self, _value: u8) {}
+   |        ^^^^^^^^^            ----------
+help: provide the argument
+   |
+21 |     after_set = self.after_set(/* u8 */)(),
+   |                               ++++++++++

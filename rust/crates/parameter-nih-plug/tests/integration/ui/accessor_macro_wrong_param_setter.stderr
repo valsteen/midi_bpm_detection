@@ -1,0 +1,83 @@
+error[E0277]: the trait bound `ExampleConfig: __ExampleAccessorsParamSetterLaneMustMatchParamSetter` is not satisfied
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig,
+21 | |     config = self.config,
+22 | |     params = self.params,
+23 | |     param_setter = self.config,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `__ExampleAccessorsParamSetterLaneMustMatchParamSetter` is not implemented for `ExampleConfig`
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:6:1
+   |
+ 6 | pub struct ExampleConfig {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `__ExampleAccessorsParamSetterLaneMustMatchParamSetter` is implemented for `&'__parameter_nih_plug_param_setter_ref ParamSetter<'__parameter_nih_plug_param_setter_inner>`
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig,
+21 | |     config = self.config,
+22 | |     params = self.params,
+23 | |     param_setter = self.config,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+note: required by a bound in `ExampleLiveConfig::__example_accessors_param_setter_lane_must_match_param_setter`
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ExampleLiveConfig::__example_accessors_param_setter_lane_must_match_param_setter`
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig,
+21 | |     config = self.config,
+22 | |     params = self.params,
+23 | |     param_setter = self.config,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   |
+   |   expected `&ParamSetter<'_>`, found `ExampleConfig`
+   |   arguments to this function are incorrect
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig,
+21 | |     config = self.config,
+22 | |     params = self.params,
+23 | |     param_setter = self.config,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   |
+note: type parameter defined here
+  --> tests/integration/ui/accessor_macro_wrong_param_setter.rs:13:1
+   |
+13 |   #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 | / example_accessors! {
+20 | |     target = ExampleLiveConfig,
+21 | |     config = self.config,
+22 | |     params = self.params,
+23 | |     param_setter = self.config,
+24 | |     after_set = self.after_set(),
+25 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `example_accessors` (in Nightly builds, run with -Z macro-backtrace for more info)

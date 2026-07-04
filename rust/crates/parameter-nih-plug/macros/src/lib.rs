@@ -23,6 +23,7 @@ struct GroupArg {
 enum GroupArgValue {
     Group(LitStr),
     Config(Box<Type>),
+    AccessorMacro(Ident),
 }
 
 impl Parse for GroupArg {
@@ -34,6 +35,8 @@ impl Parse for GroupArg {
             GroupArgValue::Group(input.parse()?)
         } else if name == "config" {
             GroupArgValue::Config(Box::new(input.parse()?))
+        } else if name == "accessor_macro" {
+            GroupArgValue::AccessorMacro(input.parse()?)
         } else {
             return Err(syn::Error::new_spanned(name, "unknown argument in #[nih_plugin_parameter_group(...)]"));
         };
@@ -45,6 +48,7 @@ impl Parse for GroupArg {
 struct GroupArgs {
     config_type: Type,
     group: LitStr,
+    accessor_macro: Option<Ident>,
 }
 
 impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
@@ -53,6 +57,7 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
     fn try_from(args: Punctuated<GroupArg, Token![,]>) -> Result<Self> {
         let mut config_type = None;
         let mut group = None;
+        let mut accessor_macro = None;
 
         for arg in args {
             match (arg.name.to_string().as_str(), arg.value) {
@@ -62,6 +67,9 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
                 ("group", GroupArgValue::Group(value)) => {
                     validate_group_name(&value)?;
                     assign_arg_once(&mut group, value, arg.name)?;
+                }
+                ("accessor_macro", GroupArgValue::AccessorMacro(value)) => {
+                    assign_arg_once(&mut accessor_macro, value, arg.name)?;
                 }
                 _ => {
                     return Err(syn::Error::new_spanned(
@@ -79,7 +87,7 @@ impl TryFrom<Punctuated<GroupArg, Token![,]>> for GroupArgs {
             return Err(syn::Error::new(proc_macro2::Span::call_site(), "missing `group = \"...\"` argument"));
         };
 
-        Ok(Self { config_type, group })
+        Ok(Self { config_type, group, accessor_macro })
     }
 }
 
@@ -125,6 +133,11 @@ fn expand_plugin_parameter_group(
         .filter(|field| field.kind.is_mirrorable())
         .map(|field| expand_mirror_method(field, config_type, visibility))
         .collect::<Result<Vec<_>>>()?;
+    let accessor_macro = args
+        .accessor_macro
+        .as_ref()
+        .map(|macro_ident| expand_accessor_macro(macro_ident, struct_ident, &fields, config_type))
+        .transpose()?;
     let _group = args.group;
 
     Ok(quote! {
@@ -194,6 +207,8 @@ fn expand_plugin_parameter_group(
         }
 
         impl ::parameter_nih_plug::GeneratedNihPlugParams for #struct_ident {}
+
+        #accessor_macro
     })
 }
 
@@ -455,6 +470,257 @@ fn expand_mirror_method(
             );
         }
     })
+}
+
+fn expand_accessor_macro(
+    macro_ident: &Ident,
+    params_type: &Ident,
+    fields: &[PluginParameterField],
+    config_type: &Type,
+) -> Result<proc_macro2::TokenStream> {
+    let names = AccessorMacroNames::new(macro_ident);
+    let accessor_trait = accessor_trait_path(config_type)?;
+    let fields = fields.iter().filter(|field| field.kind.is_mirrorable()).collect::<Vec<_>>();
+    let descriptors = fields
+        .iter()
+        .map(|field| parameter_field_descriptor_type(config_type, &field.ident))
+        .collect::<Result<Vec<_>>>()?;
+    let methods = fields
+        .iter()
+        .map(|field| {
+            expand_accessor_macro_methods(
+                field,
+                params_type,
+                config_type,
+                &names.config_helper,
+                &names.set_lanes_helper,
+                &names.after_set_helper,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let lane_traits = expand_accessor_macro_lane_traits(&names, config_type, params_type);
+    let lane_helpers = expand_accessor_macro_lane_helpers(&names, config_type);
+    let params_lane_helper = &names.params_lane_helper;
+    let mut_config_lane_helper = &names.mut_config_lane_helper;
+    let param_setter_lane_helper = &names.param_setter_lane_helper;
+    let set_lanes_helper = &names.set_lanes_helper;
+    let after_set_helper = &names.after_set_helper;
+
+    Ok(quote! {
+        macro_rules! #macro_ident {
+            (
+                target = $target:ty,
+                config = self $(.$config_member:ident)+,
+                params = self $(.$params_member:ident)+,
+                param_setter = self $(.$param_setter_member:ident)+,
+                after_set = self $(.$after_set_member:ident)+ () $(,)?
+            ) => {
+                #lane_traits
+
+                impl $target {
+                    #lane_helpers
+
+                    fn #set_lanes_helper<R>(
+                        &mut self,
+                        use_lanes: impl FnOnce(
+                            &#params_type,
+                            &mut #config_type,
+                            &::nih_plug::prelude::ParamSetter<'_>,
+                        ) -> R,
+                    ) -> R {
+                        Self::#params_lane_helper(&(self $(.$params_member)+));
+                        Self::#mut_config_lane_helper(&mut (self $(.$config_member)+));
+                        Self::#param_setter_lane_helper(self $(.$param_setter_member)+);
+                        use_lanes(
+                            &(self $(.$params_member)+),
+                            &mut (self $(.$config_member)+),
+                            self $(.$param_setter_member)+,
+                        )
+                    }
+
+                    fn #after_set_helper(&mut self) {
+                        self $(.$after_set_member)+ ();
+                    }
+                }
+
+                impl #accessor_trait for $target
+                where
+                    #(#descriptors: ::parameter::ParameterFieldDescriptor<#config_type>,)*
+                {
+                    #(#methods)*
+                }
+            };
+        }
+
+        #[allow(unused_imports)]
+        pub(crate) use #macro_ident;
+    })
+}
+
+fn expand_accessor_macro_lane_traits(
+    names: &AccessorMacroNames,
+    config_type: &Type,
+    params_type: &Ident,
+) -> proc_macro2::TokenStream {
+    let config_lane_trait = &names.config_lane_trait;
+    let params_lane_trait = &names.params_lane_trait;
+    let param_setter_lane_trait = &names.param_setter_lane_trait;
+
+    quote! {
+        trait #config_lane_trait {}
+        impl #config_lane_trait for #config_type {}
+
+        trait #params_lane_trait {}
+        impl #params_lane_trait for #params_type {}
+
+        trait #param_setter_lane_trait {}
+        impl<'__parameter_nih_plug_param_setter_ref, '__parameter_nih_plug_param_setter_inner>
+            #param_setter_lane_trait
+            for &'__parameter_nih_plug_param_setter_ref
+                ::nih_plug::prelude::ParamSetter<'__parameter_nih_plug_param_setter_inner>
+        {}
+    }
+}
+
+fn expand_accessor_macro_lane_helpers(names: &AccessorMacroNames, config_type: &Type) -> proc_macro2::TokenStream {
+    let config_helper = &names.config_helper;
+    let config_lane_helper = &names.config_lane_helper;
+    let mut_config_lane_helper = &names.mut_config_lane_helper;
+    let params_lane_helper = &names.params_lane_helper;
+    let param_setter_lane_helper = &names.param_setter_lane_helper;
+    let config_lane_trait = &names.config_lane_trait;
+    let params_lane_trait = &names.params_lane_trait;
+    let param_setter_lane_trait = &names.param_setter_lane_trait;
+
+    quote! {
+        fn #config_helper(&self) -> &#config_type {
+            Self::#config_lane_helper(&(self $(.$config_member)+));
+            &(self $(.$config_member)+)
+        }
+
+        fn #config_lane_helper<T>(_value: &T)
+        where
+            T: #config_lane_trait + ?Sized,
+        {
+        }
+
+        fn #mut_config_lane_helper<T>(_value: &mut T)
+        where
+            T: #config_lane_trait + ?Sized,
+        {
+        }
+
+        fn #params_lane_helper<T>(_value: &T)
+        where
+            T: #params_lane_trait + ?Sized,
+        {
+        }
+
+        fn #param_setter_lane_helper<T>(_value: T)
+        where
+            T: #param_setter_lane_trait,
+        {
+        }
+    }
+}
+
+struct AccessorMacroNames {
+    config_helper: Ident,
+    config_lane_helper: Ident,
+    mut_config_lane_helper: Ident,
+    params_lane_helper: Ident,
+    param_setter_lane_helper: Ident,
+    config_lane_trait: Ident,
+    params_lane_trait: Ident,
+    param_setter_lane_trait: Ident,
+    set_lanes_helper: Ident,
+    after_set_helper: Ident,
+}
+
+impl AccessorMacroNames {
+    fn new(macro_ident: &Ident) -> Self {
+        let macro_type_prefix = pascal_case_ident(macro_ident);
+
+        Self {
+            config_helper: format_ident!("__{macro_ident}_config"),
+            config_lane_helper: format_ident!("__{macro_ident}_config_lane_must_match_config"),
+            mut_config_lane_helper: format_ident!("__{macro_ident}_mut_config_lane_must_match_config"),
+            params_lane_helper: format_ident!("__{macro_ident}_params_lane_must_match_params"),
+            param_setter_lane_helper: format_ident!("__{macro_ident}_param_setter_lane_must_match_param_setter"),
+            config_lane_trait: format_ident!("__{macro_type_prefix}ConfigLaneMustMatchConfig"),
+            params_lane_trait: format_ident!("__{macro_type_prefix}ParamsLaneMustMatchParams"),
+            param_setter_lane_trait: format_ident!("__{macro_type_prefix}ParamSetterLaneMustMatchParamSetter"),
+            set_lanes_helper: format_ident!("__{macro_ident}_with_set_lanes"),
+            after_set_helper: format_ident!("__{macro_ident}_after_set"),
+        }
+    }
+}
+
+fn accessor_trait_path(config_type: &Type) -> Result<proc_macro2::TokenStream> {
+    let Type::Path(type_path) = config_type else {
+        return Err(syn::Error::new_spanned(config_type, "config type must be a path to generate accessor macro"));
+    };
+    if type_path.qself.is_some() {
+        return Err(syn::Error::new_spanned(
+            config_type,
+            "qualified self types are not supported for generated accessor macros",
+        ));
+    }
+
+    let mut path = type_path.path.clone();
+    let Some(last_segment) = path.segments.last_mut() else {
+        return Err(syn::Error::new_spanned(config_type, "config type path must not be empty"));
+    };
+    let config_ident = &last_segment.ident;
+    last_segment.ident = format_ident!("{config_ident}Accessor");
+
+    Ok(quote! { #path })
+}
+
+fn expand_accessor_macro_methods(
+    field: &PluginParameterField,
+    params_type: &Ident,
+    config_type: &Type,
+    config_helper: &Ident,
+    set_lanes_helper: &Ident,
+    after_set_helper: &Ident,
+) -> Result<proc_macro2::TokenStream> {
+    let field_ident = &field.ident;
+    let setter = format_ident!("set_{field_ident}");
+    let mirror_method = format_ident!("mirror_{field_ident}");
+    let descriptor = parameter_field_descriptor_type(config_type, field_ident)?;
+    let value = quote! {
+        <#descriptor as ::parameter::ParameterFieldDescriptor<#config_type>>::Value
+    };
+
+    Ok(quote! {
+        fn #field_ident(&self) -> #value {
+            Self::#config_helper(self).#field_ident
+        }
+
+        fn #setter(&mut self, val: #value) {
+            Self::#set_lanes_helper(self, |params, config, param_setter| {
+                #params_type::#mirror_method(params, config, val, param_setter);
+            });
+            Self::#after_set_helper(self);
+        }
+    })
+}
+
+fn pascal_case_ident(ident: &Ident) -> String {
+    ident
+        .to_string()
+        .split('_')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let mut chars = segment.chars();
+            let Some(first) = chars.next() else {
+                return String::new();
+            };
+
+            first.to_uppercase().chain(chars).collect::<String>()
+        })
+        .collect()
 }
 
 fn parameter_field_descriptor_type(config_type: &Type, field_ident: &Ident) -> Result<proc_macro2::TokenStream> {

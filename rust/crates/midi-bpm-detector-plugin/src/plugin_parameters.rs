@@ -22,13 +22,17 @@ use crate::{
     plugin_config::{PluginConfig, SendTempoOutputState},
 };
 
-#[nih_plugin_parameter_group(config = gui::GUIConfig, group = "GUI")]
+#[nih_plugin_parameter_group(config = gui::GUIConfig, group = "GUI", accessor_macro = plugin_gui_params_accessors)]
 pub struct PluginGUIParams {
     pub interpolation_duration: FloatParam,
     pub interpolation_curve: FloatParam,
 }
 
-#[nih_plugin_parameter_group(config = bpm_detection_core::parameters::DynamicBPMDetectionConfig, group = "DynamicParams")]
+#[nih_plugin_parameter_group(
+    config = bpm_detection_core::parameters::DynamicBPMDetectionConfig,
+    group = "DynamicParams",
+    accessor_macro = plugin_dynamic_params_accessors
+)]
 pub struct PluginDynamicParams {
     pub beats_lookback: IntParam,
     #[nih_plugin_parameter(adapter = "on_off_f32")]
@@ -53,7 +57,11 @@ pub struct PluginDynamicParams {
     pub high_tempo_bias_weight: OnOffParam,
 }
 
-#[nih_plugin_parameter_group(config = bpm_detection_core::parameters::NormalDistributionConfig, group = "normal_distribution")]
+#[nih_plugin_parameter_group(
+    config = bpm_detection_core::parameters::NormalDistributionConfig,
+    group = "normal_distribution",
+    accessor_macro = normal_distribution_params_accessors
+)]
 pub struct NormalDistributionParams {
     pub std_dev: FloatParam,
     pub resolution: FloatParam,
@@ -61,7 +69,11 @@ pub struct NormalDistributionParams {
     pub factor: FloatParam,
 }
 
-#[nih_plugin_parameter_group(config = bpm_detection_core::parameters::StaticBPMDetectionConfig, group = "StaticParams")]
+#[nih_plugin_parameter_group(
+    config = bpm_detection_core::parameters::StaticBPMDetectionConfig,
+    group = "StaticParams",
+    accessor_macro = plugin_static_params_accessors
+)]
 pub struct PluginStaticParams {
     pub bpm_center: FloatParam,
     pub bpm_range: IntParam,
