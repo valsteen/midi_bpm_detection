@@ -120,6 +120,11 @@ fn expand_plugin_parameter_group(
     let serialize_fields = fields.iter().map(expand_serialize_field);
     let deserialize_fields = fields.iter().map(expand_deserialize_field);
     let remote_control_entries = fields.iter().map(expand_remote_control_entry);
+    let mirror_methods = fields
+        .iter()
+        .filter(|field| field.kind.is_mirrorable())
+        .map(|field| expand_mirror_method(field, config_type, visibility))
+        .collect::<Result<Vec<_>>>()?;
     let _group = args.group;
 
     Ok(quote! {
@@ -149,6 +154,8 @@ fn expand_plugin_parameter_group(
             #visibility fn add_remote_controls(&self, page: &mut impl ::nih_plug::prelude::RemoteControlsPage) {
                 #(#remote_control_entries)*
             }
+
+            #(#mirror_methods)*
         }
 
         unsafe impl ::nih_plug::params::Params for #struct_ident {
@@ -383,6 +390,12 @@ enum PluginParameterFieldKind {
     Nested { group: LitStr },
 }
 
+impl PluginParameterFieldKind {
+    fn is_mirrorable(&self) -> bool {
+        !matches!(self, Self::Nested { .. })
+    }
+}
+
 fn parse_plugin_parameter_fields(input: &mut ItemStruct) -> Result<Vec<PluginParameterField>> {
     let Fields::Named(fields) = &mut input.fields else {
         return Err(syn::Error::new_spanned(input, "nih_plugin_parameter_group requires named fields"));
@@ -406,6 +419,69 @@ fn parse_plugin_parameter_fields(input: &mut ItemStruct) -> Result<Vec<PluginPar
             Ok(PluginParameterField { ident, ty, kind })
         })
         .collect()
+}
+
+fn expand_mirror_method(
+    field: &PluginParameterField,
+    config_type: &Type,
+    visibility: &syn::Visibility,
+) -> Result<proc_macro2::TokenStream> {
+    let field_ident = &field.ident;
+    let field_ty = &field.ty;
+    let method = format_ident!("mirror_{field_ident}");
+    let descriptor = parameter_field_descriptor_type(config_type, field_ident)?;
+    let value = quote! {
+        <#descriptor as ::parameter::ParameterFieldDescriptor<#config_type>>::Value
+    };
+
+    Ok(quote! {
+        #visibility fn #method(
+            &self,
+            config: &mut #config_type,
+            value: #value,
+            param_setter: &::nih_plug::prelude::ParamSetter<'_>,
+        )
+        where
+            #descriptor: ::parameter::ParameterFieldDescriptor<#config_type>,
+            #field_ty: ::parameter_nih_plug::MirrorHostParam<#config_type, #value>,
+        {
+            let parameter = <#descriptor as ::parameter::ParameterFieldDescriptor<#config_type>>::parameter();
+            <#field_ty as ::parameter_nih_plug::MirrorHostParam<#config_type, #value>>::mirror_host_param(
+                &self.#field_ident,
+                config,
+                &parameter,
+                value,
+                param_setter,
+            );
+        }
+    })
+}
+
+fn parameter_field_descriptor_type(config_type: &Type, field_ident: &Ident) -> Result<proc_macro2::TokenStream> {
+    let Type::Path(type_path) = config_type else {
+        return Err(syn::Error::new_spanned(
+            config_type,
+            "config type must be a path to generate field mirror methods",
+        ));
+    };
+    if type_path.qself.is_some() {
+        return Err(syn::Error::new_spanned(
+            config_type,
+            "qualified self types are not supported for generated field mirror methods",
+        ));
+    }
+
+    // The config path is the public descriptor contract: replace only the final
+    // config type segment, so re-exported config types must re-export their
+    // generated descriptor markers at the same path.
+    let mut path = type_path.path.clone();
+    let Some(last_segment) = path.segments.last_mut() else {
+        return Err(syn::Error::new_spanned(config_type, "config type path must not be empty"));
+    };
+    let base_name = parameter_group_base_name(&last_segment.ident);
+    last_segment.ident = field_descriptor_ident(&base_name, field_ident);
+
+    Ok(quote! { #path })
 }
 
 struct PluginParameterArgs {
@@ -556,4 +632,53 @@ fn is_type_named(ty: &Type, name: &str) -> bool {
     };
 
     type_path.path.segments.last().is_some_and(|segment| segment.ident == name)
+}
+
+fn parameter_group_base_name(struct_ident: &Ident) -> String {
+    let struct_name = struct_ident.to_string();
+    snake_case(struct_name.strip_suffix("Config").unwrap_or(&struct_name))
+}
+
+fn field_descriptor_ident(base_name: &str, field_name: &Ident) -> Ident {
+    let descriptor = format!("{}{}Field", upper_camel_case(base_name), upper_camel_case(&field_name.to_string()));
+
+    Ident::new(&descriptor, field_name.span())
+}
+
+fn upper_camel_case(name: &str) -> String {
+    let mut out = String::new();
+    let mut uppercase_next = true;
+
+    for ch in name.chars() {
+        if ch == '_' {
+            uppercase_next = true;
+            continue;
+        }
+        if uppercase_next {
+            out.push(ch.to_ascii_uppercase());
+            uppercase_next = false;
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
+}
+
+fn snake_case(name: &str) -> String {
+    let chars = name.chars().collect::<Vec<_>>();
+    let mut out = String::new();
+
+    for (index, ch) in chars.iter().copied().enumerate() {
+        if ch.is_uppercase() && index > 0 {
+            let previous = chars[index - 1];
+            let next = chars.get(index + 1).copied();
+            if previous.is_lowercase() || previous.is_ascii_digit() || next.is_some_and(char::is_lowercase) {
+                out.push('_');
+            }
+        }
+        out.push(ch.to_ascii_lowercase());
+    }
+
+    out
 }

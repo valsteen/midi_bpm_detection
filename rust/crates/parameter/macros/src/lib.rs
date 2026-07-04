@@ -12,6 +12,7 @@
 //! - a visitor trait and source-order `visit` traversal;
 //! - named field identity accessors;
 //! - a field visitor trait and source-order `visit_fields` traversal;
+//! - one type-level field descriptor marker per annotated field;
 //! - `Default` and `validate` impls for the config struct.
 
 use proc_macro::TokenStream;
@@ -284,6 +285,7 @@ fn expand_parameter_group(
         &group.parameter_crate,
         &fields.parameter_fields,
     );
+    let field_descriptor_impls = expand_field_descriptor_impls(&group, &fields.parameter_fields);
     let parameters = &group.parameters;
 
     Ok(quote! {
@@ -304,6 +306,8 @@ fn expand_parameter_group(
         #field_visitor_trait
 
         #parameters_impl
+
+        #field_descriptor_impls
     })
 }
 
@@ -690,6 +694,36 @@ fn expand_parameters_impl(
     }
 }
 
+fn expand_field_descriptor_impls(group: &ParsedGroup, fields: &[ParameterField]) -> proc_macro2::TokenStream {
+    let accessor = &group.accessor;
+    let parameters = &group.parameters;
+    let parameter_crate = &group.parameter_crate;
+    let descriptors = fields.iter().map(|field| {
+        let descriptor = field_descriptor_ident(&group.method_prefix.to_string(), &field.field);
+        let field_name = &field.field;
+        let const_name = &field.const_name;
+        let ty = &field.ty;
+
+        quote! {
+            pub struct #descriptor;
+
+            impl<Config: #accessor> #parameter_crate::ParameterFieldDescriptor<Config> for #descriptor {
+                type Value = #ty;
+
+                const FIELD_NAME: &'static str = ::std::stringify!(#field_name);
+
+                fn parameter() -> #parameter_crate::Parameter<Config, Self::Value> {
+                    #parameters::<Config>::#const_name
+                }
+            }
+        }
+    });
+
+    quote! {
+        #(#descriptors)*
+    }
+}
+
 fn expand_unit(field: &ParameterField) -> proc_macro2::TokenStream {
     if let Some(unit) = &field.unit {
         quote! { Some(#unit) }
@@ -776,6 +810,32 @@ fn screaming_snake_ident(field_name: &Ident) -> Ident {
 fn parameter_group_base_name(struct_ident: &Ident) -> String {
     let struct_name = struct_ident.to_string();
     struct_name.strip_suffix("Config").unwrap_or(&struct_name).to_owned()
+}
+
+fn field_descriptor_ident(base_name: &str, field_name: &Ident) -> Ident {
+    let descriptor = format!("{}{}Field", upper_camel_case(base_name), upper_camel_case(&field_name.to_string()));
+
+    Ident::new(&descriptor, field_name.span())
+}
+
+fn upper_camel_case(name: &str) -> String {
+    let mut out = String::new();
+    let mut uppercase_next = true;
+
+    for ch in name.chars() {
+        if ch == '_' {
+            uppercase_next = true;
+            continue;
+        }
+        if uppercase_next {
+            out.push(ch.to_ascii_uppercase());
+            uppercase_next = false;
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
 }
 
 fn snake_case(name: &str) -> String {
