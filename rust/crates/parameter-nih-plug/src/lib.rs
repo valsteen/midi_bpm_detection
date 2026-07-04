@@ -9,13 +9,23 @@ use std::{
 
 use nih_plug::{
     params::{FloatParam, IntParam, Param, Params, persist},
-    prelude::{FloatRange, IntRange, ParamPtr},
+    prelude::{FloatRange, IntRange, ParamPtr, ParamSetter},
 };
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter, ParameterField};
 pub use parameter_nih_plug_macros::nih_plugin_parameter_group;
 
 pub trait GeneratedNihPlugParams {}
+
+pub trait MirrorHostParam<Config, Value> {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, Value>,
+        value: Value,
+        param_setter: &ParamSetter<'_>,
+    );
+}
 
 pub trait ToNihPlugParam<ValueType> {
     type Param: Param;
@@ -258,6 +268,102 @@ impl<Config> ToNihPlugParam<Duration> for Parameter<Config, Duration> {
     }
 }
 
+impl<Config> MirrorHostParam<Config, f32> for FloatParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, f32>,
+        value: f32,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_float_host_param(self, &value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, f64> for FloatParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, f64>,
+        value: f64,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_float_host_param(self, &value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, u16> for FloatParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, u16>,
+        value: u16,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_float_host_param(self, &value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, Duration> for FloatParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, Duration>,
+        value: Duration,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_duration_host_param(self, value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, u8> for IntParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, u8>,
+        value: u8,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_int_host_param(self, &value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, u16> for IntParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, u16>,
+        value: u16,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        (parameter.set)(config, value);
+        set_int_host_param(self, &value, param_setter);
+    }
+}
+
+impl<Config> MirrorHostParam<Config, OnOff<f32>> for OnOffParam {
+    fn mirror_host_param(
+        &self,
+        config: &mut Config,
+        parameter: &Parameter<Config, OnOff<f32>>,
+        value: OnOff<f32>,
+        param_setter: &ParamSetter<'_>,
+    ) {
+        let previous_value = (parameter.get)(config);
+
+        self.set_enabled(value.is_enabled());
+        if (previous_value.value() - value.value()).abs() > f32::EPSILON {
+            set_float_host_param(self.param(), &value.value(), param_setter);
+        }
+        (parameter.set)(config, value);
+    }
+}
+
 impl<Config> SetConfigFromFloatParam<Config> for f32 {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam) {
         (parameter.set)(config, param.unmodulated_plain_value());
@@ -358,6 +464,24 @@ fn parameter_value_to_f32(value: &impl ToPrimitive) -> f32 {
 
 fn parameter_value_to_i32(value: &impl ToPrimitive) -> i32 {
     value.to_i32().expect("parameter value should fit in NIH-plug i32 values")
+}
+
+fn set_float_host_param(value_param: &FloatParam, value: &impl ToPrimitive, param_setter: &ParamSetter<'_>) {
+    param_setter.begin_set_parameter(value_param);
+    param_setter.set_parameter(value_param, parameter_value_to_f32(value));
+    param_setter.end_set_parameter(value_param);
+}
+
+fn set_duration_host_param(value_param: &FloatParam, value: Duration, param_setter: &ParamSetter<'_>) {
+    param_setter.begin_set_parameter(value_param);
+    param_setter.set_parameter(value_param, value.as_secs_f32());
+    param_setter.end_set_parameter(value_param);
+}
+
+fn set_int_host_param(value_param: &IntParam, value: &impl ToPrimitive, param_setter: &ParamSetter<'_>) {
+    param_setter.begin_set_parameter(value_param);
+    param_setter.set_parameter(value_param, parameter_value_to_i32(value));
+    param_setter.end_set_parameter(value_param);
 }
 
 fn float_param_value_to_u16(param: &FloatParam) -> u16 {

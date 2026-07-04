@@ -1,11 +1,16 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use nih_plug::{
+    context::PluginApi,
     params::{FloatParam, IntParam, Param, Params},
-    prelude::RemoteControlsPage,
+    prelude::{GuiContext, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
 };
 use parameter::{OnOff, parameter_group};
-use parameter_nih_plug::{GeneratedNihPlugParams, OnOffParam, nih_plugin_parameter_group};
+use parameter_nih_plug::{GeneratedNihPlugParams, MirrorHostParam, OnOffParam, nih_plugin_parameter_group};
 
 #[parameter_group]
 #[derive(Clone, PartialEq, Debug)]
@@ -235,6 +240,90 @@ fn generated_group_implements_marker_trait() {
     assert_generated::<ExampleDurationParams>();
 }
 
+#[test]
+fn mirror_host_param_updates_config_and_writes_host_param_through_setter() {
+    let callbacks = callbacks();
+    let source_config = ExampleParentConfig {
+        gain: 1.0,
+        count: 4,
+        sample_rate: 450,
+        child: ExampleChildConfig { child_gain: 1.5, child_precise: 4.75 },
+    };
+    let params = ExampleParentParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let duration_params = ExampleDurationParams::new(
+        &ExampleDurationConfig { delay: Duration::from_secs_f32(0.5), curve: 0.7 },
+        &callbacks.f32,
+    );
+    let on_off_params = ExampleOnOffParams::new(
+        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 },
+        &callbacks.f32,
+        &callbacks.i32,
+    );
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+    let mut child_config = config.child.clone();
+    let mut duration_config = ExampleDurationConfig { delay: Duration::from_secs_f32(0.5), curve: 0.7 };
+    let mut on_off_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
+
+    params.gain.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.gain(), 1.75, &setter);
+    params.count.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.count(), 6, &setter);
+    params.sample_rate.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.sample_rate(), 720, &setter);
+    params.child.child_precise.mirror_host_param(
+        &mut child_config,
+        &ExampleChildConfig::PARAMETERS.child_precise(),
+        7.25,
+        &setter,
+    );
+    duration_params.delay.mirror_host_param(
+        &mut duration_config,
+        &ExampleDurationConfig::PARAMETERS.delay(),
+        Duration::from_secs_f32(0.25),
+        &setter,
+    );
+    on_off_params.steps.mirror_host_param(&mut on_off_config, &ExampleOnOffConfig::PARAMETERS.steps(), 5, &setter);
+
+    assert!((config.gain - 1.75).abs() < f32::EPSILON);
+    assert_eq!(config.count, 6);
+    assert_eq!(config.sample_rate, 720);
+    assert!((child_config.child_precise - 7.25).abs() < f64::EPSILON);
+    assert_eq!(duration_config.delay, Duration::from_secs_f32(0.25));
+    assert_eq!(on_off_config.steps, 5);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End].repeat(6));
+}
+
+#[test]
+fn mirror_host_param_preserves_on_off_enabled_only_updates() {
+    let callbacks = callbacks();
+    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
+    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let mut config = source_config;
+
+    params.weighted_gain.mirror_host_param(
+        &mut config,
+        &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
+        OnOff::Off(0.5),
+        &setter,
+    );
+
+    assert_eq!(config.weighted_gain, OnOff::Off(0.5));
+    assert!(!params.weighted_gain.is_enabled());
+    assert_eq!(context.actions(), []);
+
+    params.weighted_gain.mirror_host_param(
+        &mut config,
+        &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
+        OnOff::On(0.75),
+        &setter,
+    );
+
+    assert_eq!(config.weighted_gain, OnOff::On(0.75));
+    assert!(params.weighted_gain.is_enabled());
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
 fn example_parent_config() -> ExampleParentConfig {
     ExampleParentConfig {
         gain: 1.25,
@@ -265,4 +354,50 @@ impl RemoteControlsPage for RemoteControlNames {
     }
 
     fn add_spacer(&mut self) {}
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SetterAction {
+    Begin,
+    Set,
+    End,
+}
+
+#[derive(Default)]
+struct RecordingGuiContext {
+    actions: Mutex<Vec<SetterAction>>,
+}
+
+impl RecordingGuiContext {
+    fn actions(&self) -> Vec<SetterAction> {
+        self.actions.lock().unwrap().clone()
+    }
+}
+
+impl GuiContext for RecordingGuiContext {
+    fn plugin_api(&self) -> PluginApi {
+        PluginApi::Standalone
+    }
+
+    fn request_resize(&self) -> bool {
+        false
+    }
+
+    unsafe fn raw_begin_set_parameter(&self, _param: ParamPtr) {
+        self.actions.lock().unwrap().push(SetterAction::Begin);
+    }
+
+    unsafe fn raw_set_parameter_normalized(&self, _param: ParamPtr, _normalized: f32) {
+        self.actions.lock().unwrap().push(SetterAction::Set);
+    }
+
+    unsafe fn raw_end_set_parameter(&self, _param: ParamPtr) {
+        self.actions.lock().unwrap().push(SetterAction::End);
+    }
+
+    fn get_state(&self) -> PluginState {
+        PluginState { version: String::new(), params: BTreeMap::new(), fields: BTreeMap::new() }
+    }
+
+    fn set_state(&self, _state: PluginState) {}
 }
