@@ -1,0 +1,5 @@
+error: unsupported #[nih_plugin_parameter(adapter = ...)] value
+  --> tests/integration/ui/on_off_param_with_unknown_adapter.rs:13:38
+   |
+13 |     #[nih_plugin_parameter(adapter = "unknown_on_off")]
+   |                                      ^^^^^^^^^^^^^^^^
