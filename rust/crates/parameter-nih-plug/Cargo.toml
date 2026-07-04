@@ -10,9 +10,16 @@ parameter_nih_plug_macros = { package = "parameter-nih-plug-macros", path = "mac
 nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6" }
 num-traits = "0.2.19"
 
+[dev-dependencies]
+trybuild = "1.0"
+
 [lints]
 workspace = true
 
 [[test]]
 name = "generated_group"
 path = "tests/integration/generated_group.rs"
+
+[[test]]
+name = "macro_diagnostics"
+path = "tests/integration/macro_diagnostics.rs"

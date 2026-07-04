@@ -1,0 +1,5 @@
+error: only FloatParam, IntParam, or #[nih_plugin_nested(...)] fields are supported in this generated group
+  --> tests/integration/ui/unsupported_field_type.rs:13:15
+   |
+13 |     pub gain: String,
+   |               ^^^^^^

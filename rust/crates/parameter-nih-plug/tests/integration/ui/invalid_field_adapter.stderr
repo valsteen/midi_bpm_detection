@@ -1,0 +1,5 @@
+error: unsupported #[nih_plugin_parameter(adapter = ...)] value
+  --> tests/integration/ui/invalid_field_adapter.rs:13:38
+   |
+13 |     #[nih_plugin_parameter(adapter = "linear_f32")]
+   |                                      ^^^^^^^^^^^^

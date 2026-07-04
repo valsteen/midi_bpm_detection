@@ -1,0 +1,5 @@
+error: nih_plugin_parameter cannot be combined with #[nih_plugin_nested(...)]
+  --> tests/integration/ui/combined_field_helpers.rs:14:5
+   |
+14 |     #[nih_plugin_nested(group = "nested")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,5 @@
+error: missing `adapter = "..."` in #[nih_plugin_parameter(...)]
+  --> tests/integration/ui/missing_field_adapter.rs:13:5
+   |
+13 |     #[nih_plugin_parameter()]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
