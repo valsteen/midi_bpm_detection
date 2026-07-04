@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use parameter::OnOff;
+use parameter_on_off::OnOff;
 
 use super::*;
 

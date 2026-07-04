@@ -7,24 +7,38 @@
 //! `some_crate::module::ExampleGainField`. If the config type is re-exported,
 //! re-export the generated descriptor markers at the same public path.
 
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use nih_plug::{
-    params::{FloatParam, IntParam, Param, Params, persist},
-    prelude::{FloatRange, IntRange, ParamPtr, ParamSetter},
+    params::{FloatParam, IntParam, Param},
+    prelude::{FloatRange, IntRange, ParamPtr, ParamSetter, RemoteControlsPage},
 };
 use num_traits::ToPrimitive;
-use parameter::{OnOff, Parameter, ParameterField};
+use parameter::{Parameter, ParameterField};
 pub use parameter_nih_plug_macros::nih_plugin_parameter_group;
 
 pub trait GeneratedNihPlugParams {}
+
+pub trait NihPlugFieldAdapter<Config, Value> {
+    type HostParam;
+    type CallbackValue;
+
+    fn to_host_param(
+        field: &ParameterField<Config, Value>,
+        config: &Config,
+        callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
+    ) -> Self::HostParam;
+
+    fn set_config_from_host_param(parameter: &Parameter<Config, Value>, config: &mut Config, param: &Self::HostParam);
+
+    fn add_param_map(param: &Self::HostParam, params: &mut Vec<(String, ParamPtr, String)>);
+
+    fn serialize_fields(param: &Self::HostParam, serialized: &mut BTreeMap<String, String>);
+
+    fn deserialize_fields(param: &Self::HostParam, serialized: &BTreeMap<String, String>);
+
+    fn add_remote_control(param: &Self::HostParam, page: &mut impl RemoteControlsPage);
+}
 
 pub trait MirrorHostParam<Config, Value> {
     fn mirror_host_param(
@@ -77,78 +91,6 @@ pub fn to_plugin_u16_logarithmic_param<Config>(
     u16_range_to_logarithmic_param(parameter, (parameter.get)(config), callback)
 }
 
-pub struct OnOffParam {
-    id: &'static str,
-    value: FloatParam,
-    enabled_key: String,
-    enabled: AtomicBool,
-}
-
-impl OnOffParam {
-    pub fn new(id: &'static str, value: FloatParam, initial_value: OnOff<f32>) -> Self {
-        Self { id, value, enabled_key: format!("{id}_onoff"), enabled: AtomicBool::new(initial_value.is_enabled()) }
-    }
-
-    pub fn param(&self) -> &FloatParam {
-        &self.value
-    }
-
-    pub fn is_enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
-    }
-
-    pub fn set_enabled(&self, enabled: bool) {
-        self.enabled.store(enabled, Ordering::Relaxed);
-    }
-
-    pub fn read(&self) -> OnOff<f32> {
-        OnOff::new(self.is_enabled(), self.value.unmodulated_plain_value())
-    }
-}
-
-unsafe impl Params for OnOffParam {
-    fn param_map(&self) -> Vec<(String, ParamPtr, String)> {
-        vec![(String::from(self.id), self.value.as_ptr(), String::new())]
-    }
-
-    fn serialize_fields(&self) -> BTreeMap<String, String> {
-        let mut serialized = BTreeMap::new();
-        match persist::serialize_field(&self.is_enabled()) {
-            Ok(data) => {
-                serialized.insert(self.enabled_key.clone(), data);
-            }
-            Err(err) => {
-                nih_plug::nih_debug_assert_failure!("Could not serialize '{}': {}", self.enabled_key, err);
-            }
-        }
-        serialized
-    }
-
-    fn deserialize_fields(&self, serialized: &BTreeMap<String, String>) {
-        let Some(data) = serialized.get(&self.enabled_key) else {
-            return;
-        };
-
-        match persist::deserialize_field(data) {
-            Ok(is_enabled) => self.enabled.store(is_enabled, Ordering::Relaxed),
-            Err(err) => {
-                nih_plug::nih_debug_assert_failure!("Could not deserialize '{}': {}", self.enabled_key, err);
-            }
-        }
-    }
-}
-
-pub fn to_plugin_on_off_f32_param<Config>(
-    field: &ParameterField<Config, OnOff<f32>>,
-    config: &Config,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> OnOffParam {
-    let parameter = &field.parameter;
-    let value = (parameter.get)(config);
-
-    OnOffParam::new(field.field_name, parameter.to_param(value, callback), value)
-}
-
 pub trait SetConfigFromFloatParam<Config>: Sized {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam);
 }
@@ -175,14 +117,6 @@ pub fn set_config_from_int_param<Config, ValueType>(
     ValueType: SetConfigFromIntParam<Config>,
 {
     ValueType::set_config_from_int_param(parameter, config, param);
-}
-
-pub fn set_config_from_on_off_f32_param<Config>(
-    parameter: &Parameter<Config, OnOff<f32>>,
-    config: &mut Config,
-    param: &OnOffParam,
-) {
-    (parameter.set)(config, param.read());
 }
 
 macro_rules! impl_to_param_for_float {
@@ -258,15 +192,6 @@ impl_to_param_for_float!(f32);
 impl_to_param_for_float!(f64);
 impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
-
-impl<Config> ToNihPlugParam<OnOff<f32>> for Parameter<Config, OnOff<f32>> {
-    type CallbackValue = f32;
-    type Param = FloatParam;
-
-    fn to_param(&self, value: OnOff<f32>, callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>) -> Self::Param {
-        float_param_from_metadata(self, value.value(), callback)
-    }
-}
 
 impl<Config> ToNihPlugParam<Duration> for Parameter<Config, Duration> {
     type CallbackValue = f32;
@@ -352,24 +277,6 @@ impl<Config> MirrorHostParam<Config, u16> for IntParam {
     ) {
         (parameter.set)(config, value);
         set_int_host_param(self, &value, param_setter);
-    }
-}
-
-impl<Config> MirrorHostParam<Config, OnOff<f32>> for OnOffParam {
-    fn mirror_host_param(
-        &self,
-        config: &mut Config,
-        parameter: &Parameter<Config, OnOff<f32>>,
-        value: OnOff<f32>,
-        param_setter: &ParamSetter<'_>,
-    ) {
-        let previous_value = (parameter.get)(config);
-
-        self.set_enabled(value.is_enabled());
-        if (previous_value.value() - value.value()).abs() > f32::EPSILON {
-            set_float_host_param(self.param(), &value.value(), param_setter);
-        }
-        (parameter.set)(config, value);
     }
 }
 

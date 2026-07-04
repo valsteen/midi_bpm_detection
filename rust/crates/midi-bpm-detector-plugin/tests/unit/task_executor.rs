@@ -11,7 +11,7 @@ use bpm_detection_core::{
     parameters::{NormalDistributionConfig, StaticBPMDetectionConfig},
 };
 use chrono::Duration as ChronoDuration;
-use parameter::OnOff;
+use parameter_on_off::OnOff;
 use ringbuf::{StaticRb, traits::Split};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 

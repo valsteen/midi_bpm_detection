@@ -448,6 +448,7 @@ dependencies = [
  "derivative",
  "itertools",
  "parameter",
+ "parameter-on-off",
  "serde",
  "statrs",
 ]
@@ -1160,6 +1161,7 @@ dependencies = [
  "log",
  "mimalloc",
  "parameter",
+ "parameter-on-off",
  "pretty_assertions",
  "serde",
  "sync",
@@ -1993,6 +1995,7 @@ dependencies = [
  "log",
  "num-traits",
  "parameter",
+ "parameter-on-off",
  "serde",
  "sync",
  "wasm-bindgen-futures",
@@ -2705,6 +2708,8 @@ dependencies = [
  "num-traits",
  "parameter",
  "parameter-nih-plug",
+ "parameter-on-off",
+ "parameter-on-off-nih-plug",
  "ringbuf",
  "serde",
  "sync",
@@ -3591,9 +3596,7 @@ checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 name = "parameter"
 version = "0.1.0"
 dependencies = [
- "num-traits",
  "parameter-macros",
- "serde",
 ]
 
 [[package]]
@@ -3623,6 +3626,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "parameter-on-off"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "parameter",
+ "serde",
+ "toml 1.1.2+spec-1.1.0",
+]
+
+[[package]]
+name = "parameter-on-off-nih-plug"
+version = "0.1.0"
+dependencies = [
+ "nih_plug",
+ "num-traits",
+ "parameter",
+ "parameter-nih-plug",
+ "parameter-on-off",
 ]
 
 [[package]]
@@ -5109,6 +5133,7 @@ dependencies = [
  "instant",
  "js-sys",
  "parameter",
+ "parameter-on-off",
  "serde",
  "toml 1.1.2+spec-1.1.0",
  "wasm-bindgen",

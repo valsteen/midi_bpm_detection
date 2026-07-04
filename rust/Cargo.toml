@@ -10,6 +10,8 @@ members = [
     "crates/sync",
     "crates/parameter",
     "crates/parameter/macros",
+    "crates/parameter-on-off",
+    "crates/parameter-on-off-nih-plug",
     "crates/parameter-nih-plug",
     "crates/parameter-nih-plug/macros",
     "crates/wasm",

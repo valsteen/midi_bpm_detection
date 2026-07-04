@@ -6,7 +6,8 @@ use eframe::{
     egui,
     egui::{Slider, SliderClamping},
 };
-use parameter::{Asf64, OnOff, Parameter};
+use parameter::{Asf64, Parameter};
+use parameter_on_off::OnOff;
 
 use crate::config::{GUIConfigAccessor, GUIParameterVisitor};
 

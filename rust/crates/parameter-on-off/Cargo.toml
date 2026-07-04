@@ -1,0 +1,16 @@
+[package]
+name = "parameter-on-off"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+parameter = { path = "../parameter" }
+
+serde = { version = "1.0.228", features = ["derive"] }
+num-traits = "0.2.19"
+
+[dev-dependencies]
+toml = "1.1.2"
+
+[lints]
+workspace = true

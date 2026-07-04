@@ -17,6 +17,8 @@ errors = { path = "../errors" }
 gui = { path = "../gui" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../parameter" }
+parameter-on-off = { path = "../parameter-on-off" }
+parameter-on-off-nih-plug = { path = "../parameter-on-off-nih-plug" }
 parameter-nih-plug = { path = "../parameter-nih-plug" }
 sync = { path = "../sync" }
 

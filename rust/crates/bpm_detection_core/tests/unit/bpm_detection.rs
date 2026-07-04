@@ -1,4 +1,4 @@
-use parameter::OnOff;
+use parameter_on_off::OnOff;
 
 use super::*;
 use crate::{
