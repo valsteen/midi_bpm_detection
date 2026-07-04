@@ -77,6 +77,10 @@ impl OnOffParam {
         self.enabled.load(Ordering::Relaxed)
     }
 
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Relaxed);
+    }
+
     pub fn read(&self) -> OnOff<f32> {
         OnOff::new(self.is_enabled(), self.value.unmodulated_plain_value())
     }

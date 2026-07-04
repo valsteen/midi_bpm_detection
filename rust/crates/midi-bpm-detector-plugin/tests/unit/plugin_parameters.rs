@@ -8,7 +8,7 @@ use bpm_detection_core::parameters::{
     NormalDistributionParameterFieldVisitor, StaticBPMDetectionConfig,
 };
 use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
-use parameter::{Asf64, ParameterField};
+use parameter::{Asf64, OnOff, ParameterField};
 
 use super::*;
 use crate::DeferredConfigUpdate;
@@ -103,6 +103,13 @@ fn static_params_use_parameter_nih_plug_generated_surface() {
 }
 
 #[test]
+fn dynamic_params_use_parameter_nih_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+
+    assert_generated_params::<PluginDynamicParams>();
+}
+
+#[test]
 fn static_generated_field_names_and_groups_match_host_parameters_in_order() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
@@ -154,21 +161,27 @@ fn dynamic_on_off_persistent_keys_match_parameter_ids() {
 }
 
 #[test]
-fn dynamic_generated_field_names_match_host_parameter_ids() {
+fn dynamic_generated_field_names_match_host_parameter_ids_in_order() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
     let params =
         MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
-    let param_ids = params.param_map().into_iter().map(|(id, _, _)| id).collect::<Vec<_>>();
+    let param_ids = params
+        .dynamic_params
+        .param_map()
+        .into_iter()
+        .map(|(id, _, group)| {
+            assert_eq!(group, "");
+            id
+        })
+        .collect::<Vec<_>>();
     let mut field_names = DynamicFieldNames(Vec::new());
 
     DynamicBPMDetectionConfig::PARAMETERS.visit_fields(&mut field_names);
 
-    for field_name in field_names.0 {
-        assert!(param_ids.contains(&String::from(field_name)), "{field_name} is missing from host parameter IDs");
-    }
+    assert_eq!(param_ids, field_names.0);
 }
 
 #[test]

@@ -138,6 +138,21 @@ fn on_off_adapter_persists_enabled_state_and_reads_config() {
 }
 
 #[test]
+fn on_off_adapter_enabled_state_can_be_set_without_param_setter_policy() {
+    let callbacks = callbacks();
+    let params = ExampleOnOffParams::new(
+        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.75), plain_gain: 1.25, steps: 4 },
+        &callbacks.f32,
+        &callbacks.i32,
+    );
+
+    params.weighted_gain.set_enabled(false);
+
+    assert_eq!(params.weighted_gain.read(), OnOff::Off(0.75));
+    assert_eq!(params.weighted_gain.serialize_fields()["weighted_gain_onoff"], "false");
+}
+
+#[test]
 fn generated_group_persists_on_off_enabled_state() {
     let callbacks = callbacks();
     let params = ExampleOnOffParams::new(
