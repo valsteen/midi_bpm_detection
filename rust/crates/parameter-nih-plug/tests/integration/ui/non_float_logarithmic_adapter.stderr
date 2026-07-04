@@ -1,0 +1,5 @@
+error: `float_u16_logarithmic` adapter requires a FloatParam field
+  --> tests/integration/ui/non_float_logarithmic_adapter.rs:14:22
+   |
+14 |     pub sample_rate: nih_plug::params::IntParam,
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^

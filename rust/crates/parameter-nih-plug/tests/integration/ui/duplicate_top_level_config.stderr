@@ -1,0 +1,5 @@
+error: duplicate argument `config`
+  --> tests/integration/ui/duplicate_top_level_config.rs:11:54
+   |
+11 | #[nih_plugin_parameter_group(config = ExampleConfig, config = ExampleConfig, group = "example")]
+   |                                                      ^^^^^^

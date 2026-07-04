@@ -1,0 +1,5 @@
+error: missing `group = "..."` in #[nih_plugin_nested(...)]
+  --> tests/integration/ui/missing_nested_group.rs:13:5
+   |
+13 |     #[nih_plugin_nested()]
+   |     ^^^^^^^^^^^^^^^^^^^^^^

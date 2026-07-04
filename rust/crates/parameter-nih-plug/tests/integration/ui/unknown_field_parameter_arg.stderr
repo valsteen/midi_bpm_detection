@@ -1,0 +1,5 @@
+error: unknown argument `mode` in #[nih_plugin_parameter(...)]
+  --> tests/integration/ui/unknown_field_parameter_arg.rs:13:28
+   |
+13 |     #[nih_plugin_parameter(mode = "fast")]
+   |                            ^^^^

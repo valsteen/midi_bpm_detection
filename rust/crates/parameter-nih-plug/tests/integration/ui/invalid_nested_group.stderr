@@ -1,0 +1,5 @@
+error: group name may not contain slashes
+  --> tests/integration/ui/invalid_nested_group.rs:13:33
+   |
+13 |     #[nih_plugin_nested(group = "bad/group")]
+   |                                 ^^^^^^^^^^^

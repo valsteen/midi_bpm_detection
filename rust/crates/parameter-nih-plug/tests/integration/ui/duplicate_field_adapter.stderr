@@ -1,0 +1,5 @@
+error: duplicate argument `adapter`
+  --> tests/integration/ui/duplicate_field_adapter.rs:13:63
+   |
+13 |     #[nih_plugin_parameter(adapter = "float_u16_logarithmic", adapter = "float_u16_logarithmic")]
+   |                                                               ^^^^^^^

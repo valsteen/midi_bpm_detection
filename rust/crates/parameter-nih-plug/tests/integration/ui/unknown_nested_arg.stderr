@@ -1,0 +1,5 @@
+error: unknown argument `label` in #[nih_plugin_nested(...)]
+  --> tests/integration/ui/unknown_nested_arg.rs:13:25
+   |
+13 |     #[nih_plugin_nested(label = "Child")]
+   |                         ^^^^^
