@@ -4,6 +4,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
+    time::Duration,
 };
 
 use nih_plug::{
@@ -248,6 +249,15 @@ impl<Config> ToNihPlugParam<OnOff<f32>> for Parameter<Config, OnOff<f32>> {
     }
 }
 
+impl<Config> ToNihPlugParam<Duration> for Parameter<Config, Duration> {
+    type CallbackValue = f32;
+    type Param = FloatParam;
+
+    fn to_param(&self, value: Duration, callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>) -> Self::Param {
+        float_param_from_metadata(self, value.as_secs_f32(), callback)
+    }
+}
+
 impl<Config> SetConfigFromFloatParam<Config> for f32 {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam) {
         (parameter.set)(config, param.unmodulated_plain_value());
@@ -263,6 +273,12 @@ impl<Config> SetConfigFromFloatParam<Config> for f64 {
 impl<Config> SetConfigFromFloatParam<Config> for u16 {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam) {
         (parameter.set)(config, float_param_value_to_u16(param));
+    }
+}
+
+impl<Config> SetConfigFromFloatParam<Config> for Duration {
+    fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam) {
+        (parameter.set)(config, Duration::from_secs_f32(param.unmodulated_plain_value()));
     }
 }
 
