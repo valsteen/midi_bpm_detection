@@ -16,10 +16,10 @@ crate-type = ["cdylib", "lib"]
 errors = { path = "../errors" }
 gui = { path = "../gui" }
 bpm_detection_core = { path = "../bpm_detection_core" }
-parameter = { path = "../parameter" }
-parameter-on-off = { path = "../parameter-on-off" }
-parameter-on-off-nih-plug = { path = "../parameter-on-off-nih-plug" }
-parameter-nih-plug = { path = "../parameter-nih-plug" }
+parameter = { path = "../foundation/parameter" }
+parameter-on-off = { path = "../foundation/parameter-on-off" }
+parameter-on-off-nih-plug = { path = "../foundation/parameter-on-off-nih-plug" }
+parameter-nih-plug = { path = "../foundation/parameter-nih-plug" }
 sync = { path = "../sync" }
 
 nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", features = ["assert_process_allocs", "standalone"] }

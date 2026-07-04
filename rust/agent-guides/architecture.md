@@ -8,6 +8,11 @@ boundary rules so the entrypoint stays small.
 - Preserve the separation between the production plugin, native desktop mode, WASM showcase mode, shared GUI, MIDI
   service, and BPM detection core.
 - Split crates primarily by dependency surface, then refine by responsibility when a crate grows too broad.
+- Keep reusable parameter metadata, optional reusable parameter value types, and optional plugin-host bridges under
+  `crates/foundation/`.
+- Product, domain, and application crates may depend down into foundation crates; foundation crates must not depend back
+  up into BPM-specific product crates such as `midi-bpm-detector-plugin`, `bpm_detection_core`, `bpm_detection_midi`, or
+  `gui`.
 - Do not move MIDI/native dependencies into `gui`.
 - Do not move egui/UI dependencies into `bpm_detection_midi`.
 - Keep plugin and WASM behavior unchanged unless the task explicitly targets them.

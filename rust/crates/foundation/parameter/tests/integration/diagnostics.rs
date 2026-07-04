@@ -113,6 +113,19 @@ pub const SPEC: ParameterSpec<f32> = ParameterSpec::new(
     );
 }
 
+#[test]
+fn diagnostic_fixtures_use_rust_workspace_target() {
+    let workspace_dir = rust_workspace_dir();
+
+    assert!(workspace_dir.join("Cargo.toml").is_file(), "workspace root should contain the Rust Cargo.toml");
+    assert!(workspace_dir.join("Cargo.lock").is_file(), "workspace root should contain the Rust Cargo.lock");
+    assert_eq!(
+        diagnostics_root(),
+        workspace_dir.join("target/parameter-macro-diagnostic-fixtures"),
+        "diagnostic fixtures should be written under the Rust workspace target directory"
+    );
+}
+
 fn assert_compile_error(case_name: &str, source: &str, expected_stderr: &[&str]) {
     let fixture_dir = diagnostics_root().join(case_name);
     let src_dir = fixture_dir.join("src");
@@ -167,8 +180,8 @@ fn parameter_crate_dir() -> PathBuf {
 
 fn rust_workspace_dir() -> PathBuf {
     parameter_crate_dir()
-        .parent()
-        .and_then(std::path::Path::parent)
-        .expect("parameter should live under the Rust workspace crates directory")
+        .ancestors()
+        .find(|candidate| candidate.join("Cargo.toml").is_file() && candidate.join("Cargo.lock").is_file())
+        .expect("parameter should live under the Rust workspace")
         .to_path_buf()
 }

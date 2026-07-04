@@ -8,8 +8,8 @@ default-run = "beat-detector"
 gui = { path = "../gui" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 errors = { path = "../errors" }
-parameter = { path = "../parameter" }
-parameter-on-off = { path = "../parameter-on-off" }
+parameter = { path = "../foundation/parameter" }
+parameter-on-off = { path = "../foundation/parameter-on-off" }
 
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
