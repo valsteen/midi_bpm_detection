@@ -22,67 +22,70 @@ The graph below shows direct workspace crate dependencies. It intentionally omit
 architecture remains readable. Arrows point from the crate that imports a dependency to the crate it depends on.
 
 ```mermaid
-flowchart LR
-    subgraph modes["Runtime modes"]
-        direction TB
-        plugin["midi-bpm-detector-plugin<br/>plugin / production target"]
-        desktop["desktop<br/>native GUI app"]
-        wasm["wasm<br/>browser demo"]
-        midi_reset["midi-reset<br/>CoreMIDI utility"]
-        xtask["plugin xtask<br/>packaging helper"]
-    end
+flowchart TD
+  subgraph modes["Runtime modes"]
+    direction TB
+    plugin["midi-bpm-detector-plugin<br/>plugin / production target"]
+    desktop["desktop<br/>native GUI app"]
+    wasm["wasm<br/>browser demo"]
+    midi_reset["midi-reset<br/>CoreMIDI utility"]
+    xtask["plugin xtask<br/>packaging helper"]
+  end
 
-    subgraph app_layer["Application / UI layer"]
-        direction TB
-        gui["gui<br/>egui visualization/config"]
-        midi["bpm_detection_midi<br/>native MIDI service"]
-    end
+  subgraph adapters["Application / adapter layer"]
+    direction TB
+    gui["gui<br/>egui visualization/config"]
+    midi["bpm_detection_midi<br/>native MIDI service"]
+  end
 
-    subgraph domain["Core domain"]
-        core["bpm_detection_core<br/>algorithm + note events"]
-    end
+  subgraph domain["Core domain"]
+    core["bpm_detection_core<br/>algorithm + note events"]
+  end
 
-    subgraph foundation["Foundation parameter stack"]
-        direction TB
-        parameter_on_off_nih["parameter-on-off-nih-plug<br/>OnOff NIH bridge"]
-        parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
-        parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
-        parameter["parameter<br/>generic metadata"]
-    end
+  subgraph foundation["Foundation parameter stack"]
+    direction TB
+    parameter_on_off_nih["parameter-on-off-nih-plug<br/>OnOff NIH bridge"]
+    parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
+    parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
+    parameter["parameter<br/>generic metadata"]
+  end
 
-    subgraph infra["Infrastructure"]
-        direction TB
-        errors["errors"]
-        sync["sync"]
-        build["build"]
-    end
+  subgraph infra["Infrastructure"]
+    direction TB
+    errors["errors"]
+    sync["sync"]
+    build["build"]
+  end
 
-    plugin --> gui
-    plugin --> core
-    plugin --> parameter_on_off_nih
-
-    desktop --> gui
-    desktop --> midi
-    desktop --> core
-
-    wasm --> gui
-    wasm --> core
-
-    gui --> core
-    midi --> core
-
-    core --> parameter_on_off
-    parameter_on_off --> parameter
-
-    parameter_on_off_nih --> parameter_on_off
-    parameter_on_off_nih --> parameter_nih
-    parameter_nih --> parameter
-
-    gui --> infra
-    midi --> infra
-    core --> parameter
-    errors --> sync
-    errors --> build
+  plugin --> gui
+  plugin --> core
+  plugin --> parameter_on_off_nih
+  plugin --> errors
+  plugin --> sync
+  desktop --> gui
+  desktop --> midi
+  desktop --> core
+  desktop --> errors
+  desktop --> sync
+  desktop --> build
+  wasm --> gui
+  wasm --> core
+  wasm --> errors
+  gui --> core
+  gui --> parameter_on_off
+  gui --> errors
+  midi --> core
+  midi --> errors
+  midi --> sync
+  midi --> build
+  core --> parameter_on_off
+  core --> parameter
+  parameter_on_off_nih --> parameter_on_off
+  parameter_on_off_nih --> parameter_nih
+  parameter_nih --> parameter
+  parameter_on_off --> parameter
+  errors --> sync
+  errors --> build
 ```
 
 This graph captures the dependency rule the project is trying to preserve: `gui` does not depend on native MIDI, and
