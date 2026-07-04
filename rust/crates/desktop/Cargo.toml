@@ -11,7 +11,7 @@ bpm_detection_midi = { path = "../bpm_detection_midi" }
 build = { path = "../build" }
 errors = { path = "../errors" }
 gui = { path = "../gui" }
-parameter = { path = "../parameter" }
+parameter = { path = "../foundation/parameter" }
 sync = { path = "../sync" }
 
 config = "0.15.24"
@@ -21,7 +21,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
 
 [dev-dependencies]
-parameter-on-off = { path = "../parameter-on-off" }
+parameter-on-off = { path = "../foundation/parameter-on-off" }
 pretty_assertions = "1.4.1"
 
 [build-dependencies]

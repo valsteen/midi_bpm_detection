@@ -63,7 +63,13 @@ flowchart TD
 
     subgraph domain["Core domain"]
         core["bpm_detection_core<br/>algorithm + note events"]
-        parameter["parameter<br/>parameter metadata"]
+    end
+
+    subgraph foundation["Foundation parameter stack"]
+        parameter["parameter<br/>generic metadata"]
+        parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
+        parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
+        parameter_on_off_nih["parameter-on-off-nih-plug<br/>OnOff NIH bridge"]
     end
 
     subgraph infra["Infrastructure"]
@@ -75,6 +81,9 @@ flowchart TD
     plugin --> core
     plugin --> gui
     plugin --> parameter
+    plugin --> parameter_on_off
+    plugin --> parameter_nih
+    plugin --> parameter_on_off_nih
     plugin --> errors
     plugin --> sync
 
@@ -82,6 +91,7 @@ flowchart TD
     desktop --> midi
     desktop --> core
     desktop --> parameter
+    desktop --> parameter_on_off
     desktop --> errors
     desktop --> sync
     desktop --> build
@@ -89,10 +99,12 @@ flowchart TD
     wasm --> gui
     wasm --> core
     wasm --> parameter
+    wasm --> parameter_on_off
     wasm --> errors
 
     gui --> core
     gui --> parameter
+    gui --> parameter_on_off
     gui --> errors
     gui --> sync
     gui --> build
@@ -103,6 +115,12 @@ flowchart TD
     midi --> build
 
     core --> parameter
+    core --> parameter_on_off
+    parameter_on_off --> parameter
+    parameter_nih --> parameter
+    parameter_on_off_nih --> parameter
+    parameter_on_off_nih --> parameter_on_off
+    parameter_on_off_nih --> parameter_nih
     errors --> sync
     errors --> build
 ```
@@ -119,10 +137,6 @@ runtime that wires them together.
     conversion helpers.
   - Does not depend on native MIDI runtimes or a MIDI protocol parser.
   - Exposes `BPMDetectionReceiver`, the callback boundary used to publish detected BPM and histogram data.
-
-- `rust/crates/parameter`
-  - Defines generic parameter metadata and value conversion helpers.
-  - Keeps parameter description reusable across GUI, plugin, and core config code.
 
 ### Shared Infrastructure
 
@@ -151,6 +165,29 @@ runtime that wires them together.
   - Parses host MIDI bytes at the plugin boundary and maps note-on events into the core note type.
   - Uses a fixed ring buffer and host background tasks so the realtime callback avoids expensive work.
   - Owns DAW/plugin parameter integration and optional tempo feedback to the Bitwig controller socket.
+
+### Foundation Parameter Stack
+
+- `rust/crates/foundation/parameter`
+  - Defines generic parameter metadata, value conversion helpers, and the `#[parameter_group]` macro.
+  - Keeps parameter descriptions reusable across GUI, plugin, core config, and other plugin products.
+
+- `rust/crates/foundation/parameter-nih-plug`
+  - Owns reusable NIH-plug host parameter generation and mirroring for generic parameter metadata.
+  - Provides the `NihPlugFieldAdapter` and `MirrorHostParam` extension points used by optional bridge crates.
+
+- `rust/crates/foundation/parameter-on-off`
+  - Owns the reusable `OnOff<T>` value type and its serialization/value conversion behavior.
+  - Has no NIH-plug dependency.
+
+- `rust/crates/foundation/parameter-on-off-nih-plug`
+  - Bridges `OnOff<f32>` into NIH-plug through `OnOffParam` and `OnOffF32Adapter`.
+  - Depends on the base parameter crates, not on BPM product crates.
+
+Product, domain, and application crates may depend down into this foundation stack. Foundation crates must not depend back
+up into BPM-specific crates such as `midi-bpm-detector-plugin`, `bpm_detection_core`, `bpm_detection_midi`, or `gui`.
+This grouping supports the production plugin first while keeping desktop and WASM as development/demo consumers of the
+same generic metadata.
 
 - `rust/crates/desktop`
   - Native desktop GUI app.
