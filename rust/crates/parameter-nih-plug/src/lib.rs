@@ -1,11 +1,17 @@
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use nih_plug::{
-    params::{FloatParam, IntParam},
-    prelude::{FloatRange, IntRange, Param},
+    params::{FloatParam, IntParam, Param, Params, persist},
+    prelude::{FloatRange, IntRange, ParamPtr},
 };
 use num_traits::ToPrimitive;
-use parameter::Parameter;
+use parameter::{OnOff, Parameter, ParameterField};
 pub use parameter_nih_plug_macros::nih_plugin_parameter_group;
 
 pub trait GeneratedNihPlugParams {}
@@ -51,6 +57,74 @@ pub fn to_plugin_u16_logarithmic_param<Config>(
     u16_range_to_logarithmic_param(parameter, (parameter.get)(config), callback)
 }
 
+pub struct OnOffParam {
+    id: &'static str,
+    value: FloatParam,
+    enabled_key: String,
+    enabled: AtomicBool,
+}
+
+impl OnOffParam {
+    pub fn new(id: &'static str, value: FloatParam, initial_value: OnOff<f32>) -> Self {
+        Self { id, value, enabled_key: format!("{id}_onoff"), enabled: AtomicBool::new(initial_value.is_enabled()) }
+    }
+
+    pub fn param(&self) -> &FloatParam {
+        &self.value
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Relaxed)
+    }
+
+    pub fn read(&self) -> OnOff<f32> {
+        OnOff::new(self.is_enabled(), self.value.unmodulated_plain_value())
+    }
+}
+
+unsafe impl Params for OnOffParam {
+    fn param_map(&self) -> Vec<(String, ParamPtr, String)> {
+        vec![(String::from(self.id), self.value.as_ptr(), String::new())]
+    }
+
+    fn serialize_fields(&self) -> BTreeMap<String, String> {
+        let mut serialized = BTreeMap::new();
+        match persist::serialize_field(&self.is_enabled()) {
+            Ok(data) => {
+                serialized.insert(self.enabled_key.clone(), data);
+            }
+            Err(err) => {
+                nih_plug::nih_debug_assert_failure!("Could not serialize '{}': {}", self.enabled_key, err);
+            }
+        }
+        serialized
+    }
+
+    fn deserialize_fields(&self, serialized: &BTreeMap<String, String>) {
+        let Some(data) = serialized.get(&self.enabled_key) else {
+            return;
+        };
+
+        match persist::deserialize_field(data) {
+            Ok(is_enabled) => self.enabled.store(is_enabled, Ordering::Relaxed),
+            Err(err) => {
+                nih_plug::nih_debug_assert_failure!("Could not deserialize '{}': {}", self.enabled_key, err);
+            }
+        }
+    }
+}
+
+pub fn to_plugin_on_off_f32_param<Config>(
+    field: &ParameterField<Config, OnOff<f32>>,
+    config: &Config,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+) -> OnOffParam {
+    let parameter = &field.parameter;
+    let value = (parameter.get)(config);
+
+    OnOffParam::new(field.field_name, parameter.to_param(value, callback), value)
+}
+
 pub trait SetConfigFromFloatParam<Config>: Sized {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam);
 }
@@ -77,6 +151,14 @@ pub fn set_config_from_int_param<Config, ValueType>(
     ValueType: SetConfigFromIntParam<Config>,
 {
     ValueType::set_config_from_int_param(parameter, config, param);
+}
+
+pub fn set_config_from_on_off_f32_param<Config>(
+    parameter: &Parameter<Config, OnOff<f32>>,
+    config: &mut Config,
+    param: &OnOffParam,
+) {
+    (parameter.set)(config, param.read());
 }
 
 macro_rules! impl_to_param_for_float {
@@ -153,6 +235,15 @@ impl_to_param_for_float!(f64);
 impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
 
+impl<Config> ToNihPlugParam<OnOff<f32>> for Parameter<Config, OnOff<f32>> {
+    type CallbackValue = f32;
+    type Param = FloatParam;
+
+    fn to_param(&self, value: OnOff<f32>, callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>) -> Self::Param {
+        float_param_from_metadata(self, value.value(), callback)
+    }
+}
+
 impl<Config> SetConfigFromFloatParam<Config> for f32 {
     fn set_config_from_float_param(parameter: &Parameter<Config, Self>, config: &mut Config, param: &FloatParam) {
         (parameter.set)(config, param.unmodulated_plain_value());
@@ -202,6 +293,35 @@ fn u16_range_to_logarithmic_param<Config>(
         param = param.with_unit(unit);
     }
     param.with_step_size(metadata_f64_to_f32(parameter.spec.step.max(1.0)))
+}
+
+fn float_param_from_metadata<Config, ValueType>(
+    parameter: &Parameter<Config, ValueType>,
+    value: f32,
+    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+) -> FloatParam {
+    let range = if parameter.spec.logarithmic {
+        FloatRange::Skewed {
+            min: metadata_f64_to_f32(*parameter.spec.range.start()),
+            max: metadata_f64_to_f32(*parameter.spec.range.end()),
+            factor: 0.3,
+        }
+    } else {
+        FloatRange::Linear {
+            min: metadata_f64_to_f32(*parameter.spec.range.start()),
+            max: metadata_f64_to_f32(*parameter.spec.range.end()),
+        }
+    };
+
+    let mut param = FloatParam::new(parameter.spec.label, value, range).with_callback(callback.clone());
+    if let Some(unit) = parameter.spec.unit {
+        param = param.with_unit(unit);
+    }
+    if parameter.spec.step > 0.0 {
+        param = param.with_step_size(metadata_f64_to_f32(parameter.spec.step));
+    }
+
+    param.with_value_to_string(Arc::new(|value| format!("{value:.2}")))
 }
 
 fn metadata_f64_to_f32(value: f64) -> f32 {

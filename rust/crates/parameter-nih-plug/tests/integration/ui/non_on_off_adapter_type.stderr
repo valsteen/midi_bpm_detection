@@ -1,0 +1,5 @@
+error: `on_off_f32` adapter requires an OnOffParam field
+  --> tests/integration/ui/non_on_off_adapter_type.rs:14:17
+   |
+14 |     pub weight: nih_plug::params::FloatParam,
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

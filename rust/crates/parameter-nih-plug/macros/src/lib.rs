@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::{
     Attribute, Fields, Ident, ItemStruct, LitStr, Result, Token, Type,
     parse::{Parse, ParseStream},
@@ -117,6 +117,9 @@ fn expand_plugin_parameter_group(
     let constructor_fields = fields.iter().map(expand_constructor_field);
     let readback_fields = fields.iter().map(expand_readback_field);
     let param_map_entries = fields.iter().map(expand_param_map_entry);
+    let serialize_fields = fields.iter().map(expand_serialize_field);
+    let deserialize_fields = fields.iter().map(expand_deserialize_field);
+    let remote_control_entries = fields.iter().map(expand_remote_control_entry);
     let _group = args.group;
 
     Ok(quote! {
@@ -142,6 +145,10 @@ fn expand_plugin_parameter_group(
 
                 config
             }
+
+            #visibility fn add_remote_controls(&self, page: &mut impl ::nih_plug::prelude::RemoteControlsPage) {
+                #(#remote_control_entries)*
+            }
         }
 
         unsafe impl ::nih_plug::params::Params for #struct_ident {
@@ -156,6 +163,27 @@ fn expand_plugin_parameter_group(
                 #(#param_map_entries)*
                 params
             }
+
+            fn serialize_fields(
+                &self,
+            ) -> ::std::collections::BTreeMap<
+                ::std::string::String,
+                ::std::string::String,
+            > {
+                let mut serialized = ::std::collections::BTreeMap::new();
+                #(#serialize_fields)*
+                serialized
+            }
+
+            fn deserialize_fields(
+                &self,
+                serialized: &::std::collections::BTreeMap<
+                    ::std::string::String,
+                    ::std::string::String,
+                >,
+            ) {
+                #(#deserialize_fields)*
+            }
         }
 
         impl ::parameter_nih_plug::GeneratedNihPlugParams for #struct_ident {}
@@ -164,6 +192,7 @@ fn expand_plugin_parameter_group(
 
 fn expand_constructor_field(field: &PluginParameterField) -> proc_macro2::TokenStream {
     let field_ident = &field.ident;
+    let field_field_ident = format_ident!("{field_ident}_field");
     let field_ty = &field.ty;
     match &field.kind {
         PluginParameterFieldKind::Float => {
@@ -193,6 +222,15 @@ fn expand_constructor_field(field: &PluginParameterField) -> proc_macro2::TokenS
                 )
             }
         }
+        PluginParameterFieldKind::OnOffF32 => {
+            quote! {
+                #field_ident: ::parameter_nih_plug::to_plugin_on_off_f32_param(
+                    &parameters.#field_field_ident(),
+                    config,
+                    update_changed_at_f32,
+                )
+            }
+        }
         PluginParameterFieldKind::Nested { .. } => {
             quote! {
                 #field_ident: <#field_ty>::new(&config.#field_ident, update_changed_at_f32)
@@ -214,6 +252,12 @@ fn expand_readback_field(field: &PluginParameterField) -> proc_macro2::TokenStre
             quote! {
                 let parameter = parameters.#field_ident();
                 ::parameter_nih_plug::set_config_from_int_param(&parameter, &mut config, &self.#field_ident);
+            }
+        }
+        PluginParameterFieldKind::OnOffF32 => {
+            quote! {
+                let parameter = parameters.#field_ident();
+                ::parameter_nih_plug::set_config_from_on_off_f32_param(&parameter, &mut config, &self.#field_ident);
             }
         }
         PluginParameterFieldKind::Nested { .. } => {
@@ -247,6 +291,11 @@ fn expand_param_map_entry(field: &PluginParameterField) -> proc_macro2::TokenStr
                 ));
             }
         }
+        PluginParameterFieldKind::OnOffF32 => {
+            quote! {
+                params.extend(self.#field_ident.param_map());
+            }
+        }
         PluginParameterFieldKind::Nested { group } => {
             quote! {
                 params.extend(self.#field_ident.param_map().into_iter().map(|(id, param, nested_group)| {
@@ -262,6 +311,64 @@ fn expand_param_map_entry(field: &PluginParameterField) -> proc_macro2::TokenStr
     }
 }
 
+fn expand_serialize_field(field: &PluginParameterField) -> proc_macro2::TokenStream {
+    let field_ident = &field.ident;
+
+    match &field.kind {
+        PluginParameterFieldKind::OnOffF32 | PluginParameterFieldKind::Nested { .. } => {
+            quote! {
+                serialized.extend(::nih_plug::params::Params::serialize_fields(&self.#field_ident));
+            }
+        }
+        PluginParameterFieldKind::Float
+        | PluginParameterFieldKind::FloatU16Logarithmic
+        | PluginParameterFieldKind::Int => {
+            quote! {}
+        }
+    }
+}
+
+fn expand_deserialize_field(field: &PluginParameterField) -> proc_macro2::TokenStream {
+    let field_ident = &field.ident;
+
+    match &field.kind {
+        PluginParameterFieldKind::OnOffF32 | PluginParameterFieldKind::Nested { .. } => {
+            quote! {
+                ::nih_plug::params::Params::deserialize_fields(&self.#field_ident, serialized);
+            }
+        }
+        PluginParameterFieldKind::Float
+        | PluginParameterFieldKind::FloatU16Logarithmic
+        | PluginParameterFieldKind::Int => {
+            quote! {}
+        }
+    }
+}
+
+fn expand_remote_control_entry(field: &PluginParameterField) -> proc_macro2::TokenStream {
+    let field_ident = &field.ident;
+
+    match &field.kind {
+        PluginParameterFieldKind::Float
+        | PluginParameterFieldKind::FloatU16Logarithmic
+        | PluginParameterFieldKind::Int => {
+            quote! {
+                page.add_param(&self.#field_ident);
+            }
+        }
+        PluginParameterFieldKind::OnOffF32 => {
+            quote! {
+                page.add_param(self.#field_ident.param());
+            }
+        }
+        PluginParameterFieldKind::Nested { .. } => {
+            quote! {
+                self.#field_ident.add_remote_controls(page);
+            }
+        }
+    }
+}
+
 struct PluginParameterField {
     ident: Ident,
     ty: Type,
@@ -272,6 +379,7 @@ enum PluginParameterFieldKind {
     Float,
     Int,
     FloatU16Logarithmic,
+    OnOffF32,
     Nested { group: LitStr },
 }
 
@@ -411,6 +519,12 @@ fn plugin_parameter_adapter_kind(ty: &Type, args: PluginParameterArgs) -> Result
     if adapter == "float_u16_logarithmic" {
         return Err(syn::Error::new_spanned(ty, "`float_u16_logarithmic` adapter requires a FloatParam field"));
     }
+    if adapter == "on_off_f32" && is_on_off_param(ty) {
+        return Ok(PluginParameterFieldKind::OnOffF32);
+    }
+    if adapter == "on_off_f32" {
+        return Err(syn::Error::new_spanned(ty, "`on_off_f32` adapter requires an OnOffParam field"));
+    }
 
     Err(syn::Error::new_spanned(args.adapter, "unsupported #[nih_plugin_parameter(adapter = ...)] value"))
 }
@@ -430,6 +544,10 @@ fn is_float_param(ty: &Type) -> bool {
 
 fn is_int_param(ty: &Type) -> bool {
     is_type_named(ty, "IntParam")
+}
+
+fn is_on_off_param(ty: &Type) -> bool {
+    is_type_named(ty, "OnOffParam")
 }
 
 fn is_type_named(ty: &Type, name: &str) -> bool {
