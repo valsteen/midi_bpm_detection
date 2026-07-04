@@ -5,11 +5,11 @@ edition = "2024"
 rust-version = "1.92"
 
 [dependencies]
-errors = { path = "../errors" }
-build = { path = "../build" }
-sync = { path = "../sync" }
-parameter = { path = "../foundation/parameter" }
-parameter-on-off = { path = "../foundation/parameter-on-off" }
+errors = { path = "../../support/errors" }
+build = { path = "../../support/build" }
+sync = { path = "../../support/sync" }
+parameter = { path = "../../foundation/parameter" }
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 
 egui_plot = { version = "0.35.0" }
@@ -37,7 +37,7 @@ on_off_widgets = []
 
 
 [build-dependencies]
-build = { path = "../build" }
+build = { path = "../../support/build" }
 
 [lints]
 workspace = true

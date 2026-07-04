@@ -1,86 +1,83 @@
-# Foundation Parameter Stack
+# Foundation Parameter Crates
 
-This directory groups the reusable parameter crates that another plugin product
-can import from this Rust workspace. Cargo package names stay unchanged; only
-the workspace paths live under `crates/foundation/`.
+The foundation crates provide reusable parameter metadata and host-parameter
+bridges for Rust plugin products. They let product crates describe their
+configuration once, use that metadata in UI or runtime code, and optionally map
+the same fields into NIH-plug host parameters.
 
-## Dependency Policy
-
-Product, domain, and application crates may depend down into foundation crates.
-Foundation crates must not depend back up into BPM-specific product crates such
-as `midi-bpm-detector-plugin`, `bpm_detection_core`, `bpm_detection_midi`, or
-`gui`.
-
-The foundation layer is for reusable parameter metadata, reusable value types,
-and optional plugin-host bridges. It is not a new application runtime, and it
-does not own desktop, WASM, Bitwig controller, or BPM product behavior.
+These crates are ordinary Cargo packages. The filesystem grouping lives under
+`rust/crates/foundation/`; package names and Rust imports keep their normal
+hyphen/underscore forms.
 
 ## Crates
 
-- `parameter` defines generic parameter metadata, value conversion, and the
-  `#[parameter_group]` macro for Rust config structs.
+- `parameter` defines generic parameter metadata, value conversion helpers, and
+  the `#[parameter_group]` macro for Rust config structs.
+- `parameter-on-off` provides the reusable `OnOff<T>` value type when a setting
+  needs an enabled/disabled state plus a value.
 - `parameter-nih-plug` maps generic parameter metadata to NIH-plug host
   parameters and provides `#[nih_plugin_parameter_group]`,
   `NihPlugFieldAdapter`, and `MirrorHostParam`.
-- `parameter-on-off` defines the reusable `OnOff<T>` value type and its
-  serialization/value conversion behavior.
 - `parameter-on-off-nih-plug` connects `OnOff<f32>` to NIH-plug through
   `OnOffParam` and `OnOffF32Adapter`.
 
-Optional custom value crates can live beside the base stack when their behavior
-is reusable by another plugin product. Optional bridge crates can live here when
-they connect such a value type to NIH-plug. A new custom value type should not
-require editing `parameter`, `parameter-nih-plug`, or their macro crates; add a
-focused value crate and, if the production plugin needs host integration, a
-focused NIH-plug bridge crate.
+Use only the crates your product needs. Plain config metadata does not require
+NIH-plug crates, and a product that does not use `OnOff<T>` does not need the
+OnOff packages.
 
-## Example Import Shape
+## Cargo Usage
 
-If another plugin product crate lived at `rust/crates/example-plugin`, it would
-depend on the foundation crates it needs directly:
+A product crate in this workspace can depend on the foundation crates directly:
 
 ```toml
 [dependencies]
-parameter = { path = "../foundation/parameter" }
-parameter-nih-plug = { path = "../foundation/parameter-nih-plug" }
+parameter = { path = "../../foundation/parameter" }
 
-# Optional only when the product config uses OnOff<T>.
-parameter-on-off = { path = "../foundation/parameter-on-off" }
+# Optional when config fields use OnOff<T>.
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
-# Optional only when the NIH-plug host params need OnOff<f32> support.
-parameter-on-off-nih-plug = { path = "../foundation/parameter-on-off-nih-plug" }
+# Optional when the product exposes host parameters through NIH-plug.
+parameter-nih-plug = { path = "../../foundation/parameter-nih-plug" }
+
+# Optional when NIH-plug host parameters need OnOff<f32> support.
+parameter-on-off-nih-plug = { path = "../../foundation/parameter-on-off-nih-plug" }
 ```
 
-The product config would keep its own domain fields and annotate them with
-`parameter::parameter_group`. The plugin host layer would annotate its NIH-plug
-parameter holder with `parameter_nih_plug::nih_plugin_parameter_group`. For an
-`OnOff<f32>` field, the host holder imports
-`parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam}` and marks that field
-with `#[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]`.
+Adjust the relative path if the consuming crate lives in another group.
 
-Plain config metadata does not need NIH-plug:
+## Plain Config Metadata
+
+Use `parameter::parameter_group` on the product config type. The generated
+metadata can be consumed by runtime code or UI without any plugin-host
+dependency.
 
 ```rust
 use parameter::parameter_group;
 use parameter_on_off::OnOff;
 
 #[parameter_group]
-pub struct ExamplePluginConfig {
+pub struct ExampleConfig {
     #[parameter(label = "Gain", range = 0.0..=1.0, default = OnOff::On(0.5))]
     pub gain: OnOff<f32>,
 }
 ```
 
-NIH-plug integration is added by the plugin product crate when it needs host
-parameters:
+## NIH-plug Host Parameters
+
+Add NIH-plug integration in the plugin product crate when the host needs to see
+the parameters. The host parameter holder points back to the plain config type
+and imports any adapters required by custom value types.
 
 ```rust
 use parameter_nih_plug::nih_plugin_parameter_group;
 use parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam};
 
-#[nih_plugin_parameter_group(config = ExamplePluginConfig, group = "Example")]
+#[nih_plugin_parameter_group(config = ExampleConfig, group = "Example")]
 pub struct ExamplePluginParams {
     #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub gain: OnOffParam,
 }
 ```
+
+For the broader workspace boundaries around these crates, see
+`../../../docs/architecture.md`.

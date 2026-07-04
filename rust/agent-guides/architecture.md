@@ -6,7 +6,8 @@ boundary rules so the entrypoint stays small.
 ## Workspace Boundaries
 
 - Preserve the separation between the production plugin, native desktop mode, WASM showcase mode, shared GUI, MIDI
-  service, and BPM detection core.
+  service, and BPM detection core. The filesystem groups those roles under `crates/entrypoints/`, `crates/bpm/`,
+  `crates/support/`, `crates/tools/`, and `crates/foundation/`.
 - Split crates primarily by dependency surface, then refine by responsibility when a crate grows too broad.
 - Keep reusable parameter metadata, optional reusable parameter value types, and optional plugin-host bridges under
   `crates/foundation/`.

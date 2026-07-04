@@ -6,8 +6,9 @@ longer routing and architecture rules so the entrypoint stays small.
 ## Monorepo Shape
 
 - `rust/`: Cargo workspace for the BPM detector core, plugin, desktop app, WASM demo, shared GUI, MIDI service, Rust
-  tools, and the foundation parameter stack under `rust/crates/foundation/`. Follow `../rust/AGENTS.md` for
-  Rust-specific instructions.
+  tools, and the foundation parameter stack. Crates are grouped by role under `rust/crates/foundation/`,
+  `rust/crates/entrypoints/`, `rust/crates/bpm/`, `rust/crates/support/`, and `rust/crates/tools/`. Follow
+  `../rust/AGENTS.md` for Rust-specific instructions.
 - `extension/`: Gradle workspace for Bitwig controller extensions and reusable extension libraries. Follow
   `../extension/AGENTS.md` for Kotlin/Bitwig-specific instructions.
 - `docs/`: public architecture, development, runtime-flow, and cross-build-root documentation.

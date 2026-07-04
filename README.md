@@ -31,7 +31,7 @@ The project is still a work in progress. Tempo detection depends on play style a
 feedback path is currently shaped around Bitwig integration.
 
 The core BPM evaluation lives in
-[rust/crates/bpm_detection_core/src/bpm_detection.rs](rust/crates/bpm_detection_core/src/bpm_detection.rs).
+[rust/crates/bpm/bpm_detection_core/src/bpm_detection.rs](rust/crates/bpm/bpm_detection_core/src/bpm_detection.rs).
 
 ## Quick Start
 

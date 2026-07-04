@@ -85,9 +85,9 @@ Keep this distinction explicit:
 
 ## Runtime Ownership
 
-- `rust/crates/midi-bpm-detector-plugin/src/plugin_parameters.rs` owns the `DAW Port` host parameter.
-- `rust/crates/midi-bpm-detector-plugin/src/task_executor.rs` owns the TCP connection and writes BPM frames outside the
-  realtime callback.
+- `rust/crates/entrypoints/midi-bpm-detector-plugin/src/plugin_parameters.rs` owns the `DAW Port` host parameter.
+- `rust/crates/entrypoints/midi-bpm-detector-plugin/src/task_executor.rs` owns the TCP connection and writes BPM frames
+  outside the realtime callback.
 - `extension/extensions/beat-detection-controller/src/main/kotlin/beatdetection/BeatDetectionExtension.kt` owns Bitwig
   device following, cursor pinning, remote connection setup, payload reception, and transport tempo writes.
 - `extension/extensions/beat-detection-controller/src/main/kotlin/beatdetection/TempoControllerFrame.kt` owns payload
