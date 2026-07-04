@@ -4,14 +4,12 @@ use std::{
 };
 
 use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, NormalDistributionConfig,
-    NormalDistributionConfigAccessor, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionConfigAccessor,
 };
 use errors::info;
 use gui::{BPMDetectionConfig, GUIConfigAccessor};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use parameter::OnOff;
-use parameter_nih_plug::MirrorHostParam;
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
@@ -137,9 +135,8 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_std_dev(&mut self, val: f64) {
-        self.base_config.params.static_params.normal_distribution.std_dev.mirror_host_param(
+        self.base_config.params.static_params.normal_distribution.mirror_std_dev(
             &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
-            &NormalDistributionConfig::PARAMETERS.std_dev(),
             val,
             self.param_setter,
         );
@@ -147,9 +144,8 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_resolution(&mut self, val: f32) {
-        self.base_config.params.static_params.normal_distribution.resolution.mirror_host_param(
+        self.base_config.params.static_params.normal_distribution.mirror_resolution(
             &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
-            &NormalDistributionConfig::PARAMETERS.resolution(),
             val,
             self.param_setter,
         );
@@ -157,9 +153,8 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_cutoff(&mut self, val: f32) {
-        self.base_config.params.static_params.normal_distribution.cutoff.mirror_host_param(
+        self.base_config.params.static_params.normal_distribution.mirror_cutoff(
             &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
-            &NormalDistributionConfig::PARAMETERS.cutoff(),
             val,
             self.param_setter,
         );
@@ -167,9 +162,8 @@ impl NormalDistributionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_factor(&mut self, val: f32) {
-        self.base_config.params.static_params.normal_distribution.factor.mirror_host_param(
+        self.base_config.params.static_params.normal_distribution.mirror_factor(
             &mut self.base_config.config.static_bpm_detection_config.normal_distribution,
-            &NormalDistributionConfig::PARAMETERS.factor(),
             val,
             self.param_setter,
         );
@@ -223,9 +217,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_beats_lookback(&mut self, val: u8) {
-        self.base_config.params.dynamic_params.beats_lookback.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_beats_lookback(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.beats_lookback(),
             val,
             self.param_setter,
         );
@@ -233,9 +226,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_normal_distribution_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.normal_distribution_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_normal_distribution_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.normal_distribution_weight(),
             val,
             self.param_setter,
         );
@@ -243,9 +235,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_time_distance_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.time_distance_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_time_distance_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.time_distance_weight(),
             val,
             self.param_setter,
         );
@@ -253,9 +244,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_velocity_current_note_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.velocity_current_note_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_velocity_current_note_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.velocity_current_note_weight(),
             val,
             self.param_setter,
         );
@@ -263,9 +253,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_velocity_note_from_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.velocity_note_from_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_velocity_note_from_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.velocity_note_from_weight(),
             val,
             self.param_setter,
         );
@@ -273,9 +262,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_in_beat_range_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.in_beat_range_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_in_beat_range_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.in_beat_range_weight(),
             val,
             self.param_setter,
         );
@@ -283,9 +271,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_multiplier_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.multiplier_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_multiplier_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.multiplier_weight(),
             val,
             self.param_setter,
         );
@@ -293,9 +280,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_subdivision_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.subdivision_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_subdivision_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.subdivision_weight(),
             val,
             self.param_setter,
         );
@@ -303,9 +289,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_octave_distance_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.octave_distance_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_octave_distance_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.octave_distance_weight(),
             val,
             self.param_setter,
         );
@@ -313,9 +298,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_pitch_distance_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.pitch_distance_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_pitch_distance_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.pitch_distance_weight(),
             val,
             self.param_setter,
         );
@@ -323,9 +307,8 @@ impl DynamicBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_high_tempo_bias_weight(&mut self, val: OnOff<f32>) {
-        self.base_config.params.dynamic_params.high_tempo_bias_weight.mirror_host_param(
+        self.base_config.params.dynamic_params.mirror_high_tempo_bias_weight(
             &mut self.base_config.config.dynamic_bpm_detection_config,
-            &DynamicBPMDetectionConfig::PARAMETERS.high_tempo_bias_weight(),
             val,
             self.param_setter,
         );
@@ -347,9 +330,8 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_bpm_center(&mut self, val: f32) {
-        self.base_config.params.static_params.bpm_center.mirror_host_param(
+        self.base_config.params.static_params.mirror_bpm_center(
             &mut self.base_config.config.static_bpm_detection_config,
-            &StaticBPMDetectionConfig::PARAMETERS.bpm_center(),
             val,
             self.param_setter,
         );
@@ -357,9 +339,8 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_bpm_range(&mut self, val: u16) {
-        self.base_config.params.static_params.bpm_range.mirror_host_param(
+        self.base_config.params.static_params.mirror_bpm_range(
             &mut self.base_config.config.static_bpm_detection_config,
-            &StaticBPMDetectionConfig::PARAMETERS.bpm_range(),
             val,
             self.param_setter,
         );
@@ -367,9 +348,8 @@ impl StaticBPMDetectionConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_sample_rate(&mut self, val: u16) {
-        self.base_config.params.static_params.sample_rate.mirror_host_param(
+        self.base_config.params.static_params.mirror_sample_rate(
             &mut self.base_config.config.static_bpm_detection_config,
-            &StaticBPMDetectionConfig::PARAMETERS.sample_rate(),
             val,
             self.param_setter,
         );
@@ -387,9 +367,8 @@ impl GUIConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_interpolation_duration(&mut self, val: Duration) {
-        self.base_config.params.gui_params.interpolation_duration.mirror_host_param(
+        self.base_config.params.gui_params.mirror_interpolation_duration(
             &mut self.base_config.config.gui_config,
-            &gui::GUIConfig::PARAMETERS.interpolation_duration(),
             val,
             self.param_setter,
         );
@@ -397,9 +376,8 @@ impl GUIConfigAccessor for LiveConfig<'_> {
     }
 
     fn set_interpolation_curve(&mut self, val: f32) {
-        self.base_config.params.gui_params.interpolation_curve.mirror_host_param(
+        self.base_config.params.gui_params.mirror_interpolation_curve(
             &mut self.base_config.config.gui_config,
-            &gui::GUIConfig::PARAMETERS.interpolation_curve(),
             val,
             self.param_setter,
         );
@@ -416,3 +394,7 @@ impl BPMDetectionConfig for LiveConfig<'_> {
         self.base_config.config.send_tempo.set_from_gui(enabled);
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/bpm_detector_configuration.rs"]
+mod tests;
