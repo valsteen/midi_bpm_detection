@@ -8,7 +8,6 @@ mod bpm_detector_configuration;
 mod gui;
 mod parameter_sync;
 mod plugin_config;
-mod plugin_parameter_adapters;
 mod plugin_parameters;
 mod task_executor;
 
