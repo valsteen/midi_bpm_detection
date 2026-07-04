@@ -1,25 +1,25 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/desktop",
-    "crates/errors",
-    "crates/build",
-    "crates/bpm_detection_core",
-    "crates/bpm_detection_midi",
-    "crates/gui",
-    "crates/sync",
+    "crates/entrypoints/desktop",
+    "crates/support/errors",
+    "crates/support/build",
+    "crates/bpm/bpm_detection_core",
+    "crates/bpm/bpm_detection_midi",
+    "crates/bpm/gui",
+    "crates/support/sync",
     "crates/foundation/parameter",
     "crates/foundation/parameter/macros",
     "crates/foundation/parameter-on-off",
     "crates/foundation/parameter-on-off-nih-plug",
     "crates/foundation/parameter-nih-plug",
     "crates/foundation/parameter-nih-plug/macros",
-    "crates/wasm",
-    "crates/midi-bpm-detector-plugin",
-    "crates/midi-bpm-detector-plugin/xtask",
-    "crates/midi-reset",
+    "crates/entrypoints/wasm",
+    "crates/entrypoints/midi-bpm-detector-plugin",
+    "crates/entrypoints/midi-bpm-detector-plugin/xtask",
+    "crates/tools/midi-reset",
 ]
-default-members = ["crates/desktop", "crates/midi-reset"]
+default-members = ["crates/entrypoints/desktop", "crates/tools/midi-reset"]
 
 [workspace.lints.clippy]
 pedantic = "warn"

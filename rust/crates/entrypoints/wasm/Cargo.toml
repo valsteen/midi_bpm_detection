@@ -5,11 +5,11 @@ edition = "2024"
 default-run = "beat-detector"
 
 [dependencies]
-gui = { path = "../gui" }
-bpm_detection_core = { path = "../bpm_detection_core" }
-errors = { path = "../errors" }
-parameter = { path = "../foundation/parameter" }
-parameter-on-off = { path = "../foundation/parameter-on-off" }
+gui = { path = "../../bpm/gui" }
+bpm_detection_core = { path = "../../bpm/bpm_detection_core" }
+errors = { path = "../../support/errors" }
+parameter = { path = "../../foundation/parameter" }
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"

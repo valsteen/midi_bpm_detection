@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 bpm_detection_core = { path = "../bpm_detection_core" }
-build = { path = "../build" }
-errors = { path = "../errors" }
-sync = { path = "../sync" }
+build = { path = "../../support/build" }
+errors = { path = "../../support/errors" }
+sync = { path = "../../support/sync" }
 
 chrono = "0.4.45"
 itertools = "0.15.0"

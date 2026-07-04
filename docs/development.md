@@ -4,9 +4,9 @@ This project has one Rust workspace and one Kotlin/Gradle Bitwig extension works
 
 The Rust side has three main build modes:
 
-- `desktop`: the native desktop GUI application in `rust/crates/desktop`, sharing the `gui` crate.
-- `plugin`: the CLAP/VST3 plugin in `rust/crates/midi-bpm-detector-plugin`.
-- `wasm`: the browser demo in `rust/crates/wasm`.
+- `desktop`: the native desktop GUI application in `rust/crates/entrypoints/desktop`, sharing the `gui` crate.
+- `plugin`: the CLAP/VST3 plugin in `rust/crates/entrypoints/midi-bpm-detector-plugin`.
+- `wasm`: the browser demo in `rust/crates/entrypoints/wasm`.
 
 The Rust workspace lives under `rust/`. Unless a command says otherwise, run the Rust commands in this document from
 that directory:
@@ -286,8 +286,8 @@ Equivalent commands:
 cargo check -p wasm --target wasm32-unknown-unknown
 cargo test -p wasm --target wasm32-unknown-unknown
 cargo clippy -p wasm --target wasm32-unknown-unknown
-cd crates/wasm && NO_COLOR=false trunk build
-cd crates/wasm && NO_COLOR=false trunk serve --port 8080 --open false
+cd crates/entrypoints/wasm && NO_COLOR=false trunk build
+cd crates/entrypoints/wasm && NO_COLOR=false trunk serve --port 8080 --open false
 ```
 
 Trunk needs `NO_COLOR=false` in shells that export `NO_COLOR=1`, because Trunk `0.21.14` expects a boolean value for its
@@ -308,7 +308,7 @@ scripts/dev.sh publish-wasm-pages
 ```
 
 The command refuses to publish from a dirty source tree by default, runs `verify-wasm`, rechecks the generated Pages
-assets, copies `crates/wasm/dist/` into a temporary `gh-pages` worktree, commits the generated static files as
+assets, copies `crates/entrypoints/wasm/dist/` into a temporary `gh-pages` worktree, commits the generated static files as
 `build from <source-sha>`, and pushes `HEAD:gh-pages` to the `upstream` remote. Set `ALLOW_DIRTY_WASM_PUBLISH=1` only
 when you intentionally want to publish an uncommitted local build.
 
@@ -329,8 +329,9 @@ Then open:
 http://127.0.0.1:8080/midi_bpm_detection/#dev
 ```
 
-The path comes from `crates/wasm/Trunk.toml`, which sets `public_url = "/midi_bpm_detection/"`. The `#dev` suffix matters
-during local development because `crates/wasm/index.html` skips service-worker registration when the hash is `#dev`.
+The path comes from `crates/entrypoints/wasm/Trunk.toml`, which sets `public_url = "/midi_bpm_detection/"`. The `#dev`
+suffix matters during local development because `crates/entrypoints/wasm/index.html` skips service-worker registration
+when the hash is `#dev`.
 Without it, a previous service worker can keep serving cached WASM/JS assets.
 
 Expected smoke check:

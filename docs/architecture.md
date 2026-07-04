@@ -131,7 +131,7 @@ runtime that wires them together.
 
 ### Core Domain
 
-- `rust/crates/bpm_detection_core`
+- `rust/crates/bpm/bpm_detection_core`
   - Owns the BPM detection algorithm.
   - Defines the in-house note event shape consumed by the algorithm, static/dynamic BPM detection config, and BPM
     conversion helpers.
@@ -140,26 +140,26 @@ runtime that wires them together.
 
 ### Shared Infrastructure
 
-- `rust/crates/sync`
+- `rust/crates/support/sync`
   - Provides synchronization aliases/wrappers that differ by target.
   - Keeps platform-specific lock/atomic choices out of higher-level crates.
 
-- `rust/crates/errors`
+- `rust/crates/support/errors`
   - Centralizes error reporting, logging, panic handling, and tracing helpers.
 
-- `rust/crates/build`
+- `rust/crates/support/build`
   - Provides build metadata and project directories shared by multiple binaries/crates.
 
 ### Shared GUI
 
-- `rust/crates/gui`
+- `rust/crates/bpm/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
   - Defines `GuiRemote`, the cross-thread/task bridge used to push BPM/histogram updates into the UI.
   - Does not own a specific runtime mode; plugin, desktop, and WASM provide the surrounding application/runtime.
 
 ### Runtime Modes
 
-- `rust/crates/midi-bpm-detector-plugin`
+- `rust/crates/entrypoints/midi-bpm-detector-plugin`
   - CLAP/VST3 integration via `nih-plug`.
   - Receives MIDI in the plugin `process` callback.
   - Parses host MIDI bytes at the plugin boundary and maps note-on events into the core note type.
@@ -189,28 +189,28 @@ up into BPM-specific crates such as `midi-bpm-detector-plugin`, `bpm_detection_c
 This grouping supports the production plugin first while keeping desktop and WASM as development/demo consumers of the
 same generic metadata.
 
-- `rust/crates/desktop`
+- `rust/crates/entrypoints/desktop`
   - Native desktop GUI app.
   - Connects the shared GUI to the native MIDI runtime through a desktop controller boundary.
   - Uses `bpm_detection_midi::MidiService` for native MIDI service behavior.
   - Reuses the shared `gui` crate for visualization and configuration.
 
-- `rust/crates/wasm`
+- `rust/crates/entrypoints/wasm`
   - Browser demo wrapper.
   - Uses Trunk, wasm-bindgen, browser MIDI/keyboard input, and the shared egui UI.
   - Uses async browser tasks and bounded channels instead of native threads.
 
-- `rust/crates/midi-reset`
+- `rust/crates/tools/midi-reset`
   - Small macOS utility for restarting CoreMIDI.
   - Kept separate from the main operating modes.
 
-- `rust/crates/bpm_detection_midi`
+- `rust/crates/bpm/bpm_detection_midi`
   - Native MIDI runtime used by the desktop mode.
   - Owns MIDI device discovery/input, virtual MIDI output, SysEx control messages, playback clock emission, and the
     worker threads around `BPMDetection`.
   - Kept out of plugin and WASM builds so those modes do not inherit native MIDI service dependencies.
 
-- `rust/crates/midi-bpm-detector-plugin/xtask`
+- `rust/crates/entrypoints/midi-bpm-detector-plugin/xtask`
   - Packaging helper for plugin bundles.
 
 ### Bitwig Controller Extension

@@ -8,7 +8,7 @@ cd "$ROOT"
 WASM_BINDGEN_CLI_VERSION="0.2.125"
 WASM_PORT="${WASM_PORT:-8080}"
 WASM_DEV_URL="http://127.0.0.1:${WASM_PORT}/midi_bpm_detection/#dev"
-WASM_DIST_DIR="$ROOT/crates/wasm/dist"
+WASM_DIST_DIR="$ROOT/crates/entrypoints/wasm/dist"
 PAGES_REMOTE="${PAGES_REMOTE:-upstream}"
 PAGES_BRANCH="${PAGES_BRANCH:-gh-pages}"
 PAGES_URL="https://valsteen.github.io/midi_bpm_detection/"
@@ -147,7 +147,7 @@ verify_wasm_pages_dist() {
 
 publish_wasm_pages() {
     require_command git "Install Git with: https://git-scm.com/downloads" || exit 1
-    require_command rsync "Install rsync or copy crates/wasm/dist to the gh-pages branch manually." || exit 1
+    require_command rsync "Install rsync or copy crates/entrypoints/wasm/dist to the gh-pages branch manually." || exit 1
 
     if [[ "${ALLOW_DIRTY_WASM_PUBLISH:-0}" != "1" ]]; then
         local source_status
@@ -280,7 +280,7 @@ case "$command" in
         ;;
     build-wasm)
         (
-            cd crates/wasm
+            cd crates/entrypoints/wasm
             rm -rf dist
             NO_COLOR=false trunk build
         )
@@ -289,7 +289,7 @@ case "$command" in
     serve-wasm)
         echo "Open: $WASM_DEV_URL"
         (
-            cd crates/wasm
+            cd crates/entrypoints/wasm
             NO_COLOR=false trunk serve --port "$WASM_PORT" --open false
         )
         ;;

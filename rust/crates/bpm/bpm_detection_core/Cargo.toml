@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-parameter = { path = "../foundation/parameter" }
-parameter-on-off = { path = "../foundation/parameter-on-off" }
+parameter = { path = "../../foundation/parameter" }
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 
 itertools = "0.15.0"
