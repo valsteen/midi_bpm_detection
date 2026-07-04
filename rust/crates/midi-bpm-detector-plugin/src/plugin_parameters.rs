@@ -4,13 +4,12 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering},
     },
-    time::Duration,
 };
 
 use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig};
 use gui::GUIConfig;
 use nih_plug::{
-    params::{BoolParam, FloatParam, IntParam, Param, Params},
+    params::{BoolParam, FloatParam, IntParam, Params},
     prelude::IntRange,
 };
 use nih_plug_egui::EguiState;
@@ -21,14 +20,11 @@ use sync::ArcAtomicOptionNonZeroU16;
 use crate::{
     DeferredConfigUpdate,
     plugin_config::{PluginConfig, SendTempoOutputState},
-    plugin_parameter_adapters::{to_plugin_duration_param, to_plugin_float_param},
 };
 
-#[derive(Params)]
+#[nih_plugin_parameter_group(config = GUIConfig, group = "GUI")]
 pub struct PluginGUIParams {
-    #[id = "interpolation_duration"]
     pub interpolation_duration: FloatParam,
-    #[id = "interpolation_curve"]
     pub interpolation_curve: FloatParam,
 }
 
@@ -100,29 +96,8 @@ impl PluginDynamicParams {
 }
 
 impl PluginGUIParams {
-    fn new(config: &GUIConfig, change_marker: &HostParameterChangeMarker) -> Self {
-        let update_changed_at_f32 = change_marker.callback();
-        let gui_parameters = GUIConfig::PARAMETERS;
-
-        Self {
-            interpolation_duration: to_plugin_duration_param(
-                &gui_parameters.interpolation_duration(),
-                config,
-                &update_changed_at_f32,
-            ),
-            interpolation_curve: to_plugin_float_param(
-                &gui_parameters.interpolation_curve(),
-                config,
-                &update_changed_at_f32,
-            ),
-        }
-    }
-
     pub(crate) fn read_gui_config(&self) -> GUIConfig {
-        GUIConfig {
-            interpolation_duration: Duration::from_secs_f32(self.interpolation_duration.unmodulated_plain_value()),
-            interpolation_curve: self.interpolation_curve.unmodulated_plain_value(),
-        }
+        self.read_config()
     }
 }
 
@@ -168,6 +143,7 @@ impl MidiBpmDetectorParams {
         let gui_change_marker = HostParameterChangeMarker::new(current_sample.clone(), gui_config_changed_at.clone());
         let dynamic_change_marker =
             HostParameterChangeMarker::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
+        let update_gui_changed_at_f32 = gui_change_marker.callback();
         let update_static_changed_at_f32 = static_change_marker.callback();
         let update_static_changed_at_i32 = static_change_marker.callback();
         let update_dynamic_changed_at_f32 = dynamic_change_marker.callback();
@@ -176,7 +152,7 @@ impl MidiBpmDetectorParams {
         Self {
             editor_state: EguiState::from_size(1200, 600),
             send_tempo: send_tempo_param(&config.send_tempo),
-            gui_params: PluginGUIParams::new(&config.gui_config, &gui_change_marker),
+            gui_params: PluginGUIParams::new(&config.gui_config, &update_gui_changed_at_f32),
             static_params: PluginStaticParams::new(
                 &config.static_bpm_detection_config,
                 &update_static_changed_at_f32,

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use nih_plug::{
     params::{FloatParam, IntParam, Param, Params},
@@ -63,6 +63,21 @@ pub struct ExampleOnOffParams {
     pub steps: IntParam,
 }
 
+#[parameter_group]
+#[derive(Clone, PartialEq, Debug)]
+pub struct ExampleDurationConfig {
+    #[parameter(label = "Delay", unit = "s", range = 0.050..=1.0, default = Duration::from_millis(500))]
+    pub delay: Duration,
+    #[parameter(label = "Curve", range = 0.0..=2.0, default = 0.7)]
+    pub curve: f32,
+}
+
+#[nih_plugin_parameter_group(config = ExampleDurationConfig, group = "duration")]
+pub struct ExampleDurationParams {
+    pub delay: FloatParam,
+    pub curve: FloatParam,
+}
+
 #[test]
 fn generated_group_maps_field_ids_in_catalog_order_without_local_groups() {
     let callback = callback_f32();
@@ -111,6 +126,17 @@ fn generated_group_preserves_parameter_metadata() {
     assert_eq!(params.count.name(), "Count");
     assert_eq!(params.sample_rate.name(), "Sample rate");
     assert_eq!(params.child.child_precise.name(), "Child precise");
+}
+
+#[test]
+fn generated_group_reads_duration_float_params_back_to_config() {
+    let callback = callback_f32();
+    let source_config = ExampleDurationConfig { delay: Duration::from_secs_f32(0.82), curve: 1.25 };
+    let params = ExampleDurationParams::new(&source_config, &callback);
+
+    assert_eq!(params.delay.name(), "Delay");
+    assert!((params.delay.unmodulated_plain_value() - 0.82).abs() < f32::EPSILON);
+    assert_eq!(params.read_config(), source_config);
 }
 
 #[test]
@@ -206,6 +232,7 @@ fn generated_group_implements_marker_trait() {
     assert_generated::<ExampleChildParams>();
     assert_generated::<ExampleParentParams>();
     assert_generated::<ExampleOnOffParams>();
+    assert_generated::<ExampleDurationParams>();
 }
 
 fn example_parent_config() -> ExampleParentConfig {

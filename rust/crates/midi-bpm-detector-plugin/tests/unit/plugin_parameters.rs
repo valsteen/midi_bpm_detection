@@ -80,6 +80,30 @@ fn dynamic_remote_controls_expose_every_dynamic_parameter() {
 }
 
 #[test]
+fn gui_params_use_parameter_nih_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+
+    assert_generated_params::<PluginGUIParams>();
+}
+
+#[test]
+fn gui_generated_field_names_match_host_parameter_ids_in_order() {
+    let mut config = PluginConfig::default();
+    let current_sample = Arc::new(AtomicUsize::new(0));
+    let changed_at = DeferredConfigUpdate::idle();
+    let daw_port = ArcAtomicOptionNonZeroU16::none();
+    let params =
+        MidiBpmDetectorParams::new(&mut config, &changed_at, &changed_at, &changed_at, &current_sample, &daw_port);
+    let ids_and_groups =
+        params.gui_params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
+
+    assert_eq!(
+        ids_and_groups,
+        [(String::from("interpolation_duration"), String::new()), (String::from("interpolation_curve"), String::new()),]
+    );
+}
+
+#[test]
 fn static_plugin_parameter_ids_match_config_field_names() {
     let mut config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
