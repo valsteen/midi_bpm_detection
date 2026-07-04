@@ -146,5 +146,5 @@ jobs:
         run: cargo clippy --locked -p wasm --target wasm32-unknown-unknown -- -D warnings
 
       - name: Build wasm app
-        working-directory: rust/crates/wasm
+        working-directory: rust/crates/entrypoints/wasm
         run: NO_COLOR=false trunk build --locked
