@@ -15,6 +15,8 @@ rules so the entrypoint stays small.
 
 ## Routing
 
+- Use `../architecture.md` for human-facing Rust workspace architecture, crate maps, crate groups, and Rust runtime
+  constraints.
 - Use `../../docs/plugin-flow.md` for plugin realtime/audio callback details.
 - Use `../../docs/bitwig-tempo-bridge.md` for the narrow plugin-to-Bitwig-controller-extension tempo bridge.
 - Use `../../docs/development.md` for build, lint, format, and run commands.
