@@ -22,8 +22,9 @@ The graph below shows direct workspace crate dependencies. It intentionally omit
 architecture remains readable. Arrows point from the crate that imports a dependency to the crate it depends on.
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph modes["Runtime modes"]
+        direction TB
         plugin["midi-bpm-detector-plugin<br/>plugin / production target"]
         desktop["desktop<br/>native GUI app"]
         wasm["wasm<br/>browser demo"]
@@ -31,11 +32,9 @@ flowchart TD
         xtask["plugin xtask<br/>packaging helper"]
     end
 
-    subgraph shared_ui["Shared UI"]
+    subgraph app_layer["Application / UI layer"]
+        direction TB
         gui["gui<br/>egui visualization/config"]
-    end
-
-    subgraph native_runtime["Native runtime"]
         midi["bpm_detection_midi<br/>native MIDI service"]
     end
 
@@ -44,61 +43,44 @@ flowchart TD
     end
 
     subgraph foundation["Foundation parameter stack"]
-        parameter["parameter<br/>generic metadata"]
-        parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
-        parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
+        direction TB
         parameter_on_off_nih["parameter-on-off-nih-plug<br/>OnOff NIH bridge"]
+        parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
+        parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
+        parameter["parameter<br/>generic metadata"]
     end
 
     subgraph infra["Infrastructure"]
+        direction TB
         errors["errors"]
         sync["sync"]
         build["build"]
     end
 
-    plugin --> core
     plugin --> gui
-    plugin --> parameter
-    plugin --> parameter_on_off
-    plugin --> parameter_nih
+    plugin --> core
     plugin --> parameter_on_off_nih
-    plugin --> errors
-    plugin --> sync
 
     desktop --> gui
     desktop --> midi
     desktop --> core
-    desktop --> parameter
-    desktop --> parameter_on_off
-    desktop --> errors
-    desktop --> sync
-    desktop --> build
 
     wasm --> gui
     wasm --> core
-    wasm --> parameter
-    wasm --> parameter_on_off
-    wasm --> errors
 
     gui --> core
-    gui --> parameter
-    gui --> parameter_on_off
-    gui --> errors
-    gui --> sync
-    gui --> build
-
     midi --> core
-    midi --> errors
-    midi --> sync
-    midi --> build
 
-    core --> parameter
     core --> parameter_on_off
     parameter_on_off --> parameter
-    parameter_nih --> parameter
-    parameter_on_off_nih --> parameter
+
     parameter_on_off_nih --> parameter_on_off
     parameter_on_off_nih --> parameter_nih
+    parameter_nih --> parameter
+
+    gui --> infra
+    midi --> infra
+    core --> parameter
     errors --> sync
     errors --> build
 ```
