@@ -1,7 +1,7 @@
 # Architecture
 
-This document is a first-pass map of the project. It is intentionally high level: it should help a human contributor or
-AI agent understand the main boundaries before following the detailed runtime data flows.
+This document is a high-level map of the project. It should help contributors understand the main boundaries before
+following the detailed runtime data flows.
 
 ## Purpose
 
