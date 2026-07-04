@@ -15,15 +15,14 @@ use nih_plug::{
 };
 use num_traits::ToPrimitive;
 use parameter::{OnOff, Parameter};
+use parameter_nih_plug::OnOffParam;
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams, Task,
     parameter_sync::{GUI_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
     plugin_config::PluginConfig,
-    plugin_parameter_adapters::{
-        PluginOnOffParam, apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param,
-    },
+    plugin_parameter_adapters::{apply_duration_param, apply_float_param, apply_int_param, apply_onoff_param},
 };
 
 pub struct BaseConfig {
@@ -165,7 +164,7 @@ fn mirror_duration_param<Config>(
 fn mirror_on_off_param<Config>(
     config: &mut Config,
     parameter: &Parameter<Config, OnOff<f32>>,
-    param: &PluginOnOffParam,
+    param: &OnOffParam,
     value: OnOff<f32>,
     param_setter: &ParamSetter,
 ) {
