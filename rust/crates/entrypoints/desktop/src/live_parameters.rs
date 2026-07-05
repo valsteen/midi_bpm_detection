@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
+use bpm_detection_config::{GUIConfig, GUIConfigOwner};
 use bpm_detection_core::{
     bpm_detection_receiver::BPMDetectionReceiver,
     parameters::{
@@ -12,7 +13,7 @@ use bpm_detection_core::{
 };
 use bpm_detection_midi::MidiInputPort;
 use errors::LogErrorWithExt;
-use gui::{BPMDetectionConfig, GUIConfig, GUIConfigOwner};
+use gui::BPMDetectionConfig;
 
 use crate::{
     config::DesktopConfig,
@@ -61,11 +62,11 @@ where
     B: BPMDetectionReceiver,
 {
     pub fn propagate_static_changes(&self) {
-        (self.on_static_config_changed)(self.config.static_bpm_detection_config.clone());
+        (self.on_static_config_changed)(self.config.bpm_detection.static_bpm_detection_config.clone());
     }
 
     pub fn propagate_dynamic_changes(&self) {
-        (self.on_dynamic_config_changed)(self.config.dynamic_bpm_detection_config.clone());
+        (self.on_dynamic_config_changed)(self.config.bpm_detection.dynamic_bpm_detection_config.clone());
     }
 }
 
@@ -74,11 +75,11 @@ where
     B: BPMDetectionReceiver,
 {
     fn normal_distribution_config(&self) -> &NormalDistributionConfig {
-        &self.config.static_bpm_detection_config.normal_distribution
+        &self.config.bpm_detection.static_bpm_detection_config.normal_distribution
     }
 
     fn normal_distribution_config_mut(&mut self) -> &mut NormalDistributionConfig {
-        &mut self.config.static_bpm_detection_config.normal_distribution
+        &mut self.config.bpm_detection.static_bpm_detection_config.normal_distribution
     }
 
     fn after_normal_distribution_config_set(&mut self) {
@@ -91,11 +92,11 @@ where
     B: BPMDetectionReceiver,
 {
     fn dynamic_bpm_detection_config(&self) -> &DynamicBPMDetectionConfig {
-        &self.config.dynamic_bpm_detection_config
+        &self.config.bpm_detection.dynamic_bpm_detection_config
     }
 
     fn dynamic_bpm_detection_config_mut(&mut self) -> &mut DynamicBPMDetectionConfig {
-        &mut self.config.dynamic_bpm_detection_config
+        &mut self.config.bpm_detection.dynamic_bpm_detection_config
     }
 
     fn after_dynamic_bpm_detection_config_set(&mut self) {
@@ -108,11 +109,11 @@ where
     B: BPMDetectionReceiver,
 {
     fn static_bpm_detection_config(&self) -> &StaticBPMDetectionConfig {
-        &self.config.static_bpm_detection_config
+        &self.config.bpm_detection.static_bpm_detection_config
     }
 
     fn static_bpm_detection_config_mut(&mut self) -> &mut StaticBPMDetectionConfig {
-        &mut self.config.static_bpm_detection_config
+        &mut self.config.bpm_detection.static_bpm_detection_config
     }
 
     fn after_static_bpm_detection_config_set(&mut self) {
@@ -125,11 +126,11 @@ where
     B: BPMDetectionReceiver,
 {
     fn gui_config(&self) -> &GUIConfig {
-        &self.config.gui_config
+        &self.config.bpm_detection.gui_config
     }
 
     fn gui_config_mut(&mut self) -> &mut GUIConfig {
-        &mut self.config.gui_config
+        &mut self.config.bpm_detection.gui_config
     }
 }
 

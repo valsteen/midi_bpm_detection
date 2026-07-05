@@ -1,5 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
+use bpm_detection_config::{GUIConfig, GUIConfigOwner, Settings};
 use bpm_detection_core::{
     TimedEvent,
     note_events::NoteOn,
@@ -11,7 +12,7 @@ use bpm_detection_core::{
 use derivative::Derivative;
 use errors::{LogErrorWithExt, error_backtrace};
 use futures::channel::mpsc::Sender;
-use gui::{BPMDetectionConfig, GUIConfig, GUIConfigOwner};
+use gui::BPMDetectionConfig;
 use serde::{Deserialize, Serialize};
 
 pub mod wasm;
@@ -21,10 +22,8 @@ const CONFIG: &str = include_str!("../config/base_config.toml");
 #[derive(Clone, Derivative, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WASMConfig {
-    #[serde(rename = "GUI")]
-    pub gui_config: GUIConfig,
-    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    pub static_bpm_detection_config: StaticBPMDetectionConfig,
+    #[serde(default, flatten)]
+    pub bpm_detection: Settings,
 }
 
 impl WASMConfig {
@@ -37,11 +36,7 @@ impl WASMConfig {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.gui_config.validate()?;
-        self.static_bpm_detection_config.validate()?;
-        self.dynamic_bpm_detection_config.validate()?;
-
-        Ok(())
+        self.bpm_detection.validate()
     }
 }
 
@@ -65,14 +60,14 @@ impl BaseConfig {
 
     fn propagate_static_changes(&mut self) {
         self.sender
-            .try_send(QueueItem::StaticParameters(self.config.static_bpm_detection_config.clone()))
+            .try_send(QueueItem::StaticParameters(self.config.bpm_detection.static_bpm_detection_config.clone()))
             .log_error_msg("channel full")
             .ok();
     }
 
     fn propagate_dynamic_changes(&mut self) {
         self.sender
-            .try_send(QueueItem::DynamicParameters(self.config.dynamic_bpm_detection_config.clone()))
+            .try_send(QueueItem::DynamicParameters(self.config.bpm_detection.dynamic_bpm_detection_config.clone()))
             .log_error_msg("channel full")
             .ok();
     }
@@ -80,11 +75,11 @@ impl BaseConfig {
 
 impl NormalDistributionConfigOwner for BaseConfig {
     fn normal_distribution_config(&self) -> &NormalDistributionConfig {
-        &self.config.static_bpm_detection_config.normal_distribution
+        &self.config.bpm_detection.static_bpm_detection_config.normal_distribution
     }
 
     fn normal_distribution_config_mut(&mut self) -> &mut NormalDistributionConfig {
-        &mut self.config.static_bpm_detection_config.normal_distribution
+        &mut self.config.bpm_detection.static_bpm_detection_config.normal_distribution
     }
 
     fn after_normal_distribution_config_set(&mut self) {
@@ -94,11 +89,11 @@ impl NormalDistributionConfigOwner for BaseConfig {
 
 impl DynamicBPMDetectionConfigOwner for BaseConfig {
     fn dynamic_bpm_detection_config(&self) -> &DynamicBPMDetectionConfig {
-        &self.config.dynamic_bpm_detection_config
+        &self.config.bpm_detection.dynamic_bpm_detection_config
     }
 
     fn dynamic_bpm_detection_config_mut(&mut self) -> &mut DynamicBPMDetectionConfig {
-        &mut self.config.dynamic_bpm_detection_config
+        &mut self.config.bpm_detection.dynamic_bpm_detection_config
     }
 
     fn after_dynamic_bpm_detection_config_set(&mut self) {
@@ -108,11 +103,11 @@ impl DynamicBPMDetectionConfigOwner for BaseConfig {
 
 impl StaticBPMDetectionConfigOwner for BaseConfig {
     fn static_bpm_detection_config(&self) -> &StaticBPMDetectionConfig {
-        &self.config.static_bpm_detection_config
+        &self.config.bpm_detection.static_bpm_detection_config
     }
 
     fn static_bpm_detection_config_mut(&mut self) -> &mut StaticBPMDetectionConfig {
-        &mut self.config.static_bpm_detection_config
+        &mut self.config.bpm_detection.static_bpm_detection_config
     }
 
     fn after_static_bpm_detection_config_set(&mut self) {
@@ -122,11 +117,11 @@ impl StaticBPMDetectionConfigOwner for BaseConfig {
 
 impl GUIConfigOwner for BaseConfig {
     fn gui_config(&self) -> &GUIConfig {
-        &self.config.gui_config
+        &self.config.bpm_detection.gui_config
     }
 
     fn gui_config_mut(&mut self) -> &mut GUIConfig {
-        &mut self.config.gui_config
+        &mut self.config.bpm_detection.gui_config
     }
 }
 

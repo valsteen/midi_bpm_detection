@@ -134,7 +134,7 @@ impl Default for MidiBpmDetector {
         let daw_port = ArcAtomicOptionNonZeroU16::none();
 
         let mut config = PluginConfig::default();
-        let bpm_detection = BPMDetection::new(config.static_bpm_detection_config.clone());
+        let bpm_detection = BPMDetection::new(config.bpm_detection.static_bpm_detection_config.clone());
 
         let static_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
         let gui_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
@@ -153,7 +153,11 @@ impl Default for MidiBpmDetector {
         let gui_must_update_config = ArcAtomicBool::new(false);
 
         let task_executor = task_executor::TaskExecutor::new(
-            task_executor::DetectionRuntime::new(bpm_detection, config.dynamic_bpm_detection_config, events_receiver),
+            task_executor::DetectionRuntime::new(
+                bpm_detection,
+                config.bpm_detection.dynamic_bpm_detection_config,
+                events_receiver,
+            ),
             task_executor::GuiTaskConfigSync::new(gui_task_config.clone(), gui_must_update_config.clone()),
             task_executor::GuiTaskOutput::new(None, gui_remote_handoff.clone(), params.editor_state.clone()),
             task_executor::TempoControllerOutput::new(daw_port, config.send_tempo.clone()),

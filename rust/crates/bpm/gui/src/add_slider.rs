@@ -1,3 +1,4 @@
+use bpm_detection_config::{GUIConfigAccessor, GUIParameterVisitor};
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor, NormalDistributionConfigAccessor,
     NormalDistributionParameterVisitor, StaticBPMDetectionConfigAccessor, StaticBPMDetectionParameterVisitor,
@@ -8,8 +9,6 @@ use eframe::{
 };
 use parameter::{Asf64, Parameter};
 use parameter_on_off::OnOff;
-
-use crate::config::{GUIConfigAccessor, GUIParameterVisitor};
 
 pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
     ui: &mut egui::Ui,

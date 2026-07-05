@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use bpm_detection_config::{GUIConfig, Settings};
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, NormalDistributionConfig,
     NormalDistributionParameterFieldVisitor, StaticBPMDetectionConfig,
@@ -32,10 +33,13 @@ impl RemoteControlsPage for RemoteControlNames {
 #[test]
 fn plugin_on_off_params_initialize_enabled_state_from_matching_config_field() {
     let mut config = PluginConfig {
-        dynamic_bpm_detection_config: DynamicBPMDetectionConfig {
-            velocity_current_note_weight: OnOff::On(1.0),
-            velocity_note_from_weight: OnOff::Off(2.0),
-            ..DynamicBPMDetectionConfig::default()
+        bpm_detection: bpm_detection_config::Settings {
+            dynamic_bpm_detection_config: DynamicBPMDetectionConfig {
+                velocity_current_note_weight: OnOff::On(1.0),
+                velocity_note_from_weight: OnOff::Off(2.0),
+                ..DynamicBPMDetectionConfig::default()
+            },
+            ..bpm_detection_config::Settings::default()
         },
         ..PluginConfig::default()
     };
@@ -308,8 +312,10 @@ fn dynamic_params_read_initialized_host_values_as_dynamic_config() {
         pitch_distance_weight: OnOff::On(1.5),
         high_tempo_bias_weight: OnOff::Off(2.1),
     };
-    let mut config =
-        PluginConfig { dynamic_bpm_detection_config: source_dynamic_config.clone(), ..PluginConfig::default() };
+    let mut config = PluginConfig {
+        bpm_detection: Settings { dynamic_bpm_detection_config: source_dynamic_config.clone(), ..Settings::default() },
+        ..PluginConfig::default()
+    };
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
@@ -327,8 +333,10 @@ fn static_params_read_initialized_host_values_as_static_config() {
         sample_rate: 720,
         normal_distribution: NormalDistributionConfig { std_dev: 18.25, resolution: 0.5, cutoff: 128.0, factor: 32.0 },
     };
-    let mut config =
-        PluginConfig { static_bpm_detection_config: source_static_config.clone(), ..PluginConfig::default() };
+    let mut config = PluginConfig {
+        bpm_detection: Settings { static_bpm_detection_config: source_static_config.clone(), ..Settings::default() },
+        ..PluginConfig::default()
+    };
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();
@@ -342,7 +350,10 @@ fn static_params_read_initialized_host_values_as_static_config() {
 fn gui_params_read_initialized_host_values_as_gui_config() {
     let source_gui_config =
         GUIConfig { interpolation_duration: Duration::from_secs_f32(0.82), interpolation_curve: 1.25 };
-    let mut config = PluginConfig { gui_config: source_gui_config.clone(), ..PluginConfig::default() };
+    let mut config = PluginConfig {
+        bpm_detection: Settings { gui_config: source_gui_config.clone(), ..Settings::default() },
+        ..PluginConfig::default()
+    };
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
     let daw_port = ArcAtomicOptionNonZeroU16::none();

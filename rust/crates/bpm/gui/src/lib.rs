@@ -31,11 +31,8 @@ mod app;
 mod app_builder;
 mod application_parameters;
 mod callback_slot;
-mod config;
 mod config_ui;
 mod gui_remote;
-
-pub use config::*;
 
 #[must_use]
 pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {

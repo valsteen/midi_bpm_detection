@@ -42,8 +42,8 @@ fn start_desktop_controller(
 ) -> Result<SharedDesktopController<gui::GuiRemote>> {
     let midi_service = bpm_detection_midi::MidiService::new(
         config.midi.clone(),
-        config.static_bpm_detection_config.clone(),
-        config.dynamic_bpm_detection_config.clone(),
+        config.bpm_detection.static_bpm_detection_config.clone(),
+        config.bpm_detection.dynamic_bpm_detection_config.clone(),
         #[cfg(target_os = "macos")]
         notify_device_change(gui_remote.clone(), controller_commands),
         gui_remote,

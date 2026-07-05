@@ -1,10 +1,10 @@
 #![allow(clippy::missing_panics_doc)]
+use bpm_detection_config::{GUIConfig, GUIConfigAccessor, Settings};
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfig,
 };
 use errors::error_backtrace;
 use futures::channel::mpsc;
-use gui::{GUIConfig, GUIConfigAccessor};
 use parameter_on_off::OnOff;
 use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
@@ -36,9 +36,11 @@ value = 1";
 fn base_config(sender: mpsc::Sender<QueueItem>) -> BaseConfig {
     BaseConfig {
         config: WASMConfig {
-            gui_config: GUIConfig::default(),
-            dynamic_bpm_detection_config: DynamicBPMDetectionConfig::default(),
-            static_bpm_detection_config: StaticBPMDetectionConfig::default(),
+            bpm_detection: Settings {
+                gui_config: GUIConfig::default(),
+                dynamic_bpm_detection_config: DynamicBPMDetectionConfig::default(),
+                static_bpm_detection_config: StaticBPMDetectionConfig::default(),
+            },
         },
         sender,
     }
@@ -53,7 +55,7 @@ fn test_config() {
 #[wasm_bindgen_test]
 fn built_in_wasm_config_matches_wasm_schema() {
     let config = WASMConfig::default();
-    assert_eq!(config.static_bpm_detection_config.bpm_center, 100.0);
+    assert_eq!(config.bpm_detection.static_bpm_detection_config.bpm_center, 100.0);
 }
 
 #[wasm_bindgen_test]

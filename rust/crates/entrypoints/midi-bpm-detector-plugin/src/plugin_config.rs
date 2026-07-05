@@ -1,8 +1,7 @@
 use std::sync::atomic::Ordering;
 
-use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_config::Settings;
 use errors::error_backtrace;
-use gui::GUIConfig;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sync::ArcAtomicBool;
 
@@ -67,10 +66,8 @@ impl<'de> Deserialize<'de> for SendTempoOutputState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PluginConfig {
-    #[serde(rename = "GUI")]
-    pub gui_config: GUIConfig,
-    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
-    pub static_bpm_detection_config: StaticBPMDetectionConfig,
+    #[serde(default, flatten)]
+    pub bpm_detection: Settings,
     pub send_tempo: SendTempoOutputState,
 }
 
@@ -84,11 +81,7 @@ impl PluginConfig {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.gui_config.validate()?;
-        self.static_bpm_detection_config.validate()?;
-        self.dynamic_bpm_detection_config.validate()?;
-
-        Ok(())
+        self.bpm_detection.validate()
     }
 }
 

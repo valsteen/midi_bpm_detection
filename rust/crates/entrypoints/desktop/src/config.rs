@@ -1,11 +1,10 @@
 use std::{fs::write, path::PathBuf};
 
-use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_config::Settings;
 use bpm_detection_midi::MidiServiceConfig;
 use build::{get_config_dir, get_data_dir};
 use config::ConfigError;
 use errors::{Report, Result, TypedResult};
-use gui::GUIConfig;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 
@@ -23,14 +22,10 @@ pub struct DesktopConfig {
     #[serde(default, flatten)]
     #[serde(skip_serializing)]
     pub app: AppConfig,
-    #[serde(rename = "GUI")]
-    pub gui_config: GUIConfig,
+    #[serde(default, flatten)]
+    pub bpm_detection: Settings,
     #[serde(rename = "MIDI")]
     pub midi: MidiServiceConfig,
-    #[serde(default)]
-    pub static_bpm_detection_config: StaticBPMDetectionConfig,
-    #[serde(default)]
-    pub dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
 }
 
 impl DesktopConfig {
@@ -60,11 +55,7 @@ impl DesktopConfig {
     }
 
     fn validate(&self) -> std::result::Result<(), String> {
-        self.gui_config.validate()?;
-        self.static_bpm_detection_config.validate()?;
-        self.dynamic_bpm_detection_config.validate()?;
-
-        Ok(())
+        self.bpm_detection.validate()
     }
 
     /// Persist the user-editable desktop configuration to the configured config directory.

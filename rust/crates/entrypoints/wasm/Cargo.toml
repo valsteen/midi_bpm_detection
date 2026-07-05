@@ -6,6 +6,7 @@ default-run = "beat-detector"
 
 [dependencies]
 gui = { path = "../../bpm/gui" }
+bpm_detection_config = { path = "../../bpm/bpm_detection_config" }
 bpm_detection_core = { path = "../../bpm/bpm_detection_core" }
 errors = { path = "../../support/errors" }
 parameter = { path = "../../foundation/parameter" }

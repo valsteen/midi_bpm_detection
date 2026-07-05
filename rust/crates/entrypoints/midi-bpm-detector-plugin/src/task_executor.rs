@@ -82,34 +82,34 @@ impl GuiTaskConfigSync {
 
     fn read_host_static_config(&self, host_params: &PluginStaticParams) -> StaticBPMDetectionConfig {
         let mut config = self.gui_task_config.write();
-        config.static_bpm_detection_config = host_params.read_static_config();
+        config.bpm_detection.static_bpm_detection_config = host_params.read_static_config();
         self.gui_must_update_config.store(true, Ordering::Relaxed);
 
-        config.static_bpm_detection_config.clone()
+        config.bpm_detection.static_bpm_detection_config.clone()
     }
 
     fn read_gui_origin_static_config(&self) -> StaticBPMDetectionConfig {
-        self.gui_task_config.read().static_bpm_detection_config.clone()
+        self.gui_task_config.read().bpm_detection.static_bpm_detection_config.clone()
     }
 
     fn sync_host_gui_config(&self, host_params: &PluginGUIParams) {
         {
             let mut config = self.gui_task_config.write();
-            config.gui_config = host_params.read_gui_config();
+            config.bpm_detection.gui_config = host_params.read_gui_config();
         }
         self.gui_must_update_config.store(true, Ordering::Relaxed);
     }
 
     fn read_host_dynamic_config(&self, host_params: &PluginDynamicParams) -> DynamicBPMDetectionConfig {
         let mut config = self.gui_task_config.write();
-        config.dynamic_bpm_detection_config = host_params.read_dynamic_config();
+        config.bpm_detection.dynamic_bpm_detection_config = host_params.read_dynamic_config();
         self.gui_must_update_config.store(true, Ordering::Relaxed);
 
-        config.dynamic_bpm_detection_config.clone()
+        config.bpm_detection.dynamic_bpm_detection_config.clone()
     }
 
     fn read_gui_origin_dynamic_config(&self) -> DynamicBPMDetectionConfig {
-        self.gui_task_config.read().dynamic_bpm_detection_config.clone()
+        self.gui_task_config.read().bpm_detection.dynamic_bpm_detection_config.clone()
     }
 }
 

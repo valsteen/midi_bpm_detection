@@ -10,6 +10,7 @@ build = { path = "../../support/build" }
 sync = { path = "../../support/sync" }
 parameter = { path = "../../foundation/parameter" }
 parameter-on-off = { path = "../../foundation/parameter-on-off" }
+bpm_detection_config = { path = "../bpm_detection_config" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 
 egui_plot = { version = "0.35.0" }

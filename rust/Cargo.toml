@@ -4,6 +4,7 @@ members = [
     "crates/entrypoints/desktop",
     "crates/support/errors",
     "crates/support/build",
+    "crates/bpm/bpm_detection_config",
     "crates/bpm/bpm_detection_core",
     "crates/bpm/bpm_detection_midi",
     "crates/bpm/gui",

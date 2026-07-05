@@ -34,7 +34,8 @@ flowchart TD
 
   subgraph adapters["Application / adapter layer"]
     direction TB
-    gui["gui<br/>egui visualization/config"]
+    gui["gui<br/>egui visualization"]
+    config["bpm_detection_config<br/>shared serializable app config"]
     midi["bpm_detection_midi<br/>native MIDI service"]
   end
 
@@ -63,17 +64,22 @@ flowchart TD
   plugin --> errors
   plugin --> sync
   desktop --> gui
+  desktop --> config
   desktop --> midi
   desktop --> core
   desktop --> errors
   desktop --> sync
   desktop --> build
   wasm --> gui
+  wasm --> config
   wasm --> core
   wasm --> errors
   gui --> core
+  gui --> config
   gui --> parameter_on_off
   gui --> errors
+  config --> core
+  config --> parameter
   midi --> core
   midi --> errors
   midi --> sync
@@ -117,9 +123,16 @@ runtime that wires them together.
 
 ### Shared GUI
 
+- `crates/bpm/bpm_detection_config`
+  - Owns the shared serializable BPM application settings used by plugin, desktop, and WASM runtime configs.
+  - Defines `GUIConfig` and the shared `Settings` wrapper around GUI, static BPM detection, and dynamic BPM detection
+    config.
+  - Keeps the config data shape below runtime entrypoints without making `gui` the owner of application config.
+
 - `crates/bpm/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
   - Defines `GuiRemote`, the cross-thread/task bridge used to push BPM/histogram updates into the UI.
+  - Depends on `bpm_detection_config` for GUI parameter metadata, but does not own the serializable app config shape.
   - Does not own a specific runtime mode; plugin, desktop, and WASM provide the surrounding application/runtime.
 
 ### Runtime Entrypoints

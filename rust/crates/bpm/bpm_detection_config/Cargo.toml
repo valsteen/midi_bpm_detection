@@ -1,0 +1,14 @@
+[package]
+name = "bpm_detection_config"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+
+[dependencies]
+bpm_detection_core = { path = "../bpm_detection_core" }
+parameter = { path = "../../foundation/parameter" }
+
+serde = { version = "1.0.228", features = ["derive"] }
+
+[lints]
+workspace = true

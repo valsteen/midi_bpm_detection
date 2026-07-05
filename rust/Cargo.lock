@@ -440,6 +440,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpm_detection_config"
+version = "0.1.0"
+dependencies = [
+ "bpm_detection_core",
+ "parameter",
+ "serde",
+]
+
+[[package]]
 name = "bpm_detection_core"
 version = "0.1.0"
 dependencies = [
@@ -1152,6 +1161,7 @@ dependencies = [
 name = "desktop"
 version = "0.1.0"
 dependencies = [
+ "bpm_detection_config",
  "bpm_detection_core",
  "bpm_detection_midi",
  "build",
@@ -1985,6 +1995,7 @@ version = "0.1.0"
 dependencies = [
  "atomic_float 1.1.0",
  "atomic_refcell",
+ "bpm_detection_config",
  "bpm_detection_core",
  "build",
  "derivative",
@@ -2695,6 +2706,7 @@ dependencies = [
 name = "midi-bpm-detector-plugin"
 version = "0.1.0"
 dependencies = [
+ "bpm_detection_config",
  "bpm_detection_core",
  "chrono",
  "cpal",
@@ -5123,6 +5135,7 @@ name = "wasm"
 version = "0.1.0"
 dependencies = [
  "atomic_refcell",
+ "bpm_detection_config",
  "bpm_detection_core",
  "chrono",
  "derivative",

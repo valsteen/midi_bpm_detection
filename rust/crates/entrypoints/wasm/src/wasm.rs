@@ -63,8 +63,8 @@ pub fn run() -> Result<GuiRemoteWrapper> {
     let (redraw_sender, mut redraw_receiver) = futures::channel::mpsc::channel(100);
 
     let live_config = BaseConfig::new(redraw_sender.clone());
-    let static_bpm_detection_config = live_config.config.static_bpm_detection_config.clone();
-    let mut dynamic_bpm_detection_config = live_config.config.dynamic_bpm_detection_config.clone();
+    let static_bpm_detection_config = live_config.config.bpm_detection.static_bpm_detection_config.clone();
+    let mut dynamic_bpm_detection_config = live_config.config.bpm_detection.dynamic_bpm_detection_config.clone();
     let (gui_remote, gui_builder) = create_gui(live_config);
 
     wasm_bindgen_futures::spawn_local({

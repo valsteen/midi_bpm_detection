@@ -5,6 +5,7 @@ use std::{
     time::Duration as StdDuration,
 };
 
+use bpm_detection_config::{GUIConfig, Settings};
 use bpm_detection_core::{
     TimedNoteOn,
     note_events::NoteOn,
@@ -18,9 +19,13 @@ use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 use super::*;
 use crate::{DeferredConfigUpdate, plugin_config::PluginConfig};
 
-fn assert_gui_config_eq(actual: &gui::GUIConfig, expected: &gui::GUIConfig) {
+fn assert_gui_config_eq(actual: &GUIConfig, expected: &GUIConfig) {
     assert_eq!(actual.interpolation_duration, expected.interpolation_duration);
     assert!((actual.interpolation_curve - expected.interpolation_curve).abs() < f32::EPSILON);
+}
+
+fn plugin_config_with_settings(settings: Settings) -> PluginConfig {
+    PluginConfig { bpm_detection: settings, ..PluginConfig::default() }
 }
 
 #[test]
@@ -53,25 +58,25 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
         high_tempo_bias_weight: OnOff::Off(2.1),
     };
     let host_gui_config =
-        gui::GUIConfig { interpolation_duration: StdDuration::from_secs_f32(0.82), interpolation_curve: 1.25 };
-    let mut host_config = PluginConfig {
+        GUIConfig { interpolation_duration: StdDuration::from_secs_f32(0.82), interpolation_curve: 1.25 };
+    let mut host_config = plugin_config_with_settings(Settings {
         dynamic_bpm_detection_config: host_dynamic_config.clone(),
         gui_config: host_gui_config.clone(),
-        ..PluginConfig::default()
-    };
+        ..Settings::default()
+    });
     host_config.send_tempo.set_from_host(false);
 
     let gui_task_gui_config =
-        gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
-    let gui_task_config = Arc::new(RwLock::new(PluginConfig {
+        GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
+    let gui_task_config = Arc::new(RwLock::new(plugin_config_with_settings(Settings {
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig {
             beats_lookback: 2,
             normal_distribution_weight: OnOff::Off(0.1),
             ..DynamicBPMDetectionConfig::default()
         },
         gui_config: gui_task_gui_config.clone(),
-        ..PluginConfig::default()
-    }));
+        ..Settings::default()
+    })));
     gui_task_config.read().send_tempo.set_from_host(true);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
@@ -91,7 +96,7 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
     let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     let (mut server, _) = listener.accept().unwrap();
     server.set_read_timeout(Some(StdDuration::from_secs(1))).unwrap();
-    let mut bpm_detection = BPMDetection::new(gui_task_config.read().static_bpm_detection_config.clone());
+    let mut bpm_detection = BPMDetection::new(gui_task_config.read().bpm_detection.static_bpm_detection_config.clone());
 
     bpm_detection.receive_note_on(TimedNoteOn {
         timestamp: ChronoDuration::zero(),
@@ -114,8 +119,8 @@ fn host_origin_dynamic_sync_copies_dynamic_values_and_forces_recompute() {
     executor.execute(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));
 
     let config = gui_task_config.read();
-    assert_gui_config_eq(&config.gui_config, &gui_task_gui_config);
-    assert_eq!(config.dynamic_bpm_detection_config, host_dynamic_config);
+    assert_gui_config_eq(&config.bpm_detection.gui_config, &gui_task_gui_config);
+    assert_eq!(config.bpm_detection.dynamic_bpm_detection_config, host_dynamic_config);
     assert!(config.send_tempo.enabled());
     assert_eq!(executor.detection.dynamic_bpm_detection_config, host_dynamic_config);
     assert!(gui_must_update_config.load(Ordering::Relaxed));
@@ -133,8 +138,10 @@ fn host_origin_static_sync_copies_static_values_and_forces_recompute() {
         sample_rate: 720,
         normal_distribution: NormalDistributionConfig { std_dev: 18.25, resolution: 0.5, cutoff: 128.0, factor: 32.0 },
     };
-    let mut host_config =
-        PluginConfig { static_bpm_detection_config: host_static_config.clone(), ..PluginConfig::default() };
+    let mut host_config = plugin_config_with_settings(Settings {
+        static_bpm_detection_config: host_static_config.clone(),
+        ..Settings::default()
+    });
     host_config.send_tempo.set_from_host(false);
 
     let gui_task_static_config = StaticBPMDetectionConfig {
@@ -148,11 +155,11 @@ fn host_origin_static_sync_copies_static_values_and_forces_recompute() {
         normal_distribution_weight: OnOff::Off(0.1),
         ..Default::default()
     };
-    let gui_task_config = Arc::new(RwLock::new(PluginConfig {
+    let gui_task_config = Arc::new(RwLock::new(plugin_config_with_settings(Settings {
         static_bpm_detection_config: gui_task_static_config.clone(),
         dynamic_bpm_detection_config: gui_task_dynamic_config.clone(),
-        ..PluginConfig::default()
-    }));
+        ..Settings::default()
+    })));
     gui_task_config.read().send_tempo.set_from_host(true);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
@@ -195,8 +202,8 @@ fn host_origin_static_sync_copies_static_values_and_forces_recompute() {
     executor.execute(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host));
 
     let config = gui_task_config.read();
-    assert_eq!(config.static_bpm_detection_config, host_static_config);
-    assert_eq!(config.dynamic_bpm_detection_config, gui_task_dynamic_config);
+    assert_eq!(config.bpm_detection.static_bpm_detection_config, host_static_config);
+    assert_eq!(config.bpm_detection.dynamic_bpm_detection_config, gui_task_dynamic_config);
     assert_eq!(executor.detection.dynamic_bpm_detection_config, gui_task_dynamic_config);
     assert!(gui_must_update_config.load(Ordering::Relaxed));
 
@@ -208,20 +215,21 @@ fn host_origin_static_sync_copies_static_values_and_forces_recompute() {
 #[test]
 fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
     let host_gui_config =
-        gui::GUIConfig { interpolation_duration: StdDuration::from_secs_f32(0.82), interpolation_curve: 1.25 };
-    let mut host_config = PluginConfig { gui_config: host_gui_config.clone(), ..PluginConfig::default() };
+        GUIConfig { interpolation_duration: StdDuration::from_secs_f32(0.82), interpolation_curve: 1.25 };
+    let mut host_config =
+        plugin_config_with_settings(Settings { gui_config: host_gui_config.clone(), ..Settings::default() });
     let gui_task_dynamic_config = DynamicBPMDetectionConfig {
         beats_lookback: 2,
         normal_distribution_weight: OnOff::Off(0.1),
         ..Default::default()
     };
     let gui_task_gui_config =
-        gui::GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
-    let gui_task_config = Arc::new(RwLock::new(PluginConfig {
+        GUIConfig { interpolation_duration: StdDuration::from_millis(50), interpolation_curve: 0.1 };
+    let gui_task_config = Arc::new(RwLock::new(plugin_config_with_settings(Settings {
         dynamic_bpm_detection_config: gui_task_dynamic_config.clone(),
         gui_config: gui_task_gui_config,
-        ..PluginConfig::default()
-    }));
+        ..Settings::default()
+    })));
     gui_task_config.read().send_tempo.set_from_host(true);
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
@@ -241,7 +249,7 @@ fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
     let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     let (mut server, _) = listener.accept().unwrap();
     server.set_read_timeout(Some(StdDuration::from_millis(25))).unwrap();
-    let mut bpm_detection = BPMDetection::new(gui_task_config.read().static_bpm_detection_config.clone());
+    let mut bpm_detection = BPMDetection::new(gui_task_config.read().bpm_detection.static_bpm_detection_config.clone());
 
     bpm_detection.receive_note_on(TimedNoteOn {
         timestamp: ChronoDuration::zero(),
@@ -264,8 +272,8 @@ fn host_origin_gui_config_sync_copies_host_values_without_forcing_recompute() {
     executor.execute(Task::GUIConfig(ParameterSyncOrigin::Host));
 
     let config = gui_task_config.read();
-    assert_gui_config_eq(&config.gui_config, &host_gui_config);
-    assert_eq!(config.dynamic_bpm_detection_config, gui_task_dynamic_config);
+    assert_gui_config_eq(&config.bpm_detection.gui_config, &host_gui_config);
+    assert_eq!(config.bpm_detection.dynamic_bpm_detection_config, gui_task_dynamic_config);
     assert_eq!(executor.detection.dynamic_bpm_detection_config, gui_task_dynamic_config);
     assert!(gui_must_update_config.load(Ordering::Relaxed));
 

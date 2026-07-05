@@ -6,6 +6,7 @@ description = "Native desktop runtime for MIDI BPM detection"
 default-run = "desktop"
 
 [dependencies]
+bpm_detection_config = { path = "../../bpm/bpm_detection_config" }
 bpm_detection_core = { path = "../../bpm/bpm_detection_core" }
 bpm_detection_midi = { path = "../../bpm/bpm_detection_midi" }
 build = { path = "../../support/build" }

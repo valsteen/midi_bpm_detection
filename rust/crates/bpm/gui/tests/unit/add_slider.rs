@@ -1,3 +1,4 @@
+use bpm_detection_config::{GUIConfig, GUIConfigAccessor, GUIParameterVisitor};
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
     NormalDistributionConfig, NormalDistributionConfigAccessor, NormalDistributionParameterVisitor,
@@ -5,7 +6,6 @@ use bpm_detection_core::parameters::{
 };
 
 use super::*;
-use crate::config::{GUIConfig, GUIConfigAccessor, GUIParameterVisitor};
 
 fn assert_dynamic_parameter_visitor<Config>()
 where

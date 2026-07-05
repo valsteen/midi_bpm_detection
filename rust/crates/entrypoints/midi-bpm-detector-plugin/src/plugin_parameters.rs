@@ -6,8 +6,8 @@ use std::{
     },
 };
 
+use bpm_detection_config::GUIConfig;
 use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
-use gui::GUIConfig;
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Params},
     prelude::IntRange,
@@ -23,7 +23,11 @@ use crate::{
     plugin_config::{PluginConfig, SendTempoOutputState},
 };
 
-#[nih_plugin_parameter_group(config = gui::GUIConfig, group = "GUI", accessor_macro = plugin_gui_params_accessors)]
+#[nih_plugin_parameter_group(
+    config = bpm_detection_config::GUIConfig,
+    group = "GUI",
+    accessor_macro = plugin_gui_params_accessors
+)]
 pub struct PluginGUIParams {
     pub interpolation_duration: FloatParam,
     pub interpolation_curve: FloatParam,
@@ -165,14 +169,14 @@ impl MidiBpmDetectorParams {
         Self {
             editor_state: EguiState::from_size(1200, 600),
             send_tempo: send_tempo_param(&config.send_tempo),
-            gui_params: PluginGUIParams::new(&config.gui_config, &update_gui_changed_at_f32),
+            gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &update_gui_changed_at_f32),
             static_params: PluginStaticParams::new(
-                &config.static_bpm_detection_config,
+                &config.bpm_detection.static_bpm_detection_config,
                 &update_static_changed_at_f32,
                 &update_static_changed_at_i32,
             ),
             dynamic_params: PluginDynamicParams::new(
-                &config.dynamic_bpm_detection_config,
+                &config.bpm_detection.dynamic_bpm_detection_config,
                 &update_dynamic_changed_at_f32,
                 &update_dynamic_changed_at_i32,
             ),

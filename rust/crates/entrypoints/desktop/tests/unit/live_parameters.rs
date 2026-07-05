@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use bpm_detection_config::{GUIConfig, GUIConfigAccessor, Settings};
 use bpm_detection_core::{
     bpm_detection_receiver::BPMDetectionReceiver,
     parameters::{
@@ -12,7 +13,6 @@ use bpm_detection_core::{
     },
 };
 use bpm_detection_midi::MidiServiceConfig;
-use gui::{GUIConfig, GUIConfigAccessor};
 use sync::ArcAtomicBool;
 
 use super::*;
@@ -30,14 +30,16 @@ impl BPMDetectionReceiver for TestReceiver {
 fn desktop_config() -> DesktopConfig {
     DesktopConfig {
         app: AppConfig::default(),
-        gui_config: GUIConfig::default(),
+        bpm_detection: Settings {
+            gui_config: GUIConfig::default(),
+            static_bpm_detection_config: StaticBPMDetectionConfig::default(),
+            dynamic_bpm_detection_config: DynamicBPMDetectionConfig::default(),
+        },
         midi: MidiServiceConfig {
             device_name: "Desktop".to_string(),
             send_tempo: ArcAtomicBool::new(false),
             enable_midi_clock: ArcAtomicBool::new(false),
         },
-        static_bpm_detection_config: StaticBPMDetectionConfig::default(),
-        dynamic_bpm_detection_config: DynamicBPMDetectionConfig::default(),
     }
 }
 

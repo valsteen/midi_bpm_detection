@@ -1,10 +1,9 @@
+use bpm_detection_config::GUIConfigAccessor;
 use bpm_detection_core::parameters::{
     DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionComputed,
     StaticBPMDetectionConfigAccessor,
 };
 use eframe::egui::Ui;
-
-use crate::config::GUIConfigAccessor;
 
 pub trait BPMDetectionConfig:
     NormalDistributionConfigAccessor

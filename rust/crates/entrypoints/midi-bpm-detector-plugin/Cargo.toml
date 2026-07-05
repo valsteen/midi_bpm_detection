@@ -15,6 +15,7 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 errors = { path = "../../support/errors" }
 gui = { path = "../../bpm/gui" }
+bpm_detection_config = { path = "../../bpm/bpm_detection_config" }
 bpm_detection_core = { path = "../../bpm/bpm_detection_core" }
 parameter = { path = "../../foundation/parameter" }
 parameter-on-off = { path = "../../foundation/parameter-on-off" }

@@ -120,7 +120,7 @@ pub(crate) struct LiveConfig<'_self> {
 
 normal_distribution_params_accessors! {
     target = LiveConfig<'_>,
-    config = self.base_config.config.static_bpm_detection_config.normal_distribution,
+    config = self.base_config.config.bpm_detection.static_bpm_detection_config.normal_distribution,
     params = self.base_config.params.static_params.normal_distribution,
     param_setter = self.param_setter,
     after_set = self.base_config.delay_static_changes(),
@@ -128,7 +128,7 @@ normal_distribution_params_accessors! {
 
 plugin_dynamic_params_accessors! {
     target = LiveConfig<'_>,
-    config = self.base_config.config.dynamic_bpm_detection_config,
+    config = self.base_config.config.bpm_detection.dynamic_bpm_detection_config,
     params = self.base_config.params.dynamic_params,
     param_setter = self.param_setter,
     after_set = self.base_config.delay_dynamic_changes(),
@@ -136,7 +136,7 @@ plugin_dynamic_params_accessors! {
 
 plugin_static_params_accessors! {
     target = LiveConfig<'_>,
-    config = self.base_config.config.static_bpm_detection_config,
+    config = self.base_config.config.bpm_detection.static_bpm_detection_config,
     params = self.base_config.params.static_params,
     param_setter = self.param_setter,
     after_set = self.base_config.delay_static_changes(),
@@ -144,7 +144,7 @@ plugin_static_params_accessors! {
 
 plugin_gui_params_accessors! {
     target = LiveConfig<'_>,
-    config = self.base_config.config.gui_config,
+    config = self.base_config.config.bpm_detection.gui_config,
     params = self.base_config.params.gui_params,
     param_setter = self.param_setter,
     after_set = self.base_config.delay_gui_changes(),

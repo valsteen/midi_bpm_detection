@@ -8,6 +8,10 @@ fn send_tempo_output_state_serializes_as_toml_boolean() {
     let parsed: toml::Table = serialized.parse().expect("serialized config should be TOML");
 
     assert_eq!(parsed["send_tempo"].as_bool(), Some(false));
+    assert!(parsed.contains_key("GUI"));
+    assert!(parsed.contains_key("static_bpm_detection_config"));
+    assert!(parsed.contains_key("dynamic_bpm_detection_config"));
+    assert!(!parsed.contains_key("bpm_detection"));
 }
 
 #[test]
@@ -56,6 +60,16 @@ fn plugin_config_rejects_stale_dynamic_parameter_keys() {
 
     assert!(message.contains("unknown field"));
     assert!(message.contains("high_tempo_bias"));
+}
+
+#[test]
+fn plugin_config_rejects_unknown_top_level_keys() {
+    let config_with_unknown_key = format!("{CONFIG}\nunknown_top_level = true\n");
+
+    let message = PluginConfig::from_toml(&config_with_unknown_key).expect_err("unknown key should be rejected");
+
+    assert!(message.contains("unknown field"));
+    assert!(message.contains("unknown_top_level"));
 }
 
 #[test]

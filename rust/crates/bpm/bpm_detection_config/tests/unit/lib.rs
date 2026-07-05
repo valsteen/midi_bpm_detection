@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use parameter::{Parameter, ParameterSpec};
 
 use super::*;
