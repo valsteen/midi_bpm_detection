@@ -1,23 +1,21 @@
 [package]
-name = "bpm_detection_core"
+name = "bpm_detection_config"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.92"
 
 [dependencies]
-bpm_detection_config = { path = "../bpm_detection_config" }
+parameter = { path = "../../../foundation/parameter" }
+parameter-on-off = { path = "../../../foundation/parameter-on-off" }
 
-itertools = "0.15.0"
-statrs = "0.18.0"
-arraydeque = "0.5.1"
+derivative = "2.2.0"
+serde = { version = "1.0.228", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 chrono = { version="0.4.45" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 chrono = { version="0.4.45", features = ["wasmbind"]}
-
-[dev-dependencies]
-parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 [lints]
 workspace = true

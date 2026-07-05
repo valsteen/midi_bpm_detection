@@ -8,6 +8,8 @@ boundary rules so the entrypoint stays small.
 - Preserve the separation between the production plugin, native desktop mode, WASM showcase mode, shared GUI, MIDI
   service, and BPM detection core. The filesystem groups those roles under `crates/entrypoints/`, `crates/bpm/`,
   `crates/support/`, `crates/tools/`, and `crates/foundation/`.
+- Treat `crates/bpm/` as a BPM product umbrella with explicit subroles: `domain/` for `bpm_detection_config` and
+  `bpm_detection_core`, `gui/` for the shared egui surface, and `native-midi/` for the desktop native MIDI service.
 - Split crates primarily by dependency surface, then refine by responsibility when a crate grows too broad.
 - Keep reusable parameter metadata, optional reusable parameter value types, and optional plugin-host bridges under
   `crates/foundation/`.

@@ -32,15 +32,18 @@ flowchart TD
     xtask["plugin xtask<br/>packaging helper"]
   end
 
-  subgraph adapters["Application / adapter layer"]
+  subgraph domain["BPM domain / model"]
     direction TB
-    gui["gui<br/>egui visualization"]
-    config["bpm_detection_config<br/>shared serializable app config"]
-    midi["bpm_detection_midi<br/>native MIDI service"]
+    config["bpm_detection_config<br/>serializable BPM config model"]
+    core["bpm_detection_core<br/>algorithm + note events"]
   end
 
-  subgraph domain["Core domain"]
-    core["bpm_detection_core<br/>algorithm + note events"]
+  subgraph shared_ui["BPM shared UI"]
+    gui["gui<br/>egui visualization"]
+  end
+
+  subgraph native_midi["BPM native MIDI service"]
+    midi["bpm_detection_midi<br/>native MIDI service"]
   end
 
   subgraph foundation["Foundation parameter stack"]
@@ -95,15 +98,25 @@ flowchart TD
   errors --> build
 ```
 
-This graph captures the dependency rule the project is trying to preserve: `gui` does not depend on native MIDI, and
-`bpm_detection_midi` does not depend on egui. The `desktop` crate sits above both because it is the native desktop
-runtime that wires them together.
+This graph captures the dependency rule the project is trying to preserve: `bpm_detection_config` and
+`bpm_detection_core` are BPM domain/model crates, while `gui` and `bpm_detection_midi` are separate BPM-specific UI and
+native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detection_midi` does not depend on egui. The
+`desktop` crate sits above both because it is the native desktop runtime that wires them together.
 
 ## Crate Groups
 
-### Core Domain
+### BPM Domain / Model
 
-- `crates/bpm/bpm_detection_core`
+- `crates/bpm/domain/bpm_detection_config`
+  - Owns the shared serializable BPM application settings used by plugin, desktop, and WASM runtime configs.
+  - Defines `GUIConfig`, `StaticBPMDetectionConfig`, `DynamicBPMDetectionConfig`, `NormalDistributionConfig`, the BPM
+    conversion helpers, and the shared `Settings` wrapper around GUI, static BPM detection, and dynamic BPM detection
+    config.
+  - Owns generated config owner/accessor traits for the serializable parameter groups, plus shared `SettingsOwner`
+    delegation for non-plugin runtime configs.
+  - Keeps the config data shape below runtime entrypoints without making `gui` the owner of application config.
+
+- `crates/bpm/domain/bpm_detection_core`
   - Owns the BPM detection algorithm.
   - Defines the in-house note event shape consumed by the algorithm and runtime BPM detection state.
   - Depends on `bpm_detection_config` for the serializable static/dynamic BPM detection config and BPM conversion
@@ -123,16 +136,7 @@ runtime that wires them together.
 - `crates/support/build`
   - Provides build metadata and project directories shared by multiple binaries/crates.
 
-### Shared GUI
-
-- `crates/bpm/bpm_detection_config`
-  - Owns the shared serializable BPM application settings used by plugin, desktop, and WASM runtime configs.
-  - Defines `GUIConfig`, `StaticBPMDetectionConfig`, `DynamicBPMDetectionConfig`, `NormalDistributionConfig`, the BPM
-    conversion helpers, and the shared `Settings` wrapper around GUI, static BPM detection, and dynamic BPM detection
-    config.
-  - Owns generated config owner/accessor traits for the serializable parameter groups, plus shared `SettingsOwner`
-    delegation for non-plugin runtime configs.
-  - Keeps the config data shape below runtime entrypoints without making `gui` the owner of application config.
+### BPM Shared UI
 
 - `crates/bpm/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
@@ -169,9 +173,9 @@ runtime that wires them together.
   - Small macOS utility for restarting CoreMIDI.
   - Kept separate from the main operating modes.
 
-### Native MIDI
+### BPM Native MIDI Service
 
-- `crates/bpm/bpm_detection_midi`
+- `crates/bpm/native-midi/bpm_detection_midi`
   - Native MIDI runtime used by the desktop mode.
   - Owns MIDI device discovery/input, virtual MIDI output, SysEx control messages, playback clock emission, and the
     worker threads around `BPMDetection`.
