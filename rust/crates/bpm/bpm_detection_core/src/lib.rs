@@ -11,7 +11,6 @@ pub use crate::note_events::{TimedEvent, TimedNoteOn};
 pub mod bpm_detection_receiver;
 mod normal_distribution;
 pub mod note_events;
-pub mod parameters;
 
 mod bpm_detection;
 

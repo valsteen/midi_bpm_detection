@@ -17,7 +17,6 @@ chrono = { version="0.4.45" }
 chrono = { version="0.4.45", features = ["wasmbind"]}
 
 [dev-dependencies]
-parameter = { path = "../../foundation/parameter" }
 parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 [lints]

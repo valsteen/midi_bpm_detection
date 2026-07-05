@@ -107,25 +107,11 @@ pub struct DynamicBPMDetectionConfig {
 
 impl StaticBPMDetectionConfig {
     #[must_use]
-    pub fn duration_to_index(&self, duration: Duration, buffer_size: usize) -> Option<usize> {
-        let index = self
-            .duration_to_sample(duration)
-            .checked_sub(self.duration_to_sample(bpm_to_beat_duration(self.highest_bpm())))?;
-        (index < buffer_size).then_some(index)
-    }
-
-    #[must_use]
     pub fn buffer_size(&self) -> usize {
         bpm_to_beat_duration(self.lowest_bpm())
             .checked_sub(&bpm_to_beat_duration(self.highest_bpm()))
             .map(|duration| duration_to_sample(self.sample_rate, duration))
             .expect("programming error, bpm_lower_bound > bpm_upper_bound")
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn index_to_duration(&self, index: usize) -> Duration {
-        sample_to_duration(self.sample_rate, index) + bpm_to_beat_duration(self.highest_bpm())
     }
 
     #[must_use]

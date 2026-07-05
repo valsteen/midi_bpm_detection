@@ -458,7 +458,6 @@ dependencies = [
  "bpm_detection_config",
  "chrono",
  "itertools",
- "parameter",
  "parameter-on-off",
  "statrs",
 ]

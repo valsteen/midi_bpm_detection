@@ -122,6 +122,21 @@ fn folded_score_input(fold_count: u32) -> f32 {
     2.0_f32.powi(-exponent)
 }
 
+fn duration_to_histogram_index(
+    config: &StaticBPMDetectionConfig,
+    duration: Duration,
+    buffer_size: usize,
+) -> Option<usize> {
+    let index = config
+        .duration_to_sample(duration)
+        .checked_sub(config.duration_to_sample(bpm_to_beat_duration(config.highest_bpm())))?;
+    (index < buffer_size).then_some(index)
+}
+
+fn histogram_index_to_duration(config: &StaticBPMDetectionConfig, index: usize) -> Duration {
+    sample_to_duration(config.sample_rate, index) + bpm_to_beat_duration(config.highest_bpm())
+}
+
 pub struct BPMDetection {
     interval_high: Duration,
     interval_low: Duration,
@@ -182,7 +197,7 @@ impl BPMDetection {
             .enumerate()
             .max_by(|a, b| a.1.total_cmp(b.1))
             .filter(|(_, weight)| **weight > 0.0)
-            .map(|(index, _)| self.static_bpm_detection_config.index_to_duration(index))?;
+            .map(|(index, _)| histogram_index_to_duration(&self.static_bpm_detection_config, index))?;
         let bpm = beat_duration_to_bpm(most_probable_interval);
 
         let max_note_age = bpm_to_beat_duration(bpm) * i32::from(dynamic_bpm_detection_config.beats_lookback);
@@ -225,7 +240,12 @@ impl BPMDetection {
                 continue;
             };
 
-            if self.static_bpm_detection_config.duration_to_index(interval, self.histogram_data_points.len()).is_none()
+            if duration_to_histogram_index(
+                &self.static_bpm_detection_config,
+                interval,
+                self.histogram_data_points.len(),
+            )
+            .is_none()
             {
                 // interval is outside the range of BPM we consider, including trying to multiply or divide the interval
                 continue;
@@ -270,10 +290,11 @@ impl BPMDetection {
 
             let mut timestamp = -cutoff;
             while timestamp <= cutoff {
-                if let Some(index) = self
-                    .static_bpm_detection_config
-                    .duration_to_index(timestamp + interval, self.histogram_data_points.len())
-                {
+                if let Some(index) = duration_to_histogram_index(
+                    &self.static_bpm_detection_config,
+                    timestamp + interval,
+                    self.histogram_data_points.len(),
+                ) {
                     let normal_value = if normal_weight > 0.0 {
                         (self.normal_distribution[timestamp]
                             * 9.0
