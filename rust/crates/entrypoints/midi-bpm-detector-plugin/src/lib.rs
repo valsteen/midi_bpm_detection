@@ -19,11 +19,8 @@ use std::{
     },
 };
 
-use bpm_detection_core::{
-    BPMDetection, TimedNoteOn,
-    note_events::NoteOn,
-    parameters::{duration_to_sample, sample_to_duration},
-};
+use bpm_detection_config::{duration_to_sample, sample_to_duration};
+use bpm_detection_core::{BPMDetection, TimedNoteOn, note_events::NoteOn};
 use crossbeam::atomic::AtomicCell;
 #[cfg(not(debug_assertions))]
 use mimalloc::MiMalloc;

@@ -3,10 +3,9 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_config::{GUIConfig, Settings};
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, NormalDistributionConfig,
-    NormalDistributionParameterFieldVisitor, StaticBPMDetectionConfig,
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, GUIConfig, NormalDistributionConfig,
+    NormalDistributionParameterFieldVisitor, Settings, StaticBPMDetectionConfig,
 };
 use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
 use parameter::{Asf64, ParameterField};

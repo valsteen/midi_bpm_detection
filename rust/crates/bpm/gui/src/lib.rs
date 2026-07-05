@@ -12,7 +12,7 @@ pub use app::{BPMDetectionApp, BPMDetectionGUI};
 pub use app_builder::{AppBuilder, AppBuilderShell};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
-use bpm_detection_core::parameters::max_histogram_data_buffer_size;
+use bpm_detection_config::max_histogram_data_buffer_size;
 pub use eframe;
 use eframe::egui;
 #[cfg(not(target_arch = "wasm32"))]

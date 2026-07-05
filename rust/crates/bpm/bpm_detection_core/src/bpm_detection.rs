@@ -1,17 +1,14 @@
 use std::time::Duration as StdDuration;
 
 use arraydeque::{ArrayDeque, Wrapping};
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm, bpm_to_beat_duration,
+    max_histogram_data_buffer_size, sample_to_duration,
+};
 use chrono::Duration;
 use itertools::Itertools;
 
-use crate::{
-    TimedNoteOn,
-    normal_distribution::NormalDistribution,
-    parameters::{
-        DynamicBPMDetectionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm, bpm_to_beat_duration,
-        max_histogram_data_buffer_size, sample_to_duration,
-    },
-};
+use crate::{TimedNoteOn, normal_distribution::NormalDistribution};
 
 pub const NOTE_CAPACITY: usize = 10000;
 

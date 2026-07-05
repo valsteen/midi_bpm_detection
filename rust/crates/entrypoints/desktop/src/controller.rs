@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use bpm_detection_core::{
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::bpm_detection_receiver::BPMDetectionReceiver;
 use bpm_detection_midi::{MidiIn, MidiInputConnection, MidiInputPort, MidiService};
 use errors::Result;
 use sync::{ArcRwLock, ArcRwLockExt, RwLock};

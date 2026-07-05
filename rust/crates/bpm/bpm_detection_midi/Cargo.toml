@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bpm_detection_config = { path = "../bpm_detection_config" }
 bpm_detection_core = { path = "../bpm_detection_core" }
 build = { path = "../../support/build" }
 errors = { path = "../../support/errors" }

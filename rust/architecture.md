@@ -59,6 +59,7 @@ flowchart TD
   end
 
   plugin --> gui
+  plugin --> config
   plugin --> core
   plugin --> parameter_on_off_nih
   plugin --> errors
@@ -78,14 +79,14 @@ flowchart TD
   gui --> config
   gui --> parameter_on_off
   gui --> errors
-  config --> core
   config --> parameter
+  config --> parameter_on_off
   midi --> core
+  midi --> config
   midi --> errors
   midi --> sync
   midi --> build
-  core --> parameter_on_off
-  core --> parameter
+  core --> config
   parameter_on_off_nih --> parameter_on_off
   parameter_on_off_nih --> parameter_nih
   parameter_nih --> parameter
@@ -104,8 +105,9 @@ runtime that wires them together.
 
 - `crates/bpm/bpm_detection_core`
   - Owns the BPM detection algorithm.
-  - Defines the in-house note event shape consumed by the algorithm, static/dynamic BPM detection config, and BPM
-    conversion helpers.
+  - Defines the in-house note event shape consumed by the algorithm and runtime BPM detection state.
+  - Depends on `bpm_detection_config` for the serializable static/dynamic BPM detection config and BPM conversion
+    helpers.
   - Does not depend on native MIDI runtimes or a MIDI protocol parser.
   - Exposes `BPMDetectionReceiver`, the callback boundary used to publish detected BPM and histogram data.
 
@@ -125,8 +127,11 @@ runtime that wires them together.
 
 - `crates/bpm/bpm_detection_config`
   - Owns the shared serializable BPM application settings used by plugin, desktop, and WASM runtime configs.
-  - Defines `GUIConfig` and the shared `Settings` wrapper around GUI, static BPM detection, and dynamic BPM detection
+  - Defines `GUIConfig`, `StaticBPMDetectionConfig`, `DynamicBPMDetectionConfig`, `NormalDistributionConfig`, the BPM
+    conversion helpers, and the shared `Settings` wrapper around GUI, static BPM detection, and dynamic BPM detection
     config.
+  - Owns generated config owner/accessor traits for the serializable parameter groups, plus shared `SettingsOwner`
+    delegation for non-plugin runtime configs.
   - Keeps the config data shape below runtime entrypoints without making `gui` the owner of application config.
 
 - `crates/bpm/gui`
@@ -306,9 +311,9 @@ possible third origin or shared policy layer before production code needs it.
 
 These points are worth re-checking when changing ownership, communication, or runtime boundaries:
 
-- `bpm_detection_core` owns the algorithm/config/core-note surface, while `bpm_detection_midi` owns native MIDI service
-  integration. If core grows again, keep checking whether new code belongs to the algorithm model, a MIDI-protocol
-  adapter, or a runtime mode.
+- `bpm_detection_config` owns the serializable parameter/config surface, `bpm_detection_core` owns the algorithm and
+  core-note surface, and `bpm_detection_midi` owns native MIDI service integration. If core grows again, keep checking
+  whether new code belongs to serializable config, the algorithm model, a MIDI-protocol adapter, or a runtime mode.
 - `GuiRemote` is the shared UI update bridge, not just a plugin helper. It is used as the boundary between BPM producers
   and egui rendering.
 - Plugin mode is the production target and drives the realtime constraints. Desktop and WASM preserve the same model but

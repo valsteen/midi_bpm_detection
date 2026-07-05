@@ -6,11 +6,8 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_core::{
-    BPMDetection, TimedNoteOn,
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::{BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMDetectionReceiver};
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;

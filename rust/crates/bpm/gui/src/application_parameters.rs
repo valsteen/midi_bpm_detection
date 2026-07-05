@@ -1,6 +1,5 @@
-use bpm_detection_config::GUIConfigAccessor;
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionComputed,
+use bpm_detection_config::{
+    DynamicBPMDetectionConfigAccessor, GUIConfigAccessor, NormalDistributionConfigAccessor, StaticBPMDetectionComputed,
     StaticBPMDetectionConfigAccessor,
 };
 use eframe::egui::Ui;

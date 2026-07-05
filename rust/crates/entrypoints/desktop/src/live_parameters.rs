@@ -3,14 +3,8 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
-use bpm_detection_config::{GUIConfig, GUIConfigOwner};
-use bpm_detection_core::{
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{
-        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigOwner, NormalDistributionConfig,
-        NormalDistributionConfigOwner, StaticBPMDetectionConfig, StaticBPMDetectionConfigOwner,
-    },
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, Settings, SettingsOwner, StaticBPMDetectionConfig};
+use bpm_detection_core::bpm_detection_receiver::BPMDetectionReceiver;
 use bpm_detection_midi::MidiInputPort;
 use errors::LogErrorWithExt;
 use gui::BPMDetectionConfig;
@@ -70,67 +64,24 @@ where
     }
 }
 
-impl<B, Controller, Commands> NormalDistributionConfigOwner for DesktopBaseConfig<B, Controller, Commands>
+impl<B, Controller, Commands> SettingsOwner for DesktopBaseConfig<B, Controller, Commands>
 where
     B: BPMDetectionReceiver,
 {
-    fn normal_distribution_config(&self) -> &NormalDistributionConfig {
-        &self.config.bpm_detection.static_bpm_detection_config.normal_distribution
+    fn bpm_detection_settings(&self) -> &Settings {
+        &self.config.bpm_detection
     }
 
-    fn normal_distribution_config_mut(&mut self) -> &mut NormalDistributionConfig {
-        &mut self.config.bpm_detection.static_bpm_detection_config.normal_distribution
-    }
-
-    fn after_normal_distribution_config_set(&mut self) {
-        self.propagate_static_changes();
-    }
-}
-
-impl<B, Controller, Commands> DynamicBPMDetectionConfigOwner for DesktopBaseConfig<B, Controller, Commands>
-where
-    B: BPMDetectionReceiver,
-{
-    fn dynamic_bpm_detection_config(&self) -> &DynamicBPMDetectionConfig {
-        &self.config.bpm_detection.dynamic_bpm_detection_config
-    }
-
-    fn dynamic_bpm_detection_config_mut(&mut self) -> &mut DynamicBPMDetectionConfig {
-        &mut self.config.bpm_detection.dynamic_bpm_detection_config
+    fn bpm_detection_settings_mut(&mut self) -> &mut Settings {
+        &mut self.config.bpm_detection
     }
 
     fn after_dynamic_bpm_detection_config_set(&mut self) {
         self.propagate_dynamic_changes();
     }
-}
-
-impl<B, Controller, Commands> StaticBPMDetectionConfigOwner for DesktopBaseConfig<B, Controller, Commands>
-where
-    B: BPMDetectionReceiver,
-{
-    fn static_bpm_detection_config(&self) -> &StaticBPMDetectionConfig {
-        &self.config.bpm_detection.static_bpm_detection_config
-    }
-
-    fn static_bpm_detection_config_mut(&mut self) -> &mut StaticBPMDetectionConfig {
-        &mut self.config.bpm_detection.static_bpm_detection_config
-    }
 
     fn after_static_bpm_detection_config_set(&mut self) {
         self.propagate_static_changes();
-    }
-}
-
-impl<B, Controller, Commands> GUIConfigOwner for DesktopBaseConfig<B, Controller, Commands>
-where
-    B: BPMDetectionReceiver,
-{
-    fn gui_config(&self) -> &GUIConfig {
-        &self.config.bpm_detection.gui_config
-    }
-
-    fn gui_config_mut(&mut self) -> &mut GUIConfig {
-        &mut self.config.bpm_detection.gui_config
     }
 }
 

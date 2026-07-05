@@ -5,12 +5,8 @@ use std::{
     time::Duration as StdDuration,
 };
 
-use bpm_detection_config::{GUIConfig, Settings};
-use bpm_detection_core::{
-    TimedNoteOn,
-    note_events::NoteOn,
-    parameters::{NormalDistributionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{GUIConfig, NormalDistributionConfig, Settings, StaticBPMDetectionConfig};
+use bpm_detection_core::{TimedNoteOn, note_events::NoteOn};
 use chrono::Duration as ChronoDuration;
 use parameter_on_off::OnOff;
 use ringbuf::{StaticRb, traits::Split};

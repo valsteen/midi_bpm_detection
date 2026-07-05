@@ -1,9 +1,8 @@
 use std::ops::Index;
 
+use bpm_detection_config::NormalDistributionConfig;
 use chrono::Duration;
 use statrs::distribution::{Continuous, Normal};
-
-use crate::parameters::NormalDistributionConfig;
 
 pub(crate) struct NormalDistribution {
     normal_distribution_data_points: Vec<f32>,

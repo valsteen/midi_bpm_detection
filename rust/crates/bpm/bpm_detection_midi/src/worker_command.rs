@@ -1,7 +1,5 @@
-use bpm_detection_core::{
-    TimedEvent, TimedNoteOn,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::{TimedEvent, TimedNoteOn};
 use wmidi::MidiMessage;
 
 use crate::midi_note_on_from_message;

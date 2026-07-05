@@ -13,12 +13,8 @@ use std::{
 };
 
 use atomic_refcell::AtomicRefCell;
-use bpm_detection_core::{
-    BPMDetection, TimedEvent,
-    bpm_detection_receiver::BPMDetectionReceiver,
-    note_events::NoteOn,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::{BPMDetection, TimedEvent, bpm_detection_receiver::BPMDetectionReceiver, note_events::NoteOn};
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
 use futures::{StreamExt, channel::mpsc::Sender};

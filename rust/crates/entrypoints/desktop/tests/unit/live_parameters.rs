@@ -4,14 +4,11 @@ use std::{
     time::Duration,
 };
 
-use bpm_detection_config::{GUIConfig, GUIConfigAccessor, Settings};
-use bpm_detection_core::{
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{
-        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfig,
-        StaticBPMDetectionConfigAccessor,
-    },
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, GUIConfig, GUIConfigAccessor, Settings,
+    StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
 };
+use bpm_detection_core::bpm_detection_receiver::BPMDetectionReceiver;
 use bpm_detection_midi::MidiServiceConfig;
 use sync::ArcAtomicBool;
 

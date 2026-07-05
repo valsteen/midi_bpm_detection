@@ -1,14 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
-use bpm_detection_config::{GUIConfig, GUIConfigOwner, Settings};
-use bpm_detection_core::{
-    TimedEvent,
-    note_events::NoteOn,
-    parameters::{
-        DynamicBPMDetectionConfig, DynamicBPMDetectionConfigOwner, NormalDistributionConfig,
-        NormalDistributionConfigOwner, StaticBPMDetectionConfig, StaticBPMDetectionConfigOwner,
-    },
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, Settings, SettingsOwner, StaticBPMDetectionConfig};
+use bpm_detection_core::{TimedEvent, note_events::NoteOn};
 use derivative::Derivative;
 use errors::{LogErrorWithExt, error_backtrace};
 use futures::channel::mpsc::Sender;
@@ -73,55 +66,21 @@ impl BaseConfig {
     }
 }
 
-impl NormalDistributionConfigOwner for BaseConfig {
-    fn normal_distribution_config(&self) -> &NormalDistributionConfig {
-        &self.config.bpm_detection.static_bpm_detection_config.normal_distribution
+impl SettingsOwner for BaseConfig {
+    fn bpm_detection_settings(&self) -> &Settings {
+        &self.config.bpm_detection
     }
 
-    fn normal_distribution_config_mut(&mut self) -> &mut NormalDistributionConfig {
-        &mut self.config.bpm_detection.static_bpm_detection_config.normal_distribution
-    }
-
-    fn after_normal_distribution_config_set(&mut self) {
-        self.propagate_static_changes();
-    }
-}
-
-impl DynamicBPMDetectionConfigOwner for BaseConfig {
-    fn dynamic_bpm_detection_config(&self) -> &DynamicBPMDetectionConfig {
-        &self.config.bpm_detection.dynamic_bpm_detection_config
-    }
-
-    fn dynamic_bpm_detection_config_mut(&mut self) -> &mut DynamicBPMDetectionConfig {
-        &mut self.config.bpm_detection.dynamic_bpm_detection_config
+    fn bpm_detection_settings_mut(&mut self) -> &mut Settings {
+        &mut self.config.bpm_detection
     }
 
     fn after_dynamic_bpm_detection_config_set(&mut self) {
         self.propagate_dynamic_changes();
     }
-}
-
-impl StaticBPMDetectionConfigOwner for BaseConfig {
-    fn static_bpm_detection_config(&self) -> &StaticBPMDetectionConfig {
-        &self.config.bpm_detection.static_bpm_detection_config
-    }
-
-    fn static_bpm_detection_config_mut(&mut self) -> &mut StaticBPMDetectionConfig {
-        &mut self.config.bpm_detection.static_bpm_detection_config
-    }
 
     fn after_static_bpm_detection_config_set(&mut self) {
         self.propagate_static_changes();
-    }
-}
-
-impl GUIConfigOwner for BaseConfig {
-    fn gui_config(&self) -> &GUIConfig {
-        &self.config.bpm_detection.gui_config
-    }
-
-    fn gui_config_mut(&mut self) -> &mut GUIConfig {
-        &mut self.config.bpm_detection.gui_config
     }
 }
 

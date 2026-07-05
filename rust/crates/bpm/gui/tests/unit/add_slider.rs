@@ -1,8 +1,8 @@
-use bpm_detection_config::{GUIConfig, GUIConfigAccessor, GUIParameterVisitor};
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor,
-    NormalDistributionConfig, NormalDistributionConfigAccessor, NormalDistributionParameterVisitor,
-    StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor, StaticBPMDetectionParameterVisitor,
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, DynamicBPMDetectionParameterVisitor, GUIConfig,
+    GUIConfigAccessor, GUIParameterVisitor, NormalDistributionConfig, NormalDistributionConfigAccessor,
+    NormalDistributionParameterVisitor, StaticBPMDetectionConfig, StaticBPMDetectionConfigAccessor,
+    StaticBPMDetectionParameterVisitor,
 };
 
 use super::*;

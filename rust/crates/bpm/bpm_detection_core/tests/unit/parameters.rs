@@ -1,4 +1,5 @@
-use parameter::{Parameter, ParameterSpec};
+use parameter::{Asf64, Parameter, ParameterSpec};
+use parameter_on_off::OnOff;
 
 use super::*;
 

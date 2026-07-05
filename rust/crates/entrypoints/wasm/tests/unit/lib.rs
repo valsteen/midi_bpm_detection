@@ -1,7 +1,7 @@
 #![allow(clippy::missing_panics_doc)]
-use bpm_detection_config::{GUIConfig, GUIConfigAccessor, Settings};
-use bpm_detection_core::parameters::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, StaticBPMDetectionConfig,
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, GUIConfig, GUIConfigAccessor, Settings,
+    StaticBPMDetectionConfig,
 };
 use errors::error_backtrace;
 use futures::channel::mpsc;

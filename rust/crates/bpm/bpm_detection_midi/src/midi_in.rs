@@ -6,11 +6,8 @@ use std::{
     thread,
 };
 
-use bpm_detection_core::{
-    TimedEvent,
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_core::{TimedEvent, bpm_detection_receiver::BPMDetectionReceiver};
 use build::PROJECT_NAME;
 use chrono::Duration;
 use errors::{MakeReportExt, Report, Result, error_backtrace};

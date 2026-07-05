@@ -14,7 +14,6 @@ pub mod note_events;
 pub mod parameters;
 
 mod bpm_detection;
-mod num_traits_chrono;
 
 pub use bpm_detection::{BPMDetection, NOTE_CAPACITY};
-pub use num_traits_chrono::DurationOps;
+pub use bpm_detection_config::DurationOps;

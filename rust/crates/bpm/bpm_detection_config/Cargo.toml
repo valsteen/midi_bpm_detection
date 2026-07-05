@@ -5,10 +5,17 @@ edition = "2024"
 rust-version = "1.92"
 
 [dependencies]
-bpm_detection_core = { path = "../bpm_detection_core" }
 parameter = { path = "../../foundation/parameter" }
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
+derivative = "2.2.0"
 serde = { version = "1.0.228", features = ["derive"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version="0.4.45" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+chrono = { version="0.4.45", features = ["wasmbind"]}
 
 [lints]
 workspace = true

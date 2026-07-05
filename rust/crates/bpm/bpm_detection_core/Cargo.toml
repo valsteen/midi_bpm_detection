@@ -4,14 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-parameter = { path = "../../foundation/parameter" }
-parameter-on-off = { path = "../../foundation/parameter-on-off" }
-
+bpm_detection_config = { path = "../bpm_detection_config" }
 
 itertools = "0.15.0"
-derivative = "2.2.0"
 statrs = "0.18.0"
-serde = { version = "1.0.228", features = ["derive"] }
 arraydeque = "0.5.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -19,6 +15,10 @@ chrono = { version="0.4.45" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 chrono = { version="0.4.45", features = ["wasmbind"]}
+
+[dev-dependencies]
+parameter = { path = "../../foundation/parameter" }
+parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 [lints]
 workspace = true

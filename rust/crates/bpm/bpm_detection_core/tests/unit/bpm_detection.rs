@@ -1,13 +1,11 @@
+use bpm_detection_config::{
+    DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm,
+    bpm_to_beat_duration,
+};
 use parameter_on_off::OnOff;
 
 use super::*;
-use crate::{
-    note_events::NoteOn,
-    parameters::{
-        DynamicBPMDetectionConfig, NormalDistributionConfig, StaticBPMDetectionConfig, beat_duration_to_bpm,
-        bpm_to_beat_duration,
-    },
-};
+use crate::note_events::NoteOn;
 
 const BPM_TOLERANCE: f32 = 1.0;
 

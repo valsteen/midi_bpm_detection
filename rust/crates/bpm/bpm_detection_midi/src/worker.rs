@@ -8,11 +8,8 @@ use std::{
     time::{Duration as StdDuration, Instant},
 };
 
-use bpm_detection_core::{
-    BPMDetection,
-    bpm_detection_receiver::BPMDetectionReceiver,
-    parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval},
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, bpm_to_midi_clock_interval};
+use bpm_detection_core::{BPMDetection, bpm_detection_receiver::BPMDetectionReceiver};
 use errors::Result;
 use log::error;
 use sync::ArcAtomicBool;

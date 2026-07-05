@@ -6,8 +6,7 @@ use std::{
     },
 };
 
-use bpm_detection_config::GUIConfig;
-use bpm_detection_core::parameters::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
+use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, StaticBPMDetectionConfig};
 use nih_plug::{
     params::{BoolParam, FloatParam, IntParam, Params},
     prelude::IntRange,
@@ -34,7 +33,7 @@ pub struct PluginGUIParams {
 }
 
 #[nih_plugin_parameter_group(
-    config = bpm_detection_core::parameters::DynamicBPMDetectionConfig,
+    config = bpm_detection_config::DynamicBPMDetectionConfig,
     group = "DynamicParams",
     accessor_macro = plugin_dynamic_params_accessors
 )]
@@ -63,7 +62,7 @@ pub struct PluginDynamicParams {
 }
 
 #[nih_plugin_parameter_group(
-    config = bpm_detection_core::parameters::NormalDistributionConfig,
+    config = bpm_detection_config::NormalDistributionConfig,
     group = "normal_distribution",
     accessor_macro = normal_distribution_params_accessors
 )]
@@ -75,7 +74,7 @@ pub struct NormalDistributionParams {
 }
 
 #[nih_plugin_parameter_group(
-    config = bpm_detection_core::parameters::StaticBPMDetectionConfig,
+    config = bpm_detection_config::StaticBPMDetectionConfig,
     group = "StaticParams",
     accessor_macro = plugin_static_params_accessors
 )]
