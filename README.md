@@ -129,9 +129,9 @@ then let Bitwig rescan. Bitwig's user guide documents the Dashboard settings and
 Install the `.bwextension` package with `./gradlew installBitwigExtension` or copy it into Bitwig's user extensions
 folder. In Bitwig, add the controller extension from `Dashboard > Settings > Controllers > Add`; it appears as the
 `Beat Detection Bitwig Extension` from `Midi BPM Detection`. Bitwig's user guide covers controller setup in
-[MIDI Controllers](https://www.bitwig.com/userguide/latest/midi_controllers/). Bitwig's official controller-extension
-repository also notes that the controller API guide and reference are available inside Bitwig Studio under
-`Help > Documentation > Developer Resources`: [bitwig/bitwig-extensions](https://github.com/bitwig/bitwig-extensions).
+[MIDI Controllers](https://www.bitwig.com/userguide/latest/midi_controllers/). Bitwig Studio includes the local
+controller API guide and reference under `Help > Documentation > Developer Resources`. Bitwig also publishes official
+controller-extension examples at [bitwig/bitwig-extensions](https://github.com/bitwig/bitwig-extensions).
 
 ### Use In Bitwig
 
