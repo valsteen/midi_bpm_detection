@@ -163,7 +163,7 @@ sequenceDiagram
     Model-->>Exec: histogram data + detected BPM
     Exec->>Bridge: write length-prefixed f32 BPM, if enabled and connected
     Exec->>Gui: receive_bpm_histogram_data(histogram, bpm), if editor open
-    Gui->>Gui: swap latest histogram buffer, store BPM atomically, request repaint
+    Gui->>Gui: attempt best-effort histogram snapshot publication, store BPM atomically, request repaint
     Ui->>Gui: try_borrow latest histogram data on next frame
     Ui->>Ui: interpolate and draw histogram bars
 ```
@@ -181,14 +181,15 @@ The histogram path is a latest-state handoff, not a note-by-note GUI queue:
 - `BPMDetection::receive_note_on` mutates the model's note/history state.
 - `BPMDetection::compute_bpm` clears and refills the model's histogram buffer from accumulated note pairs, returns
   `(histogram_data_points, detected_bpm)`, and prunes old notes after choosing a BPM.
-- `GuiRemote::receive_bpm_histogram_data` copies the histogram into a reusable swap buffer, tries to swap it into the
-  GUI-facing histogram buffer, stores the detected BPM in an atomic, and requests a repaint.
+- `GuiRemote::receive_bpm_histogram_data` copies the complete histogram into producer-owned reusable scratch, tries to
+  swap it into the GUI-facing snapshot, stores the detected BPM in an atomic, and requests a repaint.
 - `BPMDetectionGUI` tries to borrow the latest histogram data during a frame, interpolates from the previous drawn data,
   and renders the bars.
 
-That boundary is useful because BPM producers do not wait for egui to draw. If the GUI is borrowing the histogram when a
-producer publishes, the update is logged and skipped. If the GUI cannot borrow the histogram while drawing, that frame is
-skipped. This favors realtime/background progress and responsive rendering over preserving every visual update.
+That boundary is useful because BPM producers do not wait for egui to draw. If the GUI is borrowing the snapshot when a
+producer publishes, that visualization update is logged and dropped without retry while scalar BPM publication remains
+independent. If the GUI cannot borrow the snapshot while drawing, that frame is skipped. This favors realtime/background
+progress and responsive rendering over preserving every visual update.
 
 Desktop and WASM use the same `GuiRemote` receiver shape after their worker/task computes a histogram.
 

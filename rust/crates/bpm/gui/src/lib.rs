@@ -24,7 +24,7 @@ use log::info;
 use sync::Mutex;
 
 pub use crate::application_parameters::BPMDetectionConfig;
-use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramDataPoints};
+use crate::{callback_slot::ArcCallbackSlot, gui_remote::HistogramSnapshot};
 
 pub mod add_slider;
 mod app;
@@ -48,13 +48,13 @@ pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
     #[cfg(not(target_arch = "wasm32"))]
     let weak_on_gui_exit_callback = Arc::downgrade(&gui_exit_callback);
 
-    let histogram_data_points = Arc::new(AtomicRefCell::new(HistogramDataPoints::default()));
+    let gui_histogram_snapshot = Arc::new(AtomicRefCell::new(HistogramSnapshot::default()));
 
     let bpm_detection_gui = BPMDetectionGUI {
         keys_sender: weak_keys_sender,
         #[cfg(not(target_arch = "wasm32"))]
         on_gui_exit_callback: weak_on_gui_exit_callback,
-        histogram_data_points: Arc::downgrade(&histogram_data_points),
+        gui_histogram_snapshot: Arc::downgrade(&gui_histogram_snapshot),
         interpolated_data_points: Vec::with_capacity(max_histogram_data_buffer_size()),
         estimated_bpm: Arc::downgrade(&estimated_bpm),
         daw_bpm: Arc::downgrade(&daw_bpm),
@@ -65,8 +65,8 @@ pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
         context: context_receiver.clone(),
         keys_sender,
         on_gui_exit_callback: gui_exit_callback,
-        swap_histogram_data_points: Arc::new(AtomicRefCell::new(Vec::with_capacity(max_histogram_data_buffer_size()))),
-        histogram_data_points,
+        producer_histogram_scratch: Arc::new(AtomicRefCell::new(Vec::with_capacity(max_histogram_data_buffer_size()))),
+        gui_histogram_snapshot,
         estimated_bpm,
         daw_bpm,
         should_save,

@@ -25,8 +25,8 @@ pub struct GuiRemote {
     pub(crate) keys_sender: ArcCallbackSlot<dyn FnMut(&'static str) + Send>,
     #[derivative(Debug = "ignore")]
     pub(crate) on_gui_exit_callback: ArcCallbackSlot<dyn Fn() + Send>,
-    pub(crate) swap_histogram_data_points: Arc<AtomicRefCell<Vec<f32>>>,
-    pub(crate) histogram_data_points: Arc<AtomicRefCell<HistogramDataPoints>>,
+    pub(crate) producer_histogram_scratch: Arc<AtomicRefCell<Vec<f32>>>,
+    pub(crate) gui_histogram_snapshot: Arc<AtomicRefCell<HistogramSnapshot>>,
     pub(crate) estimated_bpm: Arc<AtomicF32>,
     pub(crate) daw_bpm: Arc<AtomicF32>,
     pub(crate) should_save: Arc<AtomicBool>,
@@ -34,35 +34,33 @@ pub struct GuiRemote {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub(crate) struct HistogramDataPoints {
-    pub(crate) inbound_histogram_data_points: Vec<f32>,
-    pub(crate) inbound_histogram_data_update: Instant,
+pub(crate) struct HistogramSnapshot {
+    pub(crate) data_points: Vec<f32>,
+    pub(crate) updated_at: Instant,
 }
 
-impl Default for HistogramDataPoints {
+impl Default for HistogramSnapshot {
     fn default() -> Self {
-        Self {
-            inbound_histogram_data_points: Vec::with_capacity(max_histogram_data_buffer_size()),
-            inbound_histogram_data_update: Instant::now(),
-        }
+        Self { data_points: Vec::with_capacity(max_histogram_data_buffer_size()), updated_at: Instant::now() }
     }
 }
 
 impl BPMDetectionReceiver for GuiRemote {
     fn receive_bpm_histogram_data(&mut self, histogram_data_points: &[f32], detected_bpm: f32) {
-        let mut swap_histogram_data_points = self.swap_histogram_data_points.borrow_mut();
-        swap_histogram_data_points.resize(histogram_data_points.len(), 0.0);
-        swap_histogram_data_points.copy_from_slice(histogram_data_points);
+        let mut producer_histogram_scratch = self.producer_histogram_scratch.borrow_mut();
+        producer_histogram_scratch.resize(histogram_data_points.len(), 0.0);
+        producer_histogram_scratch.copy_from_slice(histogram_data_points);
 
-        self.histogram_data_points
+        // Publish only a complete snapshot when the GUI snapshot is immediately available. If it is busy, deliberately
+        // drop this visualization update rather than block or retry.
+        self.gui_histogram_snapshot
             .try_borrow_mut()
-            .map(|mut histogram_data_points| {
-                let HistogramDataPoints { inbound_histogram_data_points, inbound_histogram_data_update } =
-                    &mut *histogram_data_points;
-                mem::swap(inbound_histogram_data_points, &mut *swap_histogram_data_points);
-                *inbound_histogram_data_update = Instant::now();
+            .map(|mut gui_histogram_snapshot| {
+                let HistogramSnapshot { data_points, updated_at } = &mut *gui_histogram_snapshot;
+                mem::swap(data_points, &mut *producer_histogram_scratch);
+                *updated_at = Instant::now();
             })
-            .log_error_msg("race condition while taking histogram_data_points, skipping update")
+            .log_error_msg("GUI histogram snapshot busy; dropping best-effort visualization update")
             .ok();
 
         self.estimated_bpm.store(detected_bpm, Ordering::Relaxed);

@@ -17,7 +17,7 @@ use num_traits::identities::Zero;
 
 use crate::{
     BPMDetectionConfig, BUILD_PROFILE, BUILD_TIME, callback_slot::WeakCallbackSlot, egui::Color32,
-    gui_remote::HistogramDataPoints,
+    gui_remote::HistogramSnapshot,
 };
 
 pub struct BPMDetectionGUI {
@@ -26,7 +26,7 @@ pub struct BPMDetectionGUI {
     pub(crate) keys_sender: WeakCallbackSlot<dyn FnMut(&'static str) + Send>,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) on_gui_exit_callback: WeakCallbackSlot<dyn Fn() + Send>,
-    pub(crate) histogram_data_points: Weak<AtomicRefCell<HistogramDataPoints>>,
+    pub(crate) gui_histogram_snapshot: Weak<AtomicRefCell<HistogramSnapshot>>,
     pub(crate) interpolated_data_points: Vec<f32>,
     pub(crate) estimated_bpm: Weak<AtomicF32>,
     pub(crate) daw_bpm: Weak<AtomicF32>,
@@ -40,36 +40,36 @@ impl BPMDetectionGUI {
         config: &mut Config,
         plot_ui: &mut PlotUi,
     ) -> Option<bool> {
-        let histogram_data_points = self
-            .histogram_data_points
+        let gui_histogram_snapshot = self
+            .gui_histogram_snapshot
             .upgrade()
-            .log_error_msg("histogram_data_points weak reference is gone, leaving")?;
-        let histogram_data_points = histogram_data_points
+            .log_error_msg("GUI histogram snapshot weak reference is gone, leaving")?;
+        let gui_histogram_snapshot = gui_histogram_snapshot
             .try_borrow()
-            .log_error_msg("race condition while acquiring histogram_data_points, skipping frame")
+            .log_error_msg("GUI histogram snapshot busy; skipping this render frame")
             .ok()?;
 
         // so we interpolate based on normalized data
-        let max_y = histogram_data_points.inbound_histogram_data_points.iter().max_by(|x, y| x.total_cmp(y))?;
+        let max_y = gui_histogram_snapshot.data_points.iter().max_by(|x, y| x.total_cmp(y))?;
         if max_y.is_zero() {
             return None;
         }
 
-        if self.interpolated_data_points.len() != histogram_data_points.inbound_histogram_data_points.len() {
+        if self.interpolated_data_points.len() != gui_histogram_snapshot.data_points.len() {
             self.interpolated_data_points.resize(0, 0.0);
-            self.interpolated_data_points.resize(histogram_data_points.inbound_histogram_data_points.len(), 0.0);
-            for (x, y) in histogram_data_points.inbound_histogram_data_points.iter().enumerate() {
+            self.interpolated_data_points.resize(gui_histogram_snapshot.data_points.len(), 0.0);
+            for (x, y) in gui_histogram_snapshot.data_points.iter().enumerate() {
                 self.interpolated_data_points[x] = *y / max_y;
             }
         }
 
-        let elapsed = histogram_data_points.inbound_histogram_data_update.elapsed();
+        let elapsed = gui_histogram_snapshot.updated_at.elapsed();
         let interpolation_duration = config.interpolation_duration();
         let interpolation_ratio = (elapsed.as_micros() as f32 / interpolation_duration.as_micros() as f32).min(1.0);
         let interpolation_ratio = interpolation_ratio.powf(1.0 / config.interpolation_curve());
 
         for (y, interpolated_y) in
-            histogram_data_points.inbound_histogram_data_points.iter().zip(self.interpolated_data_points.iter_mut())
+            gui_histogram_snapshot.data_points.iter().zip(self.interpolated_data_points.iter_mut())
         {
             *interpolated_y = y / max_y * interpolation_ratio + *interpolated_y * (1.0 - interpolation_ratio);
         }
@@ -78,9 +78,9 @@ impl BPMDetectionGUI {
         let max_interpolated_y = self.interpolated_data_points.iter().max_by(|x, y| x.total_cmp(y))?;
 
         let min_x = config.index_to_bpm(0);
-        let max_x = config.index_to_bpm(histogram_data_points.inbound_histogram_data_points.len());
+        let max_x = config.index_to_bpm(gui_histogram_snapshot.data_points.len());
 
-        drop(histogram_data_points);
+        drop(gui_histogram_snapshot);
 
         let mut prev = f64::from(config.index_to_bpm(1));
 

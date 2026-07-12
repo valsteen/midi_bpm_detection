@@ -141,6 +141,8 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
 - `crates/bpm/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
   - Defines `GuiRemote`, the cross-thread/task bridge used to push BPM/histogram updates into the UI.
+  - Publishes histogram snapshots on a best-effort basis: a busy GUI snapshot drops that visualization update without
+    retrying, while scalar BPM publication remains independent.
   - Depends on `bpm_detection_config` for GUI parameter metadata, but does not own the serializable app config shape.
   - Does not own a specific runtime mode; plugin, desktop, and WASM provide the surrounding application/runtime.
 
