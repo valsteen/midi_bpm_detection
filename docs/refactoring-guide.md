@@ -1,7 +1,7 @@
 # Refactoring Guide
 
 This guide records repository preferences for behavior-preserving cleanup and structural changes. Use it together with
-`engineering-style.md`; language-specific lint and tooling rules still live in the build-root `AGENTS.md` files.
+`engineering-style.md`, [development commands](development.md), and [lint exceptions](lint-exceptions.md).
 
 ## Refactoring Goals
 

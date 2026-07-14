@@ -1,8 +1,7 @@
 # Engineering Style
 
 This guide records durable implementation preferences for this repository. It applies to new features, bug fixes,
-refactors, reviews, and documentation work across build roots. Language-specific hard rules still live in the relevant
-`AGENTS.md` files.
+refactors, reviews, and documentation work across build roots.
 
 ## Core Principles
 
@@ -50,6 +49,5 @@ When adding or changing a boundary, check what the caller can now access.
 Documentation should separate current behavior from future ideas.
 
 - Describe stable architecture in the relevant public docs.
-- Keep audit state, active decisions, and coordination notes under `.codex/audits/`.
 - When documenting refactors, avoid implying preserved behavior was newly added. Say the behavior is preserved and name
   the structural change.

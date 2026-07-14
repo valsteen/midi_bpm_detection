@@ -45,8 +45,7 @@ This page intentionally does not list every Rust crate or Kotlin module. Those i
 - [Rust workspace architecture](../rust/architecture.md): crate graph, crate groups, parameter-stack dependency rules,
   plugin realtime constraints, and Rust runtime-mode boundaries.
 - `extension/`: the Bitwig controller extension build root. Its repository-facing contract is the tempo bridge described
-  in [Bitwig tempo bridge](bitwig-tempo-bridge.md); extension-local agent rules live in
-  [extension/AGENTS.md](../extension/AGENTS.md).
+  in [Bitwig tempo bridge](bitwig-tempo-bridge.md).
 
 At the repository level, the important dependency direction is simpler: Rust owns BPM detection and the plugin runtime,
 the Kotlin extension owns Bitwig controller API integration, and the two communicate through a narrow localhost tempo

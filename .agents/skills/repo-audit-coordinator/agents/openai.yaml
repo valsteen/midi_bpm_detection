@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repo Audit Coordinator"
-  short_description: "Coordinate durable repo audit slices"
-  default_prompt: "Use $repo-audit-coordinator to plan and slice a long-running repository audit."

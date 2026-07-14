@@ -9,6 +9,3 @@
 .idea
 **/.DS_Store
 **/.envrc
-
-# Local AI coordination state; public docs should hold only long-lived project knowledge.
-/.codex/audits/

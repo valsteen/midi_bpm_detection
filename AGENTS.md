@@ -8,7 +8,6 @@ Repository-level instructions for AI coding agents working on this monorepo.
 - Follow `docs/refactoring-guide.md` for refactors, lint-driven work, and structural cleanup.
 - Follow `agent-guides/repo-structure.md` for monorepo shape and cross-build-root architecture.
 - Follow `agent-guides/documentation.md` for documentation routing and wording rules.
-- Follow `agent-guides/audit-workflow.md` for long-running audit/refactor workflow.
 - Follow build-root instructions before editing a component:
   - `rust/AGENTS.md` for Rust workspace work.
   - `extension/AGENTS.md` for Kotlin/Bitwig extension work.
