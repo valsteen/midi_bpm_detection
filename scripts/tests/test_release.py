@@ -430,6 +430,38 @@ class ReleaseToolTest(unittest.TestCase):
         with self.assertRaisesRegex(release_tool.ReleaseError, "clap_entry"):
             release_tool.verify_vst3_symbols("0000 T clap_entry\n0001 T GetPluginFactory\n")
 
+    def test_windows_symbol_inspection_reads_the_pe_export_table(self) -> None:
+        bundle = self.root / "plugin.clap"
+        binary = self.root / "plugin.dll"
+        readobj = Path("llvm-readobj.exe")
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="Export {\n  Name: clap_entry\n}\n",
+            stderr="",
+        )
+
+        with (
+            mock.patch.object(release_tool.sys, "platform", "win32"),
+            mock.patch.object(release_tool, "_bundle_binary", return_value=binary),
+            mock.patch.object(
+                release_tool,
+                "_rustup_llvm_tool",
+                return_value=readobj,
+                create=True,
+            ) as rustup_tool,
+            mock.patch.object(release_tool.subprocess, "run", return_value=completed) as run,
+        ):
+            symbols = release_tool.plugin_symbols(bundle)
+
+        self.assertEqual(completed.stdout, symbols)
+        rustup_tool.assert_called_once_with("llvm-readobj")
+        run.assert_called_once_with(
+            [str(readobj), "--coff-exports", str(binary)],
+            capture_output=True,
+            text=True,
+        )
+
     def test_release_workflow_keeps_write_permission_in_draft_only_tag_job(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
 

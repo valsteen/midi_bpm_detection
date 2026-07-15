@@ -514,12 +514,12 @@ def _bundle_binary(bundle: Path) -> Path:
     raise ReleaseError(f"could not identify the plugin binary in {bundle}")
 
 
-def _llvm_nm_from_rustup() -> Path | None:
+def _rustup_llvm_tool(tool: str) -> Path | None:
     result = subprocess.run(
         ["rustc", "--print", "sysroot"], capture_output=True, check=True, text=True
     )
     sysroot = Path(result.stdout.strip())
-    candidates = sorted((sysroot / "lib/rustlib").glob("*/bin/llvm-nm*"))
+    candidates = sorted((sysroot / "lib/rustlib").glob(f"*/bin/{tool}*"))
     return candidates[0] if candidates else None
 
 
@@ -531,10 +531,12 @@ def plugin_symbols(bundle: Path) -> str:
     elif sys.platform.startswith("linux"):
         command = ["nm", "-D", "--defined-only", str(binary)]
     else:
-        llvm_nm = _llvm_nm_from_rustup()
-        if llvm_nm is None:
-            raise ReleaseError("llvm-nm is unavailable; install the llvm-tools-preview Rust component")
-        command = [str(llvm_nm), "--defined-only", "--extern-only", str(binary)]
+        llvm_readobj = _rustup_llvm_tool("llvm-readobj")
+        if llvm_readobj is None:
+            raise ReleaseError(
+                "llvm-readobj is unavailable; install the llvm-tools-preview Rust component"
+            )
+        command = [str(llvm_readobj), "--coff-exports", str(binary)]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         raise ReleaseError(f"symbol inspection failed: {result.stderr.strip()}")
