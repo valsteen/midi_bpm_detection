@@ -480,6 +480,18 @@ class ReleaseToolTest(unittest.TestCase):
         self.assertTrue((REPOSITORY_ROOT / ".github/release-notes/v0.1.0.md").is_file())
         self.assertNotIn("gh release edit", workflow)
         self.assertNotIn("--draft=false", workflow)
+
+    def test_windows_plugin_packaging_uses_shell_neutral_release_tag(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+        self.assertIn(
+            'python scripts/release.py package-clap\n          "${{ env.RELEASE_TAG }}"',
+            workflow,
+        )
+        self.assertIn(
+            'python scripts/release.py package-vst3\n          "${{ env.RELEASE_TAG }}"',
+            workflow,
+        )
         self.assertIn("package-vst3", workflow)
         self.assertIn("package-desktop", workflow)
         self.assertIn("package-vst3-source", workflow)

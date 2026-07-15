@@ -187,7 +187,8 @@ jobs:
       - name: Package versioned CLAP asset
         run: >-
           python scripts/release.py package-clap
-          "$RELEASE_TAG" "${{ matrix.platform }}" "${{ matrix.bundle }}"
+          "${{ env.RELEASE_TAG }}" "${{ matrix.platform }}"
+          "${{ matrix.bundle }}"
           "release-notices/clap/${{ matrix.platform }}" artifacts
 
       - name: Upload CLAP asset
@@ -274,7 +275,8 @@ jobs:
       - name: Package versioned VST3 asset
         run: >-
           python scripts/release.py package-vst3
-          "$RELEASE_TAG" "${{ matrix.platform }}" "${{ matrix.bundle }}"
+          "${{ env.RELEASE_TAG }}" "${{ matrix.platform }}"
+          "${{ matrix.bundle }}"
           "release-notices/vst3/${{ matrix.platform }}" artifacts
 
       - name: Upload VST3 asset
