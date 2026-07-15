@@ -19,7 +19,8 @@ Try the browser demo: https://valsteen.github.io/midi_bpm_detection/
 
 This is an experimental BPM detection monorepo. The Rust side contains three runtime modes:
 
-- `plugin`: the CLAP/VST3 target intended to run inside a DAW. This is the production constraint.
+- `plugin`: the CLAP and VST3 targets intended to run inside a DAW. CLAP is the normal default; VST3 is built
+  separately as an explicit opt-in.
 - `desktop`: a native GUI app used for local iteration and native MIDI experiments.
 - `wasm`: a browser demo that makes the detector easy to try and share.
 
@@ -37,7 +38,7 @@ The core BPM evaluation lives in the Rust BPM core crate; see
 
 The full Bitwig tempo-control path needs both build roots:
 
-- the Rust CLAP/VST3 plugin, built from `rust/`;
+- the Rust plugin, built from `rust/`;
 - the Kotlin Bitwig controller extension, built from `extension/`.
 
 ### Prerequisites
@@ -74,7 +75,7 @@ cd ../extension
 
 ```shell
 cd rust
-cargo xtask bundle midi-bpm-detector-plugin --release
+cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features clap
 ```
 
 The plugin bundles are written under:
@@ -83,12 +84,21 @@ The plugin bundles are written under:
 rust/target/bundled/
 ```
 
-The release bundle command currently creates:
+The CLAP bundle command creates:
 
 ```text
 rust/target/bundled/midi-bpm-detector-plugin.clap
-rust/target/bundled/midi-bpm-detector-plugin.vst3
 ```
+
+Build the separately selected VST3 bundle with:
+
+```shell
+cd rust
+cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features vst3
+```
+
+Distributed VST3 binaries carry a separate GPL notice and corresponding-source pointer because they link the pinned
+GPL binding. The source repository remains MIT; see [VST3 binary license and source](LICENSES/VST3-BUILD.md).
 
 ### Build The Bitwig Extension
 
@@ -121,7 +131,7 @@ You can override the install location with `-PbitwigExtensionsDir=...`, `BITWIG_
 ### Install In Bitwig
 
 Bitwig scans plug-ins from the folders configured in `Dashboard > Settings > Locations > Plug-in Locations`. Copy or
-symlink the bundled CLAP/VST3 plug-in into one of those folders, or add the bundle folder to Bitwig's plug-in locations,
+symlink the bundled CLAP or VST3 plug-in into one of those folders, or add the bundle folder to Bitwig's plug-in locations,
 then let Bitwig rescan. Bitwig's user guide documents the Dashboard settings and plug-in locations in
 [The Dashboard](https://www.bitwig.com/userguide/latest/the_dashboard/) and plug-in behavior in
 [Plug-in Handling and Options](https://www.bitwig.com/userguide/latest/vst_plug-in_handling_and_options/).

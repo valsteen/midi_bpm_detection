@@ -5,7 +5,7 @@ This project has one Rust workspace and one Kotlin/Gradle Bitwig extension works
 The Rust side has three main build modes:
 
 - `desktop`: the native desktop GUI application in `rust/crates/entrypoints/desktop`, sharing the `gui` crate.
-- `plugin`: the CLAP/VST3 plugin in `rust/crates/entrypoints/midi-bpm-detector-plugin`.
+- `plugin`: the default CLAP plugin in `rust/crates/entrypoints/midi-bpm-detector-plugin`; VST3 is opt-in.
 - `wasm`: the browser demo in `rust/crates/entrypoints/wasm`.
 
 The Rust workspace lives under `rust/`. Unless a command says otherwise, run the Rust commands in this document from
@@ -131,7 +131,7 @@ Check the plugin crate:
 scripts/dev.sh check-plugin
 ```
 
-Bundle CLAP/VST3 artifacts:
+Bundle the default CLAP artifact:
 
 ```shell
 scripts/dev.sh bundle-plugin
@@ -141,10 +141,88 @@ Equivalent commands:
 
 ```shell
 cargo check -p midi-bpm-detector-plugin
-cargo xtask bundle midi-bpm-detector-plugin --release
+cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features clap
 ```
 
 Bundled plugin artifacts are written under `rust/target/bundled` when viewed from the repository root.
+
+VST3 is a deliberate source-build opt-in:
+
+```shell
+cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features vst3
+```
+
+The pinned VST3 binding declares GPLv3-or-later. Release automation builds VST3 separately from CLAP, includes the full
+GPL notice, and publishes one shared vendored corresponding-source archive. The repository source remains MIT; see
+[`LICENSES/VST3-BUILD.md`](../LICENSES/VST3-BUILD.md) for the binary distribution and rebuild boundary. This is
+engineering guidance, not legal advice.
+
+## Release Automation
+
+Prepare a coordinated product version from the repository root before committing the release source:
+
+```shell
+python3 scripts/release.py set-version 0.1.0
+```
+
+The command accepts a stable `X.Y.Z` version without a leading `v`. It updates the Rust workspace package version, the
+Gradle extension version, and the Bitwig host-visible version, then asks Cargo to refresh `rust/Cargo.lock`. Every Cargo
+workspace member inherits the Rust workspace version. Review and commit these source changes before creating the release
+tag; GitHub Actions never rewrites source versions.
+
+Validate the committed version against a stable tag name:
+
+```shell
+python3 scripts/release.py preflight v0.1.0
+```
+
+Run the release helper tests with:
+
+```shell
+python3 -m unittest scripts/tests/test_release.py
+```
+
+The dedicated GitHub `Release` workflow has a non-publishing manual rehearsal. It builds separate CLAP and VST3 bundles
+for four platform/architecture pairs, desktop binaries for macOS arm64, macOS x86_64, and Linux x86_64, the optional
+Bitwig extension, and one vendored VST3 corresponding-source archive. Artifact-specific third-party notices are generated
+from locked target graphs with pinned `cargo-about`; `SHA256SUMS` is produced only after the fixed set is assembled.
+
+A matching stable tag builds the same candidate, creates a draft GitHub Release, and verifies the uploaded assets and
+checksums. The draft body comes from the matching tracked file under `.github/release-notes/`, such as
+`.github/release-notes/v0.1.0.md`; a missing note makes draft creation fail.
+
+Use this release sequence after the version change and release implementation are reviewed. For the workflow's first
+introduction, merge or otherwise land the reviewed release commit on the default branch, then push `main` before trying
+to dispatch it. Do not create the release tag yet.
+
+1. Run the non-publishing rehearsal from the release commit on `main`:
+
+   ```shell
+   git push upstream main
+   gh workflow run release.yml --ref main -f version=v0.1.0
+   gh run list --workflow release.yml --branch main --event workflow_dispatch --limit 1
+   gh run watch <run-id>
+   mkdir -p /tmp/midi-bpm-detector-v0.1.0
+   gh run download <run-id> --name release-complete --dir /tmp/midi-bpm-detector-v0.1.0
+   python3 scripts/release.py verify-assets v0.1.0 /tmp/midi-bpm-detector-v0.1.0
+   ```
+
+   GitHub accepts `workflow_dispatch` only after the workflow file exists on the default branch. For later releases,
+   after `release.yml` already exists there, `--ref <release-branch>` can select a reviewed release branch instead.
+
+2. Inspect all fourteen downloaded files, checksums, notices, VST3 source contents, and any runtime-test claims. The
+   manual rehearsal does not create or alter a GitHub Release.
+3. Tag the exact accepted commit and push only that tag:
+
+   ```shell
+   git tag v0.1.0 <accepted-commit>
+   git push upstream v0.1.0
+   ```
+
+4. Wait for the tag-triggered `Release` workflow. It revalidates committed metadata, rebuilds the fixed candidate,
+   creates a draft release from the tracked curated note, uploads all assets, and verifies the remote asset set.
+5. Open the draft in GitHub, download and inspect the final assets, update only claims supported by final runtime
+   evidence, and press GitHub's **Publish release** button. The workflow never publishes the draft automatically.
 
 ## Bitwig Controller Extension
 

@@ -1,7 +1,8 @@
 [package]
 name = "bpm_detection_midi"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
+license.workspace = true
 
 [dependencies]
 bpm_detection_config = { path = "../../domain/bpm_detection_config" }

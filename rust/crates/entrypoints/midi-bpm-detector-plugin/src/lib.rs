@@ -350,6 +350,7 @@ impl MidiBpmDetector {
 #[path = "../tests/unit/lib.rs"]
 mod tests;
 
+#[cfg(feature = "clap")]
 impl ClapPlugin for MidiBpmDetector {
     const CLAP_DESCRIPTION: Option<&'static str> =
         Some("Midi midi-bpm-detector-plugin that will estimate the BPM of the midi input");
@@ -383,11 +384,14 @@ impl ClapPlugin for MidiBpmDetector {
     }
 }
 
+#[cfg(feature = "vst3")]
 impl Vst3Plugin for MidiBpmDetector {
     const VST3_CLASS_ID: [u8; 16] = *b"MidiBPMDetector!";
     // And also don't forget to change these categories
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[Vst3SubCategory::Fx, Vst3SubCategory::Dynamics];
 }
 
+#[cfg(feature = "clap")]
 nih_export_clap!(MidiBpmDetector);
+#[cfg(feature = "vst3")]
 nih_export_vst3!(MidiBpmDetector);

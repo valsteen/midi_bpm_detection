@@ -1,7 +1,8 @@
 [package]
 name = "midi-reset"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
+license.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 coremidi = { workspace = true }

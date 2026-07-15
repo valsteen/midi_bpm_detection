@@ -27,14 +27,14 @@ Formatting:
 
 Native macOS/dev checks:
   check-desktop   Check the native desktop GUI app
-  check-plugin    Check the CLAP/VST3 plugin crate
+  check-plugin    Check the default CLAP and standalone plugin targets
   check-reset     Check the macOS MIDI reset utility
   check-native    Check desktop, plugin, and reset crates
   test-core        Test the core BPM detection crate
   test-desktop     Test the native desktop GUI app
   test-native      Test core and desktop crates
   clippy-desktop  Run clippy for the native desktop GUI app
-  clippy-plugin   Run clippy for the CLAP/VST3 plugin crate
+  clippy-plugin   Run clippy for the default CLAP and standalone plugin targets
   clippy-reset    Run clippy for the MIDI reset utility
   clippy-native   Run clippy for desktop, plugin, and reset crates
   clippy-all      Run clippy for current native and WASM build modes
@@ -42,7 +42,7 @@ Native macOS/dev checks:
 
 Run/build commands:
   run-desktop     Run the native desktop GUI app with local dev config paths
-  bundle-plugin   Bundle the CLAP/VST3 plugin under target/bundled
+  bundle-plugin   Bundle the CLAP library under target/bundled
   verify-plugin   Run the usual plugin pre-DAW checks
 
 WASM commands:
@@ -262,7 +262,7 @@ case "$command" in
         run_desktop_env cargo run -p desktop --bin desktop
         ;;
     bundle-plugin)
-        cargo xtask bundle midi-bpm-detector-plugin --release
+        cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features clap
         ;;
     verify-plugin)
         "$0" fmt-check

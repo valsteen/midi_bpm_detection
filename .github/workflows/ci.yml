@@ -103,7 +103,7 @@ jobs:
         run: cargo build --locked --release --target ${{ matrix.target }} -p desktop -p midi-reset
 
       - name: Bundle plugin
-        run: cargo run --locked --package xtask --release -- bundle midi-bpm-detector-plugin --release --target ${{ matrix.target }} --locked
+        run: cargo run --locked --package xtask --release -- bundle midi-bpm-detector-plugin --release --target ${{ matrix.target }} --locked --lib --no-default-features --features clap
 
   wasm:
     name: wasm

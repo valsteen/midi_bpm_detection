@@ -1,13 +1,14 @@
 [package]
 name = "parameter-nih-plug"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
+license.workspace = true
 
 [dependencies]
 parameter = { path = "../parameter" }
 parameter_nih_plug_macros = { package = "parameter-nih-plug-macros", path = "macros" }
 
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6" }
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", default-features = false }
 num-traits = "0.2.19"
 
 [dev-dependencies]

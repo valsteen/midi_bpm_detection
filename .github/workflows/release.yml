@@ -1,0 +1,531 @@
+---
+name: Release
+
+"on":
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable vX.Y.Z version to rehearse without publishing
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_TAG: "${{ github.event_name == 'workflow_dispatch' && \
+    inputs.version || github.ref_name }}"
+
+jobs:
+  preflight:
+    name: version preflight
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Test release contract
+        run: python -m unittest scripts/tests/test_release.py
+
+      - name: Validate coordinated release version
+        run: python scripts/release.py preflight "$RELEASE_TAG"
+
+  notices:
+    name: artifact-specific Rust notices
+    needs: preflight
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          shared-key: release-notices
+
+      - name: Install pinned license generator
+        run: cargo install --locked --features cli cargo-about --version 0.9.1
+
+      - name: Fetch the complete locked dependency set
+        working-directory: rust
+        run: cargo fetch --locked
+
+      - name: Generate target-specific notices
+        run: |
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin aarch64-apple-darwin \
+            notices/clap/macos-arm64 --features clap
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-apple-darwin \
+            notices/clap/macos-x86_64 --features clap
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-pc-windows-msvc \
+            notices/clap/windows-x86_64 --features clap
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-unknown-linux-gnu \
+            notices/clap/linux-x86_64 --features clap
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin aarch64-apple-darwin \
+            notices/vst3/macos-arm64 --features vst3
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-apple-darwin \
+            notices/vst3/macos-x86_64 --features vst3
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-pc-windows-msvc \
+            notices/vst3/windows-x86_64 --features vst3
+          python scripts/release.py generate-rust-notices \
+            midi-bpm-detector-plugin x86_64-unknown-linux-gnu \
+            notices/vst3/linux-x86_64 --features vst3
+          python scripts/release.py generate-rust-notices \
+            desktop aarch64-apple-darwin notices/desktop/macos-arm64
+          python scripts/release.py generate-rust-notices \
+            desktop x86_64-apple-darwin notices/desktop/macos-x86_64
+          python scripts/release.py generate-rust-notices \
+            desktop x86_64-unknown-linux-gnu notices/desktop/linux-x86_64
+
+      - name: Upload artifact-specific notices
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notices
+          path: notices
+          if-no-files-found: error
+          retention-days: 7
+
+  clap:
+    name: CLAP (${{ matrix.platform }})
+    needs: [preflight, notices]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.clap
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+            platform: macos-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.clap
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.clap
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.clap
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+          target: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          shared-key: release-clap-${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Prove CLAP dependency isolation
+        run: >-
+          python scripts/release.py verify-clap-dependencies
+          --target ${{ matrix.target }}
+
+      - name: Build CLAP library bundle
+        working-directory: rust
+        run: >-
+          cargo run --locked --package xtask --release -- bundle
+          midi-bpm-detector-plugin --release --target ${{ matrix.target }}
+          --locked --lib --no-default-features --features clap
+
+      - name: Verify CLAP-only exports
+        run: python scripts/release.py verify-clap-bundle "${{ matrix.bundle }}"
+
+      - name: Download artifact-specific notices
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notices
+          path: release-notices
+
+      - name: Package versioned CLAP asset
+        run: >-
+          python scripts/release.py package-clap
+          "$RELEASE_TAG" "${{ matrix.platform }}" "${{ matrix.bundle }}"
+          "release-notices/clap/${{ matrix.platform }}" artifacts
+
+      - name: Upload CLAP asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-clap-${{ matrix.platform }}
+          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-clap-\
+            ${{ matrix.platform }}.zip"
+          if-no-files-found: error
+          retention-days: 7
+
+  vst3:
+    name: VST3 (${{ matrix.platform }})
+    needs: [preflight, notices]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.vst3
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+            platform: macos-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.vst3
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.vst3
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+            bundle: rust/target/bundled/midi-bpm-detector-plugin.vst3
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+          target: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          shared-key: release-vst3-${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Prove VST3 dependency selection
+        run: >-
+          python scripts/release.py verify-vst3-dependencies
+          --target ${{ matrix.target }}
+
+      - name: Build VST3 library bundle
+        working-directory: rust
+        run: >-
+          cargo run --locked --package xtask --release -- bundle
+          midi-bpm-detector-plugin --release --target ${{ matrix.target }}
+          --locked --lib --no-default-features --features vst3
+
+      - name: Verify VST3-only exports
+        run: python scripts/release.py verify-vst3-bundle "${{ matrix.bundle }}"
+
+      - name: Download artifact-specific notices
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notices
+          path: release-notices
+
+      - name: Package versioned VST3 asset
+        run: >-
+          python scripts/release.py package-vst3
+          "$RELEASE_TAG" "${{ matrix.platform }}" "${{ matrix.bundle }}"
+          "release-notices/vst3/${{ matrix.platform }}" artifacts
+
+      - name: Upload VST3 asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-vst3-${{ matrix.platform }}
+          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-vst3-\
+            ${{ matrix.platform }}.zip"
+          if-no-files-found: error
+          retention-days: 7
+
+  desktop:
+    name: Desktop (${{ matrix.platform }})
+    needs: [preflight, notices]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            binary: rust/target/aarch64-apple-darwin/release/desktop
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+            platform: macos-x86_64
+            binary: rust/target/x86_64-apple-darwin/release/desktop
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+            binary: rust/target/x86_64-unknown-linux-gnu/release/desktop
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          shared-key: release-desktop-${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+          libx11-dev libx11-xcb-dev libxcb1-dev libxi-dev libgl1-mesa-dev
+
+      - name: Build desktop binary
+        working-directory: rust
+        run: >-
+          cargo build --locked --release --package desktop
+          --target ${{ matrix.target }}
+
+      - name: Download artifact-specific notices
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notices
+          path: release-notices
+
+      - name: Package versioned desktop asset
+        run: >-
+          python scripts/release.py package-desktop
+          "$RELEASE_TAG" "${{ matrix.platform }}" "${{ matrix.binary }}"
+          "release-notices/desktop/${{ matrix.platform }}" artifacts
+
+      - name: Upload desktop asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-desktop-${{ matrix.platform }}
+          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-desktop-\
+            ${{ matrix.platform }}.zip"
+          if-no-files-found: error
+          retention-days: 7
+
+  extension:
+    name: Bitwig extension
+    needs: preflight
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Test and package extension
+        working-directory: extension
+        run: ./gradlew test packageBitwigExtension
+
+      - name: Package versioned extension asset
+        run: >-
+          python scripts/release.py package-extension "$RELEASE_TAG"
+          extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionExtension.bwextension
+          artifacts
+
+      - name: Upload extension asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-bitwig-extension
+          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-\
+            bitwig-extension.zip"
+          if-no-files-found: error
+          retention-days: 7
+
+  source:
+    name: VST3 corresponding source
+    needs: preflight
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          shared-key: release-source
+
+      - name: Vendor locked Cargo sources
+        working-directory: rust
+        run: |
+          mkdir -p ../source-input
+          cargo vendor --locked --versioned-dirs vendor \
+            > ../source-input/config.toml
+
+      - name: Package exact corresponding source
+        run: >-
+          python scripts/release.py package-vst3-source "$RELEASE_TAG"
+          rust/vendor source-input/config.toml artifacts
+
+      - name: Upload corresponding source
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-vst3-source
+          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-\
+            vst3-source.tar.gz"
+          if-no-files-found: error
+          retention-days: 7
+
+  assemble:
+    name: assemble complete candidate
+    needs: [preflight, clap, vst3, desktop, extension, source]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Download candidate assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-candidate-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate and verify checksums
+        run: |
+          python scripts/release.py write-checksums "$RELEASE_TAG" artifacts
+          python scripts/release.py verify-assets "$RELEASE_TAG" artifacts
+
+      - name: Retain complete candidate set
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-complete
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 7
+
+  draft:
+    name: prepare verified draft
+    if: github.event_name == 'push'
+    needs: assemble
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Download complete candidate set
+        uses: actions/download-artifact@v8
+        with:
+          name: release-complete
+          path: artifacts
+
+      - name: Verify exact local asset set and checksums
+        run: python scripts/release.py verify-assets "$RELEASE_TAG" artifacts
+
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists;" \
+              "refusing to overwrite it." >&2
+            exit 1
+          fi
+
+      - name: Create complete draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$RELEASE_TAG" artifacts/*
+          --draft
+          --verify-tag
+          --title "$RELEASE_TAG"
+          --notes-file ".github/release-notes/$RELEASE_TAG.md"
+
+      - name: Verify uploaded draft assets and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir remote-assets
+          gh release download "$RELEASE_TAG" --dir remote-assets
+          python scripts/release.py verify-assets "$RELEASE_TAG" remote-assets

@@ -1,12 +1,17 @@
 [package]
 name = "midi-bpm-detector-plugin"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 authors = ["Vincent Alsteen <vincent.alsteen@gmail.com>"]
-license = "Other licenses can be set in Cargo.toml, but using the project needs to be GPLv3 compliant to be able to use the VST3 exporter. Check Cargo.toml for more information."
-homepage = "https://youtu.be/dQw4w9WgXcQ"
+license = "MIT"
+homepage = "https://github.com/valsteen/midi_bpm_detection"
 description = "Midi plugin that will estimate the BPM of the midi input"
 
+[features]
+default = ["clap", "standalone"]
+clap = []
+standalone = ["nih_plug/standalone"]
+vst3 = ["nih_plug/vst3"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -19,11 +24,11 @@ bpm_detection_config = { path = "../../bpm/domain/bpm_detection_config" }
 bpm_detection_core = { path = "../../bpm/domain/bpm_detection_core" }
 parameter = { path = "../../foundation/parameter" }
 parameter-on-off = { path = "../../foundation/parameter-on-off" }
-parameter-on-off-nih-plug = { path = "../../foundation/parameter-on-off-nih-plug" }
-parameter-nih-plug = { path = "../../foundation/parameter-nih-plug" }
+parameter-on-off-nih-plug = { path = "../../foundation/parameter-on-off-nih-plug", default-features = false }
+parameter-nih-plug = { path = "../../foundation/parameter-nih-plug", default-features = false }
 sync = { path = "../../support/sync" }
 
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", features = ["assert_process_allocs", "standalone"] }
+nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", default-features = false, features = ["assert_process_allocs"] }
 nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6" }
 
 chrono = "0.4.45"

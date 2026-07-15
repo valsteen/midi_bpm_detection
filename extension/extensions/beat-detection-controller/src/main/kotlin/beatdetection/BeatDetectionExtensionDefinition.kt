@@ -15,7 +15,7 @@ public class BeatDetectionExtensionDefinition : ControllerExtensionDefinition() 
             id = UUID.fromString("bb70b7dc-a900-46ea-8b50-611234df35e2"),
             name = "Beat Detection Bitwig Extension",
             author = "Midi BPM Detection",
-            version = "0.1",
+            version = "0.1.0",
             hardwareVendor = "Midi BPM Detection",
             hardwareModel = "Beat Detection Bitwig Extension",
             requiredApiVersion = 25,
