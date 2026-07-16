@@ -9,7 +9,7 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 pub use app::{BPMDetectionApp, BPMDetectionGUI};
-pub use app_builder::{AppBuilder, AppBuilderShell};
+pub use app_builder::{AppBuilder, AppBuilderShell, GuiLifecycleOwner};
 use atomic_float::AtomicF32;
 use atomic_refcell::AtomicRefCell;
 use bpm_detection_config::max_histogram_data_buffer_size;
@@ -35,7 +35,7 @@ mod config_ui;
 mod gui_remote;
 
 #[must_use]
-pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
+pub fn create_gui_shell(lifecycle_owner: GuiLifecycleOwner) -> (GuiRemote, AppBuilderShell) {
     let estimated_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let daw_bpm = Arc::new(AtomicF32::new(f32::NAN));
     let should_save = Arc::new(AtomicBool::default());
@@ -71,11 +71,14 @@ pub fn create_gui_shell() -> (GuiRemote, AppBuilderShell) {
         daw_bpm,
         should_save,
     };
-    (gui_remote, AppBuilderShell::new(context_receiver, bpm_detection_gui))
+    (gui_remote, AppBuilderShell::new(context_receiver, bpm_detection_gui, lifecycle_owner))
 }
 
-pub fn create_gui<BaseConfig>(base_config: BaseConfig) -> (GuiRemote, AppBuilder<BaseConfig>) {
-    let (gui_remote, app_builder) = create_gui_shell();
+pub fn create_gui<BaseConfig>(
+    base_config: BaseConfig,
+    lifecycle_owner: GuiLifecycleOwner,
+) -> (GuiRemote, AppBuilder<BaseConfig>) {
+    let (gui_remote, app_builder) = create_gui_shell(lifecycle_owner);
     (gui_remote, app_builder.with_config(base_config))
 }
 

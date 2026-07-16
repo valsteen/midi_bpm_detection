@@ -7,7 +7,7 @@ use desktop::{
     live_parameters::DesktopBaseConfig,
 };
 use errors::{LogErrorWithExt, Result, initialize_logging, initialize_panic_handler};
-use gui::{create_gui_shell, start_gui};
+use gui::{GuiLifecycleOwner, create_gui_shell, start_gui};
 use mimalloc::MiMalloc;
 use sync::Mutex;
 
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     let config = DesktopConfig::new()?;
     let pending_controller_runtime = PendingDesktopControllerRuntime::new();
     let controller_commands = pending_controller_runtime.command_queue();
-    let (gui_remote, app_builder_shell) = create_gui_shell();
+    let (gui_remote, app_builder_shell) = create_gui_shell(GuiLifecycleOwner::ApplicationRuntime);
 
     let controller = start_desktop_controller(
         &config,

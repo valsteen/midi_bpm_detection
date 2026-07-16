@@ -19,6 +19,9 @@ they actually own. Bootstrap knows the graph. The graph should not turn into a r
   so native MIDI thread ownership stays inside `bpm_detection_midi`.
 - **Remote receiver:** a narrow receiver used by BPM producers to push display data. `GuiRemote` implements
   `BPMDetectionReceiver` and owns repaint requests plus shared GUI-facing state.
+- **GUI lifecycle owner:** the runtime that is allowed to terminate the application around an egui surface. The desktop
+  GUI is application-owned and retains application quit shortcuts. Plugin editors and the WASM surface are parent-owned;
+  they cannot turn a GUI shortcut into application shutdown because the DAW or browser owns that lifecycle.
 - **Latest-state GUI handoff:** a display update boundary where producers publish the newest BPM/histogram state through
   `GuiRemote`. It is not a durable queue. The GUI reads the latest shared state on its next frame, and contention paths
   prefer skipping/logging an update or frame over waiting for a blocking render lock.
@@ -94,7 +97,8 @@ flowchart LR
 ```
 
 The `gui` crate is deliberately shared and runtime-neutral. Plugin, desktop, and WASM mode each provide a config object
-that implements the GUI-facing accessors. Those config objects are where runtime-specific side effects start.
+that implements the GUI-facing accessors and explicitly declares the GUI lifecycle owner during bootstrap. Those config
+objects are where runtime-specific side effects start.
 
 ## Plugin Bootstrap
 
@@ -128,7 +132,8 @@ Who knows what:
   realtime-to-background ring producer.
 - `TaskExecutor` owns the plugin BPM model, dynamic config snapshot, ring consumer, optional `GuiRemote`, and optional
   tempo-controller TCP connection.
-- `GuiEditor` owns the plugin editor lifecycle and creates the GUI app when the editor opens.
+- `GuiEditor` creates the GUI app when the editor opens, while the DAW owns application and editor-window lifecycle
+  through the plugin API.
 - `GuiRemote` is passed by value across the runtime as a receiver/handle, but it only exposes the UI update surface.
 - The `task_executor_handoff` and `gui_editor_handoff` fields are one-shot NIH-plug handoff slots, not general nullable
   runtime state.
