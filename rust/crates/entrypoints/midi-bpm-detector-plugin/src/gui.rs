@@ -1,7 +1,7 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use crossbeam::atomic::AtomicCell;
-use gui::{BPMDetectionApp, BPMDetectionConfig, GuiRemote, create_gui};
+use gui::{BPMDetectionApp, BPMDetectionConfig, GuiLifecycleOwner, GuiRemote, create_gui};
 use nih_plug::prelude::{AsyncExecutor, ParamSetter};
 use nih_plug_egui::{EguiState, egui::Context};
 use sync::{ArcAtomicBool, RwLock};
@@ -32,7 +32,7 @@ impl GuiEditor {
             self.force_evaluate_bpm_detection.clone(),
             self.params.clone(),
         );
-        let (gui_remote, gui_builder) = create_gui(live_config);
+        let (gui_remote, gui_builder) = create_gui(live_config, GuiLifecycleOwner::ParentRuntime);
         gui_remote.receive_keystrokes({
             let send_tempo = config.send_tempo.clone();
             Box::new(move |key| {

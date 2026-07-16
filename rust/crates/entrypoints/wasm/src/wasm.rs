@@ -18,7 +18,7 @@ use bpm_detection_core::{BPMDetection, TimedEvent, bpm_detection_receiver::BPMDe
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
 use futures::{StreamExt, channel::mpsc::Sender};
-use gui::{GuiRemote, create_gui, start_gui};
+use gui::{GuiLifecycleOwner, GuiRemote, create_gui, start_gui};
 use instant::Instant;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
@@ -61,7 +61,7 @@ pub fn run() -> Result<GuiRemoteWrapper> {
     let live_config = BaseConfig::new(redraw_sender.clone());
     let static_bpm_detection_config = live_config.config.bpm_detection.static_bpm_detection_config.clone();
     let mut dynamic_bpm_detection_config = live_config.config.bpm_detection.dynamic_bpm_detection_config.clone();
-    let (gui_remote, gui_builder) = create_gui(live_config);
+    let (gui_remote, gui_builder) = create_gui(live_config, GuiLifecycleOwner::ParentRuntime);
 
     wasm_bindgen_futures::spawn_local({
         let mut gui_remote = gui_remote.clone();
