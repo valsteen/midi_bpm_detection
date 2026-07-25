@@ -8,7 +8,7 @@ license.workspace = true
 parameter = { path = "../parameter" }
 parameter_nice_plug_macros = { package = "parameter-nice-plug-macros", path = "macros" }
 num-traits = "0.2.19"
-nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.2.0", default-features = false }
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "d40fec783b978b73dadb3a8ce78e0eea6fde2ab2", version = "0.2.0", default-features = false }
 
 [dev-dependencies]
 trybuild = "1.0"
