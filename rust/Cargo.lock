@@ -2969,7 +2969,7 @@ dependencies = [
 [[package]]
 name = "nice-log"
 version = "0.3.0"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "tracing-appender",
  "windows",
@@ -2978,7 +2978,7 @@ dependencies = [
 [[package]]
 name = "nice-plug"
 version = "0.2.0"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "anyhow",
  "anymap3",
@@ -3015,7 +3015,7 @@ dependencies = [
 [[package]]
 name = "nice-plug-core"
 version = "0.2.0"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "atomic_float",
  "atomic_refcell",
@@ -3035,7 +3035,7 @@ dependencies = [
 [[package]]
 name = "nice-plug-derive"
 version = "0.1.2"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3045,7 +3045,7 @@ dependencies = [
 [[package]]
 name = "nice-plug-egui"
 version = "0.3.0"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "crossbeam",
  "egui",
@@ -3059,7 +3059,7 @@ dependencies = [
 [[package]]
 name = "nice-plug-xtask"
 version = "0.1.1"
-source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=211a6f32130dede2c493ddc8d88ea09f5be8e314#211a6f32130dede2c493ddc8d88ea09f5be8e314"
+source = "git+https://codeberg.org/valsteen/nice-plug.git?rev=d40fec783b978b73dadb3a8ce78e0eea6fde2ab2#d40fec783b978b73dadb3a8ce78e0eea6fde2ab2"
 dependencies = [
  "anyhow",
  "cargo_metadata",

@@ -9,7 +9,7 @@ parameter = { path = "../parameter" }
 parameter-on-off = { path = "../parameter-on-off" }
 parameter-nice-plug = { path = "../parameter-nice-plug" }
 num-traits = "0.2.19"
-nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.2.0", default-features = false }
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "d40fec783b978b73dadb3a8ce78e0eea6fde2ab2", version = "0.2.0", default-features = false }
 
 [lints]
 workspace = true

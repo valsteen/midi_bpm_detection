@@ -8,4 +8,4 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-nice-plug-xtask = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.1.1" }
+nice-plug-xtask = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "d40fec783b978b73dadb3a8ce78e0eea6fde2ab2", version = "0.1.1" }
