@@ -152,10 +152,10 @@ VST3 is a deliberate source-build opt-in:
 cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features vst3
 ```
 
-The pinned VST3 binding declares GPLv3-or-later. Release automation builds VST3 separately from CLAP, includes the full
-GPL notice, and publishes one shared vendored corresponding-source archive. The repository source remains MIT; see
-[`LICENSES/VST3-BUILD.md`](../LICENSES/VST3-BUILD.md) for the binary distribution and rebuild boundary. This is
-engineering guidance, not legal advice.
+The VST3 build uses nice-plug's `vst3 0.3.0` binding, generated from the
+MIT-licensed VST 3.8 SDK and offered under `MIT OR Apache-2.0`. VST3 and CLAP
+remain separate feature builds, and each release archive includes its generated
+third-party notices. The project source remains MIT.
 
 ## Release Automation
 
@@ -183,9 +183,9 @@ python3 -m unittest scripts/tests/test_release.py
 ```
 
 The dedicated GitHub `Release` workflow has a non-publishing manual rehearsal. It builds separate CLAP and VST3 bundles
-for four platform/architecture pairs, desktop binaries for macOS arm64, macOS x86_64, and Linux x86_64, the optional
-Bitwig extension, and one vendored VST3 corresponding-source archive. Artifact-specific third-party notices are generated
-from locked target graphs with pinned `cargo-about`; `SHA256SUMS` is produced only after the fixed set is assembled.
+for four platform/architecture pairs, desktop binaries for macOS arm64, macOS x86_64, and Linux x86_64, and the optional
+Bitwig extension. Artifact-specific third-party notices are generated from locked target graphs with pinned
+`cargo-about`; `SHA256SUMS` is produced only after the fixed set is assembled.
 
 A matching stable tag builds the same candidate, creates a draft GitHub Release, and verifies the uploaded assets and
 checksums. The draft body comes from the matching tracked file under `.github/release-notes/`, such as
@@ -210,7 +210,7 @@ to dispatch it. Do not create the release tag yet.
    GitHub accepts `workflow_dispatch` only after the workflow file exists on the default branch. For later releases,
    after `release.yml` already exists there, `--ref <release-branch>` can select a reviewed release branch instead.
 
-2. Inspect all fourteen downloaded files, checksums, notices, VST3 source contents, and any runtime-test claims. The
+2. Inspect all thirteen downloaded files, checksums, notices, and any runtime-test claims. The
    manual rehearsal does not create or alter a GitHub Release.
 3. Tag the exact accepted commit and push only that tag:
 

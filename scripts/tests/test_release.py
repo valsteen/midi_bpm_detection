@@ -1,6 +1,5 @@
 import importlib.util
 import subprocess
-import tarfile
 import tempfile
 import tomllib
 import unittest
@@ -49,12 +48,6 @@ class ReleaseToolTest(unittest.TestCase):
         ).write_text('version = "0.1.0",\n', encoding="utf-8")
         (self.root / "LICENSE").write_text("project license\n", encoding="utf-8")
         (self.root / "LICENSES").mkdir()
-        (self.root / "LICENSES/GPL-3.0-or-later.txt").write_text("GPL text\n", encoding="utf-8")
-        (self.root / "LICENSES/VST3-BUILD.md").write_text(
-            "Corresponding source: midi-bpm-detector-<release-tag>-vst3-source.tar.gz "
-            "on the same GitHub Release.\n",
-            encoding="utf-8",
-        )
         (self.root / "LICENSES/EXTENSION-THIRD-PARTY.md").write_text(
             "extension notices\n", encoding="utf-8"
         )
@@ -237,7 +230,6 @@ class ReleaseToolTest(unittest.TestCase):
                 "midi-bpm-detector-v0.1.0-desktop-macos-x86_64.zip",
                 "midi-bpm-detector-v0.1.0-desktop-linux-x86_64.zip",
                 "midi-bpm-detector-v0.1.0-bitwig-extension.zip",
-                "midi-bpm-detector-v0.1.0-vst3-source.tar.gz",
                 "SHA256SUMS",
             },
             release_tool.expected_asset_names("v0.1.0"),
@@ -279,7 +271,7 @@ class ReleaseToolTest(unittest.TestCase):
         with self.assertRaisesRegex(release_tool.ReleaseError, "unexpected.zip"):
             release_tool.verify_asset_directory(asset_directory, "v0.1.0")
 
-    def test_vst3_archive_has_gpl_notice_and_source_pointer(self) -> None:
+    def test_vst3_archive_uses_standard_notices(self) -> None:
         bundle = self.root / "bundle/midi-bpm-detector-plugin.vst3"
         binary = bundle / "Contents/MacOS/midi-bpm-detector-plugin"
         binary.parent.mkdir(parents=True)
@@ -292,23 +284,17 @@ class ReleaseToolTest(unittest.TestCase):
         with zipfile.ZipFile(output) as archive:
             files = {name for name in archive.namelist() if not name.endswith("/")}
             prefix = "midi-bpm-detector-v0.1.0-vst3-macos-arm64"
-            self.assertIn(f"{prefix}/GPL-3.0-or-later.txt", files)
-            self.assertIn(f"{prefix}/VST3-BUILD.md", files)
-            self.assertIn(f"{prefix}/THIRD_PARTY_NOTICES.md", files)
-            source_pointer = archive.read(f"{prefix}/VST3-BUILD.md").decode("utf-8")
-            self.assertIn(
-                "midi-bpm-detector-<release-tag>-vst3-source.tar.gz", source_pointer
+            self.assertEqual(
+                {
+                    f"{prefix}/LICENSE",
+                    f"{prefix}/THIRD_PARTY_NOTICES.md",
+                    f"{prefix}/midi-bpm-detector-plugin.vst3/Contents/MacOS/"
+                    "midi-bpm-detector-plugin",
+                },
+                files,
             )
-            self.assertIn("same GitHub Release", source_pointer)
-
-    def test_vst3_source_notice_is_release_tag_independent(self) -> None:
-        source_pointer = (REPOSITORY_ROOT / "LICENSES/VST3-BUILD.md").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("midi-bpm-detector-<release-tag>-vst3-source.tar.gz", source_pointer)
-        self.assertIn("same GitHub Release", source_pointer)
-        self.assertNotIn("v0.1.0", source_pointer)
+            self.assertNotIn(f"{prefix}/GPL-3.0-or-later.txt", files)
+            self.assertNotIn(f"{prefix}/VST3-BUILD.md", files)
 
     def test_bundle_binary_finds_non_macos_vst3_layout(self) -> None:
         bundle = self.root / "bundle/plugin.vst3"
@@ -332,34 +318,6 @@ class ReleaseToolTest(unittest.TestCase):
             prefix = "midi-bpm-detector-v0.1.0-desktop-macos-arm64"
             self.assertIn(f"{prefix}/desktop", files)
             self.assertIn(f"{prefix}/THIRD_PARTY_NOTICES.md", files)
-
-    def test_vst3_source_archive_contains_tracked_source_vendor_and_build_config(self) -> None:
-        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
-        (self.root / "source.txt").write_text("tracked source\n", encoding="utf-8")
-        tracked_config = self.root / "rust/.cargo/config.toml"
-        tracked_config.parent.mkdir(parents=True)
-        tracked_config.write_text("[alias]\nxtask = 'run --package xtask --release --'\n", encoding="utf-8")
-        subprocess.run(["git", "add", "."], cwd=self.root, check=True)
-        vendor = self.root / "vendor"
-        vendor.mkdir()
-        (vendor / "dependency.rs").write_text("vendored source\n", encoding="utf-8")
-        vendor_config = self.root / "vendor-config.toml"
-        vendor_config.write_text("[source.crates-io]\nreplace-with = 'vendored-sources'\n", encoding="utf-8")
-
-        output = release_tool.package_vst3_source(
-            self.root, "v0.1.0", vendor, vendor_config, self.root / "dist"
-        )
-
-        with tarfile.open(output, "r:gz") as archive:
-            names = archive.getnames()
-            prefix = "midi-bpm-detector-v0.1.0-vst3-source"
-            self.assertIn(f"{prefix}/source.txt", names)
-            self.assertIn(f"{prefix}/rust/vendor/dependency.rs", names)
-            self.assertIn(f"{prefix}/rust/.cargo/config.toml", names)
-            self.assertEqual(1, names.count(f"{prefix}/rust/.cargo/config.toml"))
-            config = archive.extractfile(f"{prefix}/rust/.cargo/config.toml")
-            self.assertIsNotNone(config)
-            self.assertIn(b"vendored-sources", config.read())
 
     def test_checksums_cover_every_asset_except_the_checksum_file(self) -> None:
         asset_directory = self.root / "assets"
@@ -412,14 +370,13 @@ class ReleaseToolTest(unittest.TestCase):
         self.assertNotIn("local-package", notice)
 
     def test_license_policy_accepts_windows_boost_license(self) -> None:
-        self.assertIn('"BSL-1.0"', release_tool._cargo_about_config("x86_64-pc-windows-msvc", False))
+        self.assertIn('"BSL-1.0"', release_tool._cargo_about_config("x86_64-pc-windows-msvc"))
 
-    def test_license_policy_accepts_gpl_only_for_vst3(self) -> None:
-        clap_config = release_tool._cargo_about_config("aarch64-apple-darwin", False)
-        vst3_config = release_tool._cargo_about_config("aarch64-apple-darwin", True)
+    def test_license_policy_has_no_gpl_or_vst3_sys_exception(self) -> None:
+        config = release_tool._cargo_about_config("aarch64-apple-darwin")
 
-        self.assertNotIn('"GPL-3.0-or-later"', clap_config)
-        self.assertIn('"GPL-3.0-or-later"', vst3_config)
+        self.assertNotIn('"GPL-3.0-or-later"', config)
+        self.assertNotIn("vst3-sys.clarify", config)
 
     def test_symbol_verification_is_format_specific(self) -> None:
         release_tool.verify_clap_symbols("0000 T _clap_entry\n")
@@ -469,7 +426,7 @@ class ReleaseToolTest(unittest.TestCase):
         self.assertNotIn("default: v0.1.0", workflow)
         self.assertIn('tags: ["v*.*.*"]', workflow)
         self.assertIn("permissions:\n  contents: read", workflow)
-        self.assertIn("needs: [preflight, clap, vst3, desktop, extension, source]", workflow)
+        self.assertIn("needs: [preflight, clap, vst3, desktop, extension]", workflow)
         self.assertIn("needs: assemble", workflow)
         self.assertIn("contents: write", workflow)
         self.assertIn("github.event_name == 'push'", workflow)
@@ -480,6 +437,10 @@ class ReleaseToolTest(unittest.TestCase):
         self.assertTrue((REPOSITORY_ROOT / ".github/release-notes/v0.1.0.md").is_file())
         self.assertNotIn("gh release edit", workflow)
         self.assertNotIn("--draft=false", workflow)
+        self.assertNotIn("verify-clap-dependencies", workflow)
+        self.assertNotIn("verify-vst3-dependencies", workflow)
+        self.assertNotIn("package-vst3-source", workflow)
+        self.assertNotIn("release-candidate-vst3-source", workflow)
 
     def test_windows_plugin_packaging_uses_shell_neutral_release_tag(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
@@ -494,7 +455,6 @@ class ReleaseToolTest(unittest.TestCase):
         )
         self.assertIn("package-vst3", workflow)
         self.assertIn("package-desktop", workflow)
-        self.assertIn("package-vst3-source", workflow)
         self.assertIn("write-checksums", workflow)
         self.assertIn("cargo-about --version 0.9.1", workflow)
         self.assertEqual(

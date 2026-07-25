@@ -23,7 +23,7 @@ members = [
 default-members = ["crates/entrypoints/desktop", "crates/tools/midi-reset"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 
 [workspace.lints.clippy]

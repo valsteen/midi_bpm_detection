@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "bpm_detection_config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "derivative",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "bpm_detection_core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arraydeque",
  "bpm_detection_config",
@@ -454,7 +454,7 @@ dependencies = [
 
 [[package]]
 name = "bpm_detection_midi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bpm_detection_config",
  "bpm_detection_core",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "build"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "directories",
@@ -1151,7 +1151,7 @@ dependencies = [
 
 [[package]]
 name = "desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bpm_detection_config",
  "bpm_detection_core",
@@ -1567,7 +1567,7 @@ checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 
 [[package]]
 name = "errors"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "backtrace",
  "better-panic",
@@ -2021,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "gui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atomic_float",
  "atomic_refcell",
@@ -2747,7 +2747,7 @@ dependencies = [
 
 [[package]]
 name = "midi-bpm-detector-plugin"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bpm_detection_config",
  "bpm_detection_core",
@@ -2780,7 +2780,7 @@ checksum = "6f2dd5c7f8aaf48a76e389068ab25ed80bdbc226b887f9013844c415698c9952"
 
 [[package]]
 name = "midi-reset"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "core-foundation-sys",
  "coremidi",
@@ -3642,14 +3642,14 @@ checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "parameter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parameter-macros",
 ]
 
 [[package]]
 name = "parameter-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3658,7 +3658,7 @@ dependencies = [
 
 [[package]]
 name = "parameter-nice-plug"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "nice-plug",
  "num-traits",
@@ -3669,7 +3669,7 @@ dependencies = [
 
 [[package]]
 name = "parameter-nice-plug-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3678,7 +3678,7 @@ dependencies = [
 
 [[package]]
 name = "parameter-on-off"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "num-traits",
  "parameter",
@@ -3688,7 +3688,7 @@ dependencies = [
 
 [[package]]
 name = "parameter-on-off-nice-plug"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "nice-plug",
  "num-traits",
@@ -4665,7 +4665,7 @@ dependencies = [
 
 [[package]]
 name = "sync"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atomic-traits",
  "parking_lot",
@@ -5137,7 +5137,7 @@ dependencies = [
 
 [[package]]
 name = "wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atomic_refcell",
  "bpm_detection_config",
@@ -6131,7 +6131,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "nice-plug-xtask",
 ]

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import json
 import re
@@ -12,7 +11,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tarfile
 import tempfile
 import tomllib
 import zipfile
@@ -47,9 +45,7 @@ CARGO_ABOUT_ACCEPTED = (
     "Ubuntu-font-1.0",
     "Unicode-3.0",
     "Unlicense",
-    "GPL-3.0-or-later",
 )
-VST3_LICENSE_CHECKSUM = "1be76dd654024ee690864bea328622e912847461671cee0533ddf9a2cab4a31d"
 PLUGIN_PLATFORMS = (
     "macos-arm64",
     "macos-x86_64",
@@ -231,7 +227,6 @@ def expected_asset_names(tag: str) -> set[str]:
     }
     return plugin_assets | desktop_assets | {
         f"midi-bpm-detector-{tag}-bitwig-extension.zip",
-        f"midi-bpm-detector-{tag}-vst3-source.tar.gz",
         "SHA256SUMS",
     }
 
@@ -307,7 +302,7 @@ def package_vst3(
     notice_directory: Path,
     output_directory: Path,
 ) -> Path:
-    """Create one versioned VST3 release ZIP with GPL and source notices."""
+    """Create one versioned VST3 release ZIP with license notices."""
     release_version(tag)
     if platform not in PLUGIN_PLATFORMS:
         raise ReleaseError(f"unknown VST3 release platform: {platform}")
@@ -315,11 +310,6 @@ def package_vst3(
     archive_name = output.stem
     sources = list(_archive_sources(bundle, archive_name))
     sources.extend(_artifact_notice_sources(repository_root, notice_directory, archive_name))
-    for notice_name in ("GPL-3.0-or-later.txt", "VST3-BUILD.md"):
-        notice = repository_root / "LICENSES" / notice_name
-        if not notice.is_file():
-            raise ReleaseError(f"required VST3 notice is missing: {notice}")
-        sources.append((notice, f"{archive_name}/{notice_name}"))
     return _write_archive(output, sources)
 
 
@@ -371,55 +361,6 @@ def package_extension(
         ]
     )
     return _write_archive(output, sources)
-
-
-def _write_tar_gz(output: Path, sources: Iterable[tuple[Path, str]]) -> Path:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("wb") as raw_output:
-        with gzip.GzipFile(filename="", mode="wb", fileobj=raw_output, compresslevel=9, mtime=0) as compressed:
-            with tarfile.open(fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT) as archive:
-                for source, archive_path in sorted(sources, key=lambda item: item[1]):
-                    if not source.is_file() or source.is_symlink():
-                        raise ReleaseError(f"unsupported source archive input: {source}")
-                    mode = 0o755 if source.stat().st_mode & 0o111 else 0o644
-                    info = tarfile.TarInfo(archive_path)
-                    info.size = source.stat().st_size
-                    info.mode = mode
-                    info.mtime = 0
-                    info.uid = 0
-                    info.gid = 0
-                    info.uname = ""
-                    info.gname = ""
-                    with source.open("rb") as source_file:
-                        archive.addfile(info, source_file)
-    return output
-
-
-def package_vst3_source(
-    repository_root: Path,
-    tag: str,
-    vendor_directory: Path,
-    vendor_config: Path,
-    output_directory: Path,
-) -> Path:
-    """Package exact tracked source plus vendored Cargo dependencies for VST3 correspondence."""
-    release_version(tag)
-    if not vendor_directory.is_dir() or not vendor_config.is_file():
-        raise ReleaseError("VST3 source packaging requires a vendor directory and Cargo source config")
-    result = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=repository_root, capture_output=True, check=True
-    )
-    tracked_paths = [Path(path.decode()) for path in result.stdout.split(b"\0") if path]
-    output = output_directory / f"midi-bpm-detector-{tag}-vst3-source.tar.gz"
-    archive_name = output.name.removesuffix(".tar.gz")
-    sources_by_archive_path = {
-        f"{archive_name}/{path.as_posix()}": repository_root / path for path in tracked_paths
-    }
-    for source, archive_path in _archive_sources(vendor_directory, archive_name):
-        relative = Path(archive_path).relative_to(Path(archive_name) / vendor_directory.name)
-        sources_by_archive_path[f"{archive_name}/rust/vendor/{relative.as_posix()}"] = source
-    sources_by_archive_path[f"{archive_name}/rust/.cargo/config.toml"] = vendor_config
-    return _write_tar_gz(output, ((source, path) for path, source in sources_by_archive_path.items()))
 
 
 def _asset_names_without_checksums(tag: str) -> set[str]:
@@ -543,56 +484,6 @@ def plugin_symbols(bundle: Path) -> str:
     return result.stdout
 
 
-def verify_clap_dependencies(repository_root: Path, target: str | None = None) -> None:
-    """Prove the selected CLAP graph excludes vst3-sys."""
-    command = [
-        "cargo",
-        "tree",
-        "--locked",
-        "--package",
-        PLUGIN_PACKAGE_NAME,
-        "--no-default-features",
-        "--features",
-        "clap",
-        "--edges",
-        "normal",
-        "--prefix",
-        "none",
-    ]
-    if target:
-        command.extend(["--target", target])
-    result = subprocess.run(command, cwd=repository_root / "rust", capture_output=True, text=True)
-    if result.returncode != 0:
-        raise ReleaseError(f"cargo tree failed: {result.stderr.strip()}")
-    if re.search(r"^vst3-sys\s", result.stdout, re.MULTILINE):
-        raise ReleaseError("CLAP-only dependency graph unexpectedly contains vst3-sys")
-
-
-def verify_vst3_dependencies(repository_root: Path, target: str | None = None) -> None:
-    """Prove the selected VST3 graph includes vst3-sys."""
-    command = [
-        "cargo",
-        "tree",
-        "--locked",
-        "--package",
-        PLUGIN_PACKAGE_NAME,
-        "--no-default-features",
-        "--features",
-        "vst3",
-        "--edges",
-        "normal",
-        "--prefix",
-        "none",
-    ]
-    if target:
-        command.extend(["--target", target])
-    result = subprocess.run(command, cwd=repository_root / "rust", capture_output=True, text=True)
-    if result.returncode != 0:
-        raise ReleaseError(f"cargo tree failed: {result.stderr.strip()}")
-    if re.search(r"^vst3-sys\s", result.stdout, re.MULTILINE) is None:
-        raise ReleaseError("VST3 dependency graph does not contain vst3-sys")
-
-
 def write_cargo_about_notice(report: dict[str, object], output_directory: Path) -> Path:
     """Render cargo-about JSON as a self-contained third-party notice with full texts."""
     if output_directory.exists():
@@ -631,33 +522,15 @@ def write_cargo_about_notice(report: dict[str, object], output_directory: Path) 
     return notice
 
 
-def _cargo_about_config(target: str, include_vst3: bool) -> str:
-    accepted_ids = (
-        CARGO_ABOUT_ACCEPTED
-        if include_vst3
-        else tuple(
-            license_id
-            for license_id in CARGO_ABOUT_ACCEPTED
-            if license_id != "GPL-3.0-or-later"
-        )
-    )
-    accepted = ",\n".join(f"  {json.dumps(license_id)}" for license_id in accepted_ids)
-    config = (
+def _cargo_about_config(target: str) -> str:
+    accepted = ",\n".join(f"  {json.dumps(license_id)}" for license_id in CARGO_ABOUT_ACCEPTED)
+    return (
         f"accepted = [\n{accepted},\n]\n"
         f"targets = [{json.dumps(target)}]\n"
         "ignore-build-dependencies = true\n"
         "ignore-dev-dependencies = true\n"
         'workarounds = ["ring"]\n'
     )
-    if include_vst3:
-        config += (
-            "\n[vst3-sys.clarify]\n"
-            'license = "GPL-3.0-or-later"\n'
-            "\n[[vst3-sys.clarify.git]]\n"
-            'path = "license.md"\n'
-            f'checksum = "{VST3_LICENSE_CHECKSUM}"\n'
-        )
-    return config
 
 
 def generate_rust_notices(
@@ -685,7 +558,7 @@ def generate_rust_notices(
         temporary_root = Path(temporary_directory)
         config = temporary_root / "about.toml"
         report = temporary_root / "about.json"
-        config.write_text(_cargo_about_config(target, "vst3" in features), encoding="utf-8")
+        config.write_text(_cargo_about_config(target), encoding="utf-8")
         command = [
             "cargo",
             "about",
@@ -724,16 +597,6 @@ def main() -> int:
         "set-version", help="set coordinated product versions and refresh Cargo.lock"
     )
     version_setter.add_argument("version")
-
-    dependencies = subparsers.add_parser(
-        "verify-clap-dependencies", help="prove the CLAP graph excludes vst3-sys"
-    )
-    dependencies.add_argument("--target")
-
-    vst3_dependencies = subparsers.add_parser(
-        "verify-vst3-dependencies", help="prove the VST3 graph includes vst3-sys"
-    )
-    vst3_dependencies.add_argument("--target")
 
     rust_notices = subparsers.add_parser(
         "generate-rust-notices", help="generate notices for one Rust artifact graph"
@@ -779,14 +642,6 @@ def main() -> int:
     extension_package.add_argument("extension_archive", type=Path)
     extension_package.add_argument("output_directory", type=Path)
 
-    source_package = subparsers.add_parser(
-        "package-vst3-source", help="package tracked and vendored VST3 corresponding source"
-    )
-    source_package.add_argument("tag")
-    source_package.add_argument("vendor_directory", type=Path)
-    source_package.add_argument("vendor_config", type=Path)
-    source_package.add_argument("output_directory", type=Path)
-
     checksums = subparsers.add_parser(
         "write-checksums", help="write SHA256SUMS for the complete candidate asset set"
     )
@@ -806,12 +661,6 @@ def main() -> int:
         elif args.command == "set-version":
             version = set_version(repository_root, args.version)
             print(f"set coordinated product version to {version} and refreshed Cargo.lock through Cargo")
-        elif args.command == "verify-clap-dependencies":
-            verify_clap_dependencies(repository_root, args.target)
-            print("CLAP-only dependency graph excludes vst3-sys")
-        elif args.command == "verify-vst3-dependencies":
-            verify_vst3_dependencies(repository_root, args.target)
-            print("VST3 dependency graph includes vst3-sys")
         elif args.command == "generate-rust-notices":
             features = tuple(feature for feature in args.features.split(",") if feature)
             print(
@@ -866,16 +715,6 @@ def main() -> int:
             print(
                 package_extension(
                     repository_root, args.tag, args.extension_archive, args.output_directory
-                )
-            )
-        elif args.command == "package-vst3-source":
-            print(
-                package_vst3_source(
-                    repository_root,
-                    args.tag,
-                    args.vendor_directory,
-                    args.vendor_config,
-                    args.output_directory,
                 )
             )
         elif args.command == "write-checksums":
