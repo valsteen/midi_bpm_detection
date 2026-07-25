@@ -310,6 +310,15 @@ def package_vst3(
     archive_name = output.stem
     sources = list(_archive_sources(bundle, archive_name))
     sources.extend(_artifact_notice_sources(repository_root, notice_directory, archive_name))
+    steinberg_vst3_license = repository_root / "LICENSES/Steinberg-VST3-SDK-3.8-MIT.txt"
+    if not steinberg_vst3_license.is_file():
+        raise ReleaseError(f"required VST3 notice is missing: {steinberg_vst3_license}")
+    sources.append(
+        (
+            steinberg_vst3_license,
+            f"{archive_name}/third-party-licenses/{steinberg_vst3_license.name}",
+        )
+    )
     return _write_archive(output, sources)
 
 
@@ -372,7 +381,7 @@ def write_checksums(asset_directory: Path, tag: str) -> Path:
     expected = _asset_names_without_checksums(tag)
     actual = {path.name for path in asset_directory.iterdir() if path.is_file()}
     if actual != expected:
-        raise ReleaseError("cannot write checksums before the complete binary/source asset set exists")
+        raise ReleaseError("cannot write checksums before the complete release asset set exists")
     lines = []
     for name in sorted(expected):
         digest = hashlib.sha256((asset_directory / name).read_bytes()).hexdigest()

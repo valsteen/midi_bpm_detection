@@ -52,6 +52,9 @@ class ReleaseToolTest(unittest.TestCase):
             "extension notices\n", encoding="utf-8"
         )
         (self.root / "LICENSES/Apache-2.0.txt").write_text("Apache text\n", encoding="utf-8")
+        (self.root / "LICENSES/Steinberg-VST3-SDK-3.8-MIT.txt").write_text(
+            "Steinberg VST 3.8 MIT notice\n", encoding="utf-8"
+        )
         self.notices = self.root / "notices"
         self.notices.mkdir()
         (self.notices / "THIRD_PARTY_NOTICES.md").write_text(
@@ -288,6 +291,7 @@ class ReleaseToolTest(unittest.TestCase):
                 {
                     f"{prefix}/LICENSE",
                     f"{prefix}/THIRD_PARTY_NOTICES.md",
+                    f"{prefix}/third-party-licenses/Steinberg-VST3-SDK-3.8-MIT.txt",
                     f"{prefix}/midi-bpm-detector-plugin.vst3/Contents/MacOS/"
                     "midi-bpm-detector-plugin",
                 },
