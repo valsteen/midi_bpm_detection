@@ -258,15 +258,16 @@ collections to satisfy test harness limits; solve those limits in tests instead.
 
 ## Plugin Dependency Notes
 
-The plugin path currently uses forks of `nice-plug` and `egui-baseview`. This should be treated as a pragmatic extension
-of upstream crates, not as a permanent divergence goal.
+The plugin path uses the personal `valsteen/nice-plug` fork and consumes `egui-baseview` 0.6.0 from crates.io. The
+nice-plug fork carries two downstream patches shared by several plugins:
 
-The fork exists for plugin/editor compatibility work that the project currently needs: mutable background task execution,
-alignment with the shared egui stack, small compatibility fixes for the current egui generation, and a compact raw-MIDI
-escape hatch. Plugin tempo feedback uses the localhost controller bridge described in
-[plugin flow](../docs/plugin-flow.md).
+- mutable background task executors for plugins whose executor owns state;
+- an `UnsupportedMidi` escape hatch that preserves sample-accurate three-byte control data routed through a host's normal
+  MIDI/device graph.
 
-Forks should follow a forward-only policy:
+Plugin tempo feedback uses the localhost controller bridge described in [plugin flow](../docs/plugin-flow.md).
+
+The nice-plug fork should follow a forward-only policy:
 
 - prefer moving to newer upstream dependency generations over patching stale transitive crates;
 - keep fork diffs small, boring, and shaped like upstreamable compatibility work;
@@ -274,7 +275,7 @@ Forks should follow a forward-only policy:
 - periodically check whether upstream has caught up enough to drop the fork or reduce its diff.
 
 The dependency rule is forward movement over patching obsolete transitive crates. Prefer current upstream dependency
-generations, and keep fork changes limited to compatibility work needed by the plugin editor and shared desktop/WASM GUI.
+generations, and keep fork changes limited to downstream plugin behavior that upstream nice-plug does not provide.
 
 ## Configuration Shape
 

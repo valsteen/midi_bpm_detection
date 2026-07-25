@@ -240,11 +240,11 @@ impl Plugin for MidiBpmDetector {
             self.params.editor_state.clone(),
             (async_executor, gui_editor),
             Default::default(),
-            |egui_ctx, _queue, state| {
-                state.1.build(egui_ctx, state.0.clone());
+            |egui_ctx, _queue, (async_executor, gui_editor)| {
+                gui_editor.build(egui_ctx, async_executor.clone());
             },
-            |ui, setter, _queue, state| {
-                state.1.update(setter, ui.ctx());
+            |ui, setter, _queue, (_async_executor, gui_editor)| {
+                gui_editor.update(setter, ui.ctx());
             },
         )
     }
