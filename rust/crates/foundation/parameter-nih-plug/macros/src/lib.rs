@@ -170,19 +170,19 @@ fn expand_plugin_parameter_group(
                 config
             }
 
-            #visibility fn add_remote_controls(&self, page: &mut impl ::nih_plug::prelude::RemoteControlsPage) {
+            #visibility fn add_remote_controls(&self, page: &mut impl ::nice_plug::prelude::RemoteControlsPage) {
                 #(#remote_control_entries)*
             }
 
             #(#mirror_methods)*
         }
 
-        unsafe impl ::nih_plug::params::Params for #struct_ident {
+        unsafe impl ::nice_plug::params::Params for #struct_ident {
             fn param_map(
                 &self,
             ) -> ::std::vec::Vec<(
                 ::std::string::String,
-                ::nih_plug::prelude::ParamPtr,
+                ::nice_plug::prelude::ParamPtr,
                 ::std::string::String,
             )> {
                 let mut params = ::std::vec::Vec::new();
@@ -318,7 +318,7 @@ fn expand_param_map_entry(field: &PluginParameterField, config_type: &Type) -> R
             quote! {
                 params.push((
                     ::std::string::String::from(#field_name),
-                    <::nih_plug::params::FloatParam as ::nih_plug::params::Param>::as_ptr(&self.#field_ident),
+                    <::nice_plug::params::FloatParam as ::nice_plug::params::Param>::as_ptr(&self.#field_ident),
                     ::std::string::String::new(),
                 ));
             }
@@ -327,7 +327,7 @@ fn expand_param_map_entry(field: &PluginParameterField, config_type: &Type) -> R
             quote! {
                 params.push((
                     ::std::string::String::from(#field_name),
-                    <::nih_plug::params::IntParam as ::nih_plug::params::Param>::as_ptr(&self.#field_ident),
+                    <::nice_plug::params::IntParam as ::nice_plug::params::Param>::as_ptr(&self.#field_ident),
                     ::std::string::String::new(),
                 ));
             }
@@ -373,7 +373,7 @@ fn expand_serialize_field(field: &PluginParameterField, config_type: &Type) -> R
         }
         PluginParameterFieldKind::Nested { .. } => {
             quote! {
-                serialized.extend(::nih_plug::params::Params::serialize_fields(&self.#field_ident));
+                serialized.extend(::nice_plug::params::Params::serialize_fields(&self.#field_ident));
             }
         }
         PluginParameterFieldKind::Float
@@ -401,7 +401,7 @@ fn expand_deserialize_field(field: &PluginParameterField, config_type: &Type) ->
         }
         PluginParameterFieldKind::Nested { .. } => {
             quote! {
-                ::nih_plug::params::Params::deserialize_fields(&self.#field_ident, serialized);
+                ::nice_plug::params::Params::deserialize_fields(&self.#field_ident, serialized);
             }
         }
         PluginParameterFieldKind::Float
@@ -507,7 +507,7 @@ fn expand_mirror_method(
             &self,
             config: &mut #config_type,
             value: #value,
-            param_setter: &::nih_plug::prelude::ParamSetter<'_>,
+            param_setter: &::nice_plug::prelude::ParamSetter<'_>,
         )
         where
             #descriptor: ::parameter::ParameterFieldDescriptor<#config_type>,
@@ -578,7 +578,7 @@ fn expand_accessor_macro(
                         use_lanes: impl FnOnce(
                             &#params_type,
                             &mut #config_type,
-                            &::nih_plug::prelude::ParamSetter<'_>,
+                            &::nice_plug::prelude::ParamSetter<'_>,
                         ) -> R,
                     ) -> R {
                         Self::#params_lane_helper(&(self $(.$params_member)+));
@@ -630,7 +630,7 @@ fn expand_accessor_macro_lane_traits(
         impl<'__parameter_nih_plug_param_setter_ref, '__parameter_nih_plug_param_setter_inner>
             #param_setter_lane_trait
             for &'__parameter_nih_plug_param_setter_ref
-                ::nih_plug::prelude::ParamSetter<'__parameter_nih_plug_param_setter_inner>
+                ::nice_plug::prelude::ParamSetter<'__parameter_nih_plug_param_setter_inner>
         {}
     }
 }

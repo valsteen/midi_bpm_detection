@@ -8,9 +8,8 @@ license.workspace = true
 parameter = { path = "../parameter" }
 parameter-on-off = { path = "../parameter-on-off" }
 parameter-nih-plug = { path = "../parameter-nih-plug" }
-
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", default-features = false }
 num-traits = "0.2.19"
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.2.0", default-features = false }
 
 [lints]
 workspace = true

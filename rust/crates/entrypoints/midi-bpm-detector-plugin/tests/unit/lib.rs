@@ -1,4 +1,4 @@
-use nih_plug::prelude::{ClapPlugin, Param, RemoteControlsContext, RemoteControlsPage, RemoteControlsSection};
+use nice_plug::prelude::{ClapPlugin, Param, RemoteControlsContext, RemoteControlsPage, RemoteControlsSection};
 
 use super::{DeferredConfigUpdate, MidiBpmDetector, PluginTiming};
 

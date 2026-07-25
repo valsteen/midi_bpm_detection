@@ -12,8 +12,8 @@ pub struct ExampleConfig {
 
 #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
 pub struct ExampleParams {
-    pub gain: nih_plug::params::FloatParam,
-    pub steps: nih_plug::params::IntParam,
+    pub gain: nice_plug::params::FloatParam,
+    pub steps: nice_plug::params::IntParam,
 }
 
 example_accessors! {

@@ -10,7 +10,7 @@ pub struct ExampleConfig {
 
 #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", group = "again")]
 pub struct ExampleParams {
-    pub gain: nih_plug::params::FloatParam,
+    pub gain: nice_plug::params::FloatParam,
 }
 
 fn main() {}

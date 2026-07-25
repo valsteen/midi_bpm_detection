@@ -7,7 +7,7 @@ use bpm_detection_config::{
     DynamicBPMDetectionConfig, DynamicBPMDetectionParameterFieldVisitor, GUIConfig, NormalDistributionConfig,
     NormalDistributionParameterFieldVisitor, Settings, StaticBPMDetectionConfig,
 };
-use nih_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
+use nice_plug::prelude::{Param, ParamFlags, Params, RemoteControlsPage};
 use parameter::{Asf64, ParameterField};
 use parameter_on_off::OnOff;
 

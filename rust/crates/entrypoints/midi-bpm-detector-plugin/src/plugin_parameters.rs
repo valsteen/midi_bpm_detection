@@ -7,11 +7,12 @@ use std::{
 };
 
 use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, StaticBPMDetectionConfig};
-use nih_plug::{
+use nice_plug::{
+    editor::dpi::LogicalSize,
     params::{BoolParam, FloatParam, IntParam, Params},
     prelude::IntRange,
 };
-use nih_plug_egui::EguiState;
+use nice_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter_nih_plug::nih_plugin_parameter_group;
 use parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam};
@@ -166,7 +167,7 @@ impl MidiBpmDetectorParams {
         let update_dynamic_changed_at_i32 = dynamic_change_marker.callback();
 
         Self {
-            editor_state: EguiState::from_size(1200, 600),
+            editor_state: EguiState::from_size(LogicalSize::new(1200.0, 600.0)),
             send_tempo: send_tempo_param(&config.send_tempo),
             gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &update_gui_changed_at_f32),
             static_params: PluginStaticParams::new(

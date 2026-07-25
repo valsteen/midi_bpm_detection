@@ -12,7 +12,7 @@ pub struct ExampleConfig {
 pub struct ExampleParams {
     #[nih_plugin_parameter(adapter = "float_u16_logarithmic")]
     #[nih_plugin_nested(group = "nested")]
-    pub gain: nih_plug::params::FloatParam,
+    pub gain: nice_plug::params::FloatParam,
 }
 
 fn main() {}

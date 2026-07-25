@@ -10,7 +10,7 @@ pub struct ExampleConfig {
 
 #[nih_plugin_parameter_group(config = ExampleConfig, group = "example", accessor_macro = example_accessors)]
 pub struct ExampleParams {
-    pub gain: nih_plug::params::FloatParam,
+    pub gain: nice_plug::params::FloatParam,
 }
 
 example_accessors! {
@@ -25,7 +25,7 @@ example_accessors! {
 pub struct ExampleLiveConfig<'a> {
     config: ExampleConfig,
     params: ExampleParams,
-    param_setter: &'a nih_plug::prelude::ParamSetter<'a>,
+    param_setter: &'a nice_plug::prelude::ParamSetter<'a>,
 }
 
 impl ExampleLiveConfig<'_> {

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nih_plug::{
+use nice_plug::{
     context::PluginApi,
     params::{FloatParam, IntParam, Param, Params},
     prelude::{GuiContext, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},

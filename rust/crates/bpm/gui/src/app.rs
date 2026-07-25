@@ -167,7 +167,7 @@ impl BPMDetectionGUI {
         }
 
         let refresh = egui::CentralPanel::default()
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 ui.horizontal_top(|ui| {
                     ui.vertical(|ui| {
                         ui.add_space(10.0);

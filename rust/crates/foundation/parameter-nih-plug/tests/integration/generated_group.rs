@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use nih_plug::{
+use nice_plug::{
     context::PluginApi,
     params::{FloatParam, IntParam, Param, Params},
     prelude::{GuiContext, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
@@ -98,7 +98,7 @@ pub struct ExternalAdapterParams {
 mod external_gain {
     use std::{collections::BTreeMap, sync::Arc};
 
-    use nih_plug::{
+    use nice_plug::{
         params::{FloatParam, Param, Params},
         prelude::{FloatRange, ParamPtr, ParamSetter, RemoteControlsPage},
     };

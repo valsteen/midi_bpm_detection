@@ -11,7 +11,7 @@ pub struct ExampleConfig {
 #[nih_plugin_parameter_group(config = ExampleConfig, group = "example")]
 pub struct ExampleParams {
     #[nih_plugin_parameter(mode = "fast")]
-    pub gain: nih_plug::params::FloatParam,
+    pub gain: nice_plug::params::FloatParam,
 }
 
 fn main() {}

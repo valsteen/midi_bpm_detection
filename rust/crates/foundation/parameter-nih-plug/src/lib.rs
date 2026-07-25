@@ -9,7 +9,7 @@
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use nih_plug::{
+use nice_plug::{
     params::{FloatParam, IntParam, Param},
     prelude::{FloatRange, IntRange, ParamPtr, ParamSetter, RemoteControlsPage},
 };

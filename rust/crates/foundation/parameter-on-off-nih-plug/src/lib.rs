@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use nih_plug::{
+use nice_plug::{
     params::{FloatParam, Param, Params, persist},
     prelude::{FloatRange, ParamPtr, ParamSetter, RemoteControlsPage},
 };
@@ -95,7 +95,7 @@ unsafe impl Params for OnOffParam {
                 serialized.insert(self.enabled_key.clone(), data);
             }
             Err(err) => {
-                nih_plug::nih_debug_assert_failure!("Could not serialize '{}': {}", self.enabled_key, err);
+                nice_plug::nice_debug_assert_failure!("Could not serialize '{}': {}", self.enabled_key, err);
             }
         }
         serialized
@@ -109,7 +109,7 @@ unsafe impl Params for OnOffParam {
         match persist::deserialize_field(data) {
             Ok(is_enabled) => self.enabled.store(is_enabled, Ordering::Relaxed),
             Err(err) => {
-                nih_plug::nih_debug_assert_failure!("Could not deserialize '{}': {}", self.enabled_key, err);
+                nice_plug::nice_debug_assert_failure!("Could not deserialize '{}': {}", self.enabled_key, err);
             }
         }
     }

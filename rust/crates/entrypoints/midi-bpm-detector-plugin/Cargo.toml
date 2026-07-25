@@ -10,12 +10,16 @@ description = "Midi plugin that will estimate the BPM of the midi input"
 [features]
 default = ["clap", "standalone"]
 clap = []
-standalone = ["nih_plug/standalone"]
-vst3 = ["nih_plug/vst3"]
+standalone = ["nice-plug/standalone"]
+vst3 = ["nice-plug/vst3"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[[bin]]
+name = "midi-bpm-detector-plugin"
+path = "src/main.rs"
+required-features = ["standalone"]
 
 [dependencies]
 errors = { path = "../../support/errors" }
@@ -28,11 +32,8 @@ parameter-on-off-nih-plug = { path = "../../foundation/parameter-on-off-nih-plug
 parameter-nih-plug = { path = "../../foundation/parameter-nih-plug", default-features = false }
 sync = { path = "../../support/sync" }
 
-nih_plug = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6", default-features = false, features = ["assert_process_allocs"] }
-nih_plug_egui = { git = "https://github.com/valsteen/nih-plug.git", rev = "3bb9d2ee6cf164ac1b9f5c8756ad29a99d818ac6" }
-
 chrono = "0.4.45"
-cpal = "0.16.0"
+cpal = "0.18.1"
 crossbeam = "0.8.4"
 midir = "0.11.0"
 num-traits = "0.2.19"
@@ -42,6 +43,8 @@ mimalloc = "0.1.52"
 wmidi = "4.0.11"
 
 toml = "1.1.2"
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.2.0", default-features = false, features = ["assert_process_allocs"] }
+nice-plug-egui = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.3.0" }
 
 [lints]
 workspace = true

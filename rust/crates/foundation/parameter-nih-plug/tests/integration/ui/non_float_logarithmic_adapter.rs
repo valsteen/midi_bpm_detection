@@ -11,7 +11,7 @@ pub struct ExampleConfig {
 #[nih_plugin_parameter_group(config = ExampleConfig, group = "example")]
 pub struct ExampleParams {
     #[nih_plugin_parameter(adapter = "float_u16_logarithmic")]
-    pub sample_rate: nih_plug::params::IntParam,
+    pub sample_rate: nice_plug::params::IntParam,
 }
 
 fn main() {}
