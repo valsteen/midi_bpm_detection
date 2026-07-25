@@ -97,8 +97,11 @@ cd rust
 cargo xtask bundle midi-bpm-detector-plugin --release --lib --no-default-features --features vst3
 ```
 
-Distributed VST3 binaries carry a separate GPL notice and corresponding-source pointer because they link the pinned
-GPL binding. The source repository remains MIT; see [VST3 binary license and source](LICENSES/VST3-BUILD.md).
+The VST3 build uses nice-plug's `vst3 0.3.0` binding, generated from the
+MIT-licensed VST 3.8 SDK and offered under `MIT OR Apache-2.0`. VST3 and CLAP
+remain separate feature builds, and each release archive includes its generated
+third-party notices. VST3 archives also preserve Steinberg's VST 3.8 MIT notice.
+The project source remains MIT.
 
 ### Build The Bitwig Extension
 

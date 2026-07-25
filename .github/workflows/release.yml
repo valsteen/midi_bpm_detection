@@ -163,11 +163,6 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y libasound2-dev libjack-jackd2-dev
 
-      - name: Prove CLAP dependency isolation
-        run: >-
-          python scripts/release.py verify-clap-dependencies
-          --target ${{ matrix.target }}
-
       - name: Build CLAP library bundle
         working-directory: rust
         run: >-
@@ -250,11 +245,6 @@ jobs:
         run: >-
           sudo apt-get update &&
           sudo apt-get install -y libasound2-dev libjack-jackd2-dev
-
-      - name: Prove VST3 dependency selection
-        run: >-
-          python scripts/release.py verify-vst3-dependencies
-          --target ${{ matrix.target }}
 
       - name: Build VST3 library bundle
         working-directory: rust
@@ -403,52 +393,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  source:
-    name: VST3 corresponding source
-    needs: preflight
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust -> target
-          shared-key: release-source
-
-      - name: Vendor locked Cargo sources
-        working-directory: rust
-        run: |
-          mkdir -p ../source-input
-          cargo vendor --locked --versioned-dirs vendor \
-            > ../source-input/config.toml
-
-      - name: Package exact corresponding source
-        run: >-
-          python scripts/release.py package-vst3-source "$RELEASE_TAG"
-          rust/vendor source-input/config.toml artifacts
-
-      - name: Upload corresponding source
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-candidate-vst3-source
-          path: "artifacts/midi-bpm-detector-${{ env.RELEASE_TAG }}-\
-            vst3-source.tar.gz"
-          if-no-files-found: error
-          retention-days: 7
-
   assemble:
     name: assemble complete candidate
-    needs: [preflight, clap, vst3, desktop, extension, source]
+    needs: [preflight, clap, vst3, desktop, extension]
     runs-on: ubuntu-latest
 
     steps:

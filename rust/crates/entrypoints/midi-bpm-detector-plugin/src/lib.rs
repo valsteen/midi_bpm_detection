@@ -22,10 +22,11 @@ use std::{
 use bpm_detection_config::{duration_to_sample, sample_to_duration};
 use bpm_detection_core::{BPMDetection, TimedNoteOn, note_events::NoteOn};
 use crossbeam::atomic::AtomicCell;
+use errors::error;
 #[cfg(not(debug_assertions))]
 use mimalloc::MiMalloc;
-use nih_plug::{log::error, midi::MidiResult, prelude::*};
-use nih_plug_egui::create_egui_editor;
+use nice_plug::{midi::MidiResult, prelude::*};
+use nice_plug_egui::{EguiNiceSettings, create_egui_editor};
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
 
@@ -223,7 +224,7 @@ impl Plugin for MidiBpmDetector {
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
     fn task_executor(&mut self) -> TaskExecutor<Self> {
-        // guaranteed to be called once by nih-plug
+        // guaranteed to be called once by nice-plug
         let mut task_executor = self.task_executor_handoff.take().unwrap();
         Box::new(move |task| task_executor.execute(task))
     }
@@ -233,13 +234,18 @@ impl Plugin for MidiBpmDetector {
     }
 
     fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        // guaranteed to be called once by nih-plug
+        // guaranteed to be called once by nice-plug
         let gui_editor = self.gui_editor_handoff.take().unwrap();
         create_egui_editor(
             self.params.editor_state.clone(),
             (async_executor, gui_editor),
-            |egui_ctx, (async_executor, gui_editor)| gui_editor.build(egui_ctx, async_executor.clone()),
-            |egui_ctx, setter, (_async_executor, gui_editor)| gui_editor.update(setter, egui_ctx),
+            EguiNiceSettings::default(),
+            |egui_ctx, _extra_output_commands, (async_executor, gui_editor)| {
+                gui_editor.build(egui_ctx, async_executor.clone());
+            },
+            |ui, setter, _extra_output_commands, (_async_executor, gui_editor)| {
+                gui_editor.update(setter, ui.ctx());
+            },
         )
     }
 
@@ -392,6 +398,6 @@ impl Vst3Plugin for MidiBpmDetector {
 }
 
 #[cfg(feature = "clap")]
-nih_export_clap!(MidiBpmDetector);
+nice_export_clap!(MidiBpmDetector);
 #[cfg(feature = "vst3")]
-nih_export_vst3!(MidiBpmDetector);
+nice_export_vst3!(MidiBpmDetector);

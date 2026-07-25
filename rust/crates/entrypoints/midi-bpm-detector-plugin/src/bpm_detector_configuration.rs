@@ -5,7 +5,7 @@ use std::{
 
 use errors::info;
 use gui::BPMDetectionConfig;
-use nih_plug::prelude::{AsyncExecutor, ParamSetter};
+use nice_plug::prelude::{AsyncExecutor, ParamSetter};
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{

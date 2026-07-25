@@ -7,14 +7,15 @@ use std::{
 };
 
 use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, StaticBPMDetectionConfig};
-use nih_plug::{
+use nice_plug::{
+    editor::dpi::LogicalSize,
     params::{BoolParam, FloatParam, IntParam, Params},
     prelude::IntRange,
 };
-use nih_plug_egui::EguiState;
+use nice_plug_egui::EguiState;
 use num_traits::ToPrimitive;
-use parameter_nih_plug::nih_plugin_parameter_group;
-use parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam};
+use parameter_nice_plug::nice_plugin_parameter_group;
+use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
 use sync::ArcAtomicOptionNonZeroU16;
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
     plugin_config::{PluginConfig, SendTempoOutputState},
 };
 
-#[nih_plugin_parameter_group(
+#[nice_plugin_parameter_group(
     config = bpm_detection_config::GUIConfig,
     group = "GUI",
     accessor_macro = plugin_gui_params_accessors
@@ -32,36 +33,36 @@ pub struct PluginGUIParams {
     pub interpolation_curve: FloatParam,
 }
 
-#[nih_plugin_parameter_group(
+#[nice_plugin_parameter_group(
     config = bpm_detection_config::DynamicBPMDetectionConfig,
     group = "DynamicParams",
     accessor_macro = plugin_dynamic_params_accessors
 )]
 pub struct PluginDynamicParams {
     pub beats_lookback: IntParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub normal_distribution_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub time_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub velocity_current_note_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub velocity_note_from_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub in_beat_range_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub multiplier_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub subdivision_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub octave_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub pitch_distance_weight: OnOffParam,
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub high_tempo_bias_weight: OnOffParam,
 }
 
-#[nih_plugin_parameter_group(
+#[nice_plugin_parameter_group(
     config = bpm_detection_config::NormalDistributionConfig,
     group = "normal_distribution",
     accessor_macro = normal_distribution_params_accessors
@@ -73,7 +74,7 @@ pub struct NormalDistributionParams {
     pub factor: FloatParam,
 }
 
-#[nih_plugin_parameter_group(
+#[nice_plugin_parameter_group(
     config = bpm_detection_config::StaticBPMDetectionConfig,
     group = "StaticParams",
     accessor_macro = plugin_static_params_accessors
@@ -81,9 +82,9 @@ pub struct NormalDistributionParams {
 pub struct PluginStaticParams {
     pub bpm_center: FloatParam,
     pub bpm_range: IntParam,
-    #[nih_plugin_parameter(adapter = "float_u16_logarithmic")]
+    #[nice_plugin_parameter(adapter = "float_u16_logarithmic")]
     pub sample_rate: FloatParam,
-    #[nih_plugin_nested(group = "normal_distribution")]
+    #[nice_plugin_nested(group = "normal_distribution")]
     pub normal_distribution: NormalDistributionParams,
 }
 
@@ -166,7 +167,7 @@ impl MidiBpmDetectorParams {
         let update_dynamic_changed_at_i32 = dynamic_change_marker.callback();
 
         Self {
-            editor_state: EguiState::from_size(1200, 600),
+            editor_state: EguiState::from_size(LogicalSize::new(1200.0, 600.0)),
             send_tempo: send_tempo_param(&config.send_tempo),
             gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &update_gui_changed_at_f32),
             static_params: PluginStaticParams::new(

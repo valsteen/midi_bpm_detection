@@ -18,7 +18,7 @@ fn live_config_uses_generated_mirror_methods() {
         "LiveConfig setters should call generated mirror_<field> methods instead of direct host-param mirroring"
     );
     assert!(
-        !source.contains("use parameter_nih_plug::MirrorHostParam;"),
+        !source.contains("use parameter_nice_plug::MirrorHostParam;"),
         "LiveConfig should not import MirrorHostParam directly after generated mirror methods own that pairing"
     );
 }

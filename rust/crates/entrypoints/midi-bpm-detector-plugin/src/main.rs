@@ -2,7 +2,7 @@ use cpal::{HostId, traits::HostTrait};
 use errors::initialize_logging;
 use midi_bpm_detector_plugin::MidiBpmDetector;
 use midir::os::unix::{VirtualInput, VirtualOutput};
-use nih_plug::wrapper::standalone::nih_export_standalone_with_args;
+use nice_plug::wrapper::standalone::nice_export_standalone_with_args;
 
 fn main() {
     initialize_logging().unwrap();
@@ -16,7 +16,7 @@ fn main() {
         .unwrap();
     let _out = cpal::host_from_id(audio_host_id).unwrap().output_devices().unwrap().next().unwrap();
 
-    let standalone_started = nih_export_standalone_with_args::<MidiBpmDetector, _>([
+    let standalone_started = nice_export_standalone_with_args::<MidiBpmDetector, _>([
         "midi-bpm-detector-plugin".to_string(),
         "--backend".to_string(),
         audio_backend.to_string(),

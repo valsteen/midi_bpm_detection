@@ -1,9 +1,9 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use crossbeam::atomic::AtomicCell;
-use gui::{BPMDetectionApp, BPMDetectionConfig, GuiLifecycleOwner, GuiRemote, create_gui};
-use nih_plug::prelude::{AsyncExecutor, ParamSetter};
-use nih_plug_egui::{EguiState, egui::Context};
+use gui::{BPMDetectionApp, BPMDetectionConfig, GuiLifecycleOwner, GuiRemote, create_gui, eframe::egui::Context};
+use nice_plug::prelude::{AsyncExecutor, ParamSetter};
+use nice_plug_egui::EguiState;
 use sync::{ArcAtomicBool, RwLock};
 
 use crate::{

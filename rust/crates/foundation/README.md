@@ -3,7 +3,7 @@
 The foundation crates provide reusable parameter metadata and host-parameter
 bridges for Rust plugin products. They let product crates describe their
 configuration once, use that metadata in UI or runtime code, and optionally map
-the same fields into NIH-plug host parameters.
+the same fields into nice-plug host parameters.
 
 These crates are ordinary Cargo packages. The filesystem grouping lives under
 `rust/crates/foundation/`; package names and Rust imports keep their normal
@@ -15,14 +15,14 @@ hyphen/underscore forms.
   the `#[parameter_group]` macro for Rust config structs.
 - `parameter-on-off` provides the reusable `OnOff<T>` value type when a setting
   needs an enabled/disabled state plus a value.
-- `parameter-nih-plug` maps generic parameter metadata to NIH-plug host
-  parameters and provides `#[nih_plugin_parameter_group]`,
-  `NihPlugFieldAdapter`, and `MirrorHostParam`.
-- `parameter-on-off-nih-plug` connects `OnOff<f32>` to NIH-plug through
+- `parameter-nice-plug` maps generic parameter metadata to nice-plug host
+  parameters and provides `#[nice_plugin_parameter_group]`,
+  `NicePlugFieldAdapter`, and `MirrorHostParam`.
+- `parameter-on-off-nice-plug` connects `OnOff<f32>` to nice-plug through
   `OnOffParam` and `OnOffF32Adapter`.
 
 Use only the crates your product needs. Plain config metadata does not require
-NIH-plug crates, and a product that does not use `OnOff<T>` does not need the
+nice-plug crates, and a product that does not use `OnOff<T>` does not need the
 OnOff packages.
 
 ## Cargo Usage
@@ -36,11 +36,11 @@ parameter = { path = "../../foundation/parameter" }
 # Optional when config fields use OnOff<T>.
 parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
-# Optional when the product exposes host parameters through NIH-plug.
-parameter-nih-plug = { path = "../../foundation/parameter-nih-plug" }
+# Optional when the product exposes host parameters through nice-plug.
+parameter-nice-plug = { path = "../../foundation/parameter-nice-plug" }
 
-# Optional when NIH-plug host parameters need OnOff<f32> support.
-parameter-on-off-nih-plug = { path = "../../foundation/parameter-on-off-nih-plug" }
+# Optional when nice-plug host parameters need OnOff<f32> support.
+parameter-on-off-nice-plug = { path = "../../foundation/parameter-on-off-nice-plug" }
 ```
 
 Adjust the relative path if the consuming crate lives in another group.
@@ -62,19 +62,19 @@ pub struct ExampleConfig {
 }
 ```
 
-## NIH-plug Host Parameters
+## nice-plug Host Parameters
 
-Add NIH-plug integration in the plugin product crate when the host needs to see
+Add nice-plug integration in the plugin product crate when the host needs to see
 the parameters. The host parameter holder points back to the plain config type
 and imports any adapters required by custom value types.
 
 ```rust
-use parameter_nih_plug::nih_plugin_parameter_group;
-use parameter_on_off_nih_plug::{OnOffF32Adapter, OnOffParam};
+use parameter_nice_plug::nice_plugin_parameter_group;
+use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
 
-#[nih_plugin_parameter_group(config = ExampleConfig, group = "Example")]
+#[nice_plugin_parameter_group(config = ExampleConfig, group = "Example")]
 pub struct ExamplePluginParams {
-    #[nih_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
     pub gain: OnOffParam,
 }
 ```

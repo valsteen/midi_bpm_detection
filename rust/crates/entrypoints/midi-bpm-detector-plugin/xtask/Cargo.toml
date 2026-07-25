@@ -4,8 +4,8 @@ version.workspace = true
 edition = "2024"
 license.workspace = true
 
-[dependencies]
-nih_plug_xtask = { git = "https://github.com/robbert-vdh/nih-plug.git" }
-
 [lints]
 workspace = true
+
+[dependencies]
+nice-plug-xtask = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.1.1" }

@@ -12,9 +12,9 @@ members = [
     "crates/foundation/parameter",
     "crates/foundation/parameter/macros",
     "crates/foundation/parameter-on-off",
-    "crates/foundation/parameter-on-off-nih-plug",
-    "crates/foundation/parameter-nih-plug",
-    "crates/foundation/parameter-nih-plug/macros",
+    "crates/foundation/parameter-on-off-nice-plug",
+    "crates/foundation/parameter-nice-plug",
+    "crates/foundation/parameter-nice-plug/macros",
     "crates/entrypoints/wasm",
     "crates/entrypoints/midi-bpm-detector-plugin",
     "crates/entrypoints/midi-bpm-detector-plugin/xtask",
@@ -23,7 +23,7 @@ members = [
 default-members = ["crates/entrypoints/desktop", "crates/tools/midi-reset"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 
 [workspace.lints.clippy]

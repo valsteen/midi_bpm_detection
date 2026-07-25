@@ -11,7 +11,7 @@ use bpm_detection_core::{BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMD
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
-use nih_plug_egui::EguiState;
+use nice_plug_egui::EguiState;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
 
