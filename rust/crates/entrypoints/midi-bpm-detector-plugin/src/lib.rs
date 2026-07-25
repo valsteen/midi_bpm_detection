@@ -26,7 +26,7 @@ use errors::error;
 #[cfg(not(debug_assertions))]
 use mimalloc::MiMalloc;
 use nice_plug::{midi::MidiResult, prelude::*};
-use nice_plug_egui::create_egui_editor;
+use nice_plug_egui::{EguiNiceSettings, create_egui_editor};
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
 
@@ -239,7 +239,7 @@ impl Plugin for MidiBpmDetector {
         create_egui_editor(
             self.params.editor_state.clone(),
             (async_executor, gui_editor),
-            Default::default(),
+            EguiNiceSettings::default(),
             |egui_ctx, _extra_output_commands, (async_executor, gui_editor)| {
                 gui_editor.build(egui_ctx, async_executor.clone());
             },
