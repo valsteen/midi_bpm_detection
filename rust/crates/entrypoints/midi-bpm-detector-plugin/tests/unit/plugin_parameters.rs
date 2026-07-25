@@ -84,8 +84,8 @@ fn dynamic_remote_controls_expose_every_dynamic_parameter() {
 }
 
 #[test]
-fn gui_params_use_parameter_nih_plug_generated_surface() {
-    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+fn gui_params_use_parameter_nice_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nice_plug::GeneratedNicePlugParams>() {}
 
     assert_generated_params::<PluginGUIParams>();
 }
@@ -124,15 +124,15 @@ fn static_plugin_parameter_ids_match_config_field_names() {
 }
 
 #[test]
-fn static_params_use_parameter_nih_plug_generated_surface() {
-    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+fn static_params_use_parameter_nice_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nice_plug::GeneratedNicePlugParams>() {}
 
     assert_generated_params::<PluginStaticParams>();
 }
 
 #[test]
-fn dynamic_params_use_parameter_nih_plug_generated_surface() {
-    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+fn dynamic_params_use_parameter_nice_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nice_plug::GeneratedNicePlugParams>() {}
 
     assert_generated_params::<PluginDynamicParams>();
 }
@@ -213,8 +213,8 @@ fn dynamic_generated_field_names_match_host_parameter_ids_in_order() {
 }
 
 #[test]
-fn normal_distribution_params_use_parameter_nih_plug_generated_surface() {
-    fn assert_generated_params<T: parameter_nih_plug::GeneratedNihPlugParams>() {}
+fn normal_distribution_params_use_parameter_nice_plug_generated_surface() {
+    fn assert_generated_params<T: parameter_nice_plug::GeneratedNicePlugParams>() {}
 
     assert_generated_params::<NormalDistributionParams>();
 }

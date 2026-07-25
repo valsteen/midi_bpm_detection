@@ -1,4 +1,4 @@
-# This provides metadata for NIH-plug's `cargo xtask bundle <foo>` midi-bpm-detector-plugin
+# This provides metadata for nice-plug's `cargo xtask bundle <foo>` midi-bpm-detector-plugin
 # bundler. This file's syntax is as follows:
 #
 # [package_name]

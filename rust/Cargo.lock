@@ -2762,9 +2762,9 @@ dependencies = [
  "nice-plug-egui",
  "num-traits",
  "parameter",
- "parameter-nih-plug",
+ "parameter-nice-plug",
  "parameter-on-off",
- "parameter-on-off-nih-plug",
+ "parameter-on-off-nice-plug",
  "ringbuf",
  "serde",
  "sync",
@@ -3657,18 +3657,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "parameter-nih-plug"
+name = "parameter-nice-plug"
 version = "0.1.0"
 dependencies = [
  "nice-plug",
  "num-traits",
  "parameter",
- "parameter-nih-plug-macros",
+ "parameter-nice-plug-macros",
  "trybuild",
 ]
 
 [[package]]
-name = "parameter-nih-plug-macros"
+name = "parameter-nice-plug-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -3687,13 +3687,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "parameter-on-off-nih-plug"
+name = "parameter-on-off-nice-plug"
 version = "0.1.0"
 dependencies = [
  "nice-plug",
  "num-traits",
  "parameter",
- "parameter-nih-plug",
+ "parameter-nice-plug",
  "parameter-on-off",
 ]
 

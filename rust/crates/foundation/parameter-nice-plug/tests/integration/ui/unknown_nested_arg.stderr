@@ -1,0 +1,5 @@
+error: unknown argument `label` in #[nice_plugin_nested(...)]
+  --> tests/integration/ui/unknown_nested_arg.rs:13:26
+   |
+13 |     #[nice_plugin_nested(label = "Child")]
+   |                          ^^^^^

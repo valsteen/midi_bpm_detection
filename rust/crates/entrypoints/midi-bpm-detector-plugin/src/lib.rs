@@ -224,7 +224,7 @@ impl Plugin for MidiBpmDetector {
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
     fn task_executor(&mut self) -> TaskExecutor<Self> {
-        // guaranteed to be called once by nih-plug
+        // guaranteed to be called once by nice-plug
         let mut task_executor = self.task_executor_handoff.take().unwrap();
         Box::new(move |task| task_executor.execute(task))
     }
@@ -234,7 +234,7 @@ impl Plugin for MidiBpmDetector {
     }
 
     fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        // guaranteed to be called once by nih-plug
+        // guaranteed to be called once by nice-plug
         let gui_editor = self.gui_editor_handoff.take().unwrap();
         create_egui_editor(
             self.params.editor_state.clone(),

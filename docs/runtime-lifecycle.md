@@ -36,7 +36,7 @@ flowchart LR
         process["MidiBpmDetector::process<br/>realtime callback"]
         plugin_params["MidiBpmDetectorParams<br/>host parameters"]
         ring["fixed ring buffer<br/>Event::TimedNoteOn / Event::DawBPM"]
-        plugin_tasks["nih-plug background task<br/>TaskExecutor"]
+        plugin_tasks["nice-plug background task<br/>TaskExecutor"]
         plugin_model["BPMDetection<br/>plugin-owned model"]
         plugin_gui["egui plugin editor<br/>GuiEditor + BaseConfig"]
         tempo_socket["localhost tempo controller<br/>optional Bitwig extension bridge"]
@@ -110,7 +110,7 @@ sequenceDiagram
     participant Ring as Event ring buffer
     participant Exec as TaskExecutor handoff
     participant Editor as GuiEditor handoff
-    participant Host as nih-plug host wrapper
+    participant Host as nice-plug host wrapper
 
     Plugin->>Config: load built-in config
     Plugin->>Ring: split fixed Event buffer
@@ -135,7 +135,7 @@ Who knows what:
 - `GuiEditor` creates the GUI app when the editor opens, while the DAW owns application and editor-window lifecycle
   through the plugin API.
 - `GuiRemote` is passed by value across the runtime as a receiver/handle, but it only exposes the UI update surface.
-- The `task_executor_handoff` and `gui_editor_handoff` fields are one-shot NIH-plug handoff slots, not general nullable
+- The `task_executor_handoff` and `gui_editor_handoff` fields are one-shot nice-plug handoff slots, not general nullable
   runtime state.
 
 ## Plugin Notes
@@ -233,7 +233,7 @@ of echoing the same edit back to the host as a new user action.
 sequenceDiagram
     participant Editor as egui plugin editor
     participant Live as LiveConfig / BaseConfig
-    participant Setter as nih-plug ParamSetter
+    participant Setter as nice-plug ParamSetter
     participant Config as shared PluginConfig
     participant Exec as TaskExecutor
     participant Model as BPMDetection
@@ -273,7 +273,7 @@ GUI/display changes repaint without forcing a BPM recompute.
 
 ```mermaid
 sequenceDiagram
-    participant Host as nih-plug editor host
+    participant Host as nice-plug editor host
     participant Editor as GuiEditor
     participant Gui as gui::create_gui
     participant RemoteCell as gui_remote_receiver

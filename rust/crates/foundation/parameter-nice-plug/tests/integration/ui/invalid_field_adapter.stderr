@@ -1,0 +1,5 @@
+error: unsupported #[nice_plugin_parameter(adapter = ...)] value
+  --> tests/integration/ui/invalid_field_adapter.rs:13:39
+   |
+13 |     #[nice_plugin_parameter(adapter = "linear_f32")]
+   |                                       ^^^^^^^^^^^^

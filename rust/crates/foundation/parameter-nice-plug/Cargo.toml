@@ -1,0 +1,25 @@
+[package]
+name = "parameter-nice-plug"
+version.workspace = true
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+parameter = { path = "../parameter" }
+parameter_nice_plug_macros = { package = "parameter-nice-plug-macros", path = "macros" }
+num-traits = "0.2.19"
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "211a6f32130dede2c493ddc8d88ea09f5be8e314", version = "0.2.0", default-features = false }
+
+[dev-dependencies]
+trybuild = "1.0"
+
+[lints]
+workspace = true
+
+[[test]]
+name = "generated_group"
+path = "tests/integration/generated_group.rs"
+
+[[test]]
+name = "macro_diagnostics"
+path = "tests/integration/macro_diagnostics.rs"

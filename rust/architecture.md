@@ -48,8 +48,8 @@ flowchart TD
 
   subgraph foundation["Foundation parameter stack"]
     direction TB
-    parameter_on_off_nih["parameter-on-off-nih-plug<br/>OnOff NIH bridge"]
-    parameter_nih["parameter-nih-plug<br/>NIH-plug generation"]
+    parameter_on_off_nice["parameter-on-off-nice-plug<br/>OnOff nice-plug bridge"]
+    parameter_nice["parameter-nice-plug<br/>nice-plug generation"]
     parameter_on_off["parameter-on-off<br/>optional OnOff value type"]
     parameter["parameter<br/>generic metadata"]
   end
@@ -64,7 +64,7 @@ flowchart TD
   plugin --> gui
   plugin --> config
   plugin --> core
-  plugin --> parameter_on_off_nih
+  plugin --> parameter_on_off_nice
   plugin --> errors
   plugin --> sync
   desktop --> gui
@@ -90,9 +90,9 @@ flowchart TD
   midi --> sync
   midi --> build
   core --> config
-  parameter_on_off_nih --> parameter_on_off
-  parameter_on_off_nih --> parameter_nih
-  parameter_nih --> parameter
+  parameter_on_off_nice --> parameter_on_off
+  parameter_on_off_nice --> parameter_nice
+  parameter_nice --> parameter
   parameter_on_off --> parameter
   errors --> sync
   errors --> build
@@ -149,7 +149,7 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
 ### Runtime Entrypoints
 
 - `crates/entrypoints/midi-bpm-detector-plugin`
-  - CLAP/VST3 integration via `nih-plug`.
+  - CLAP/VST3 integration via `nice-plug`.
   - Receives MIDI in the plugin `process` callback.
   - Parses host MIDI bytes at the plugin boundary and maps note-on events into the core note type.
   - Uses a fixed ring buffer and host background tasks so the realtime callback avoids expensive work.
@@ -189,16 +189,16 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
   - Defines generic parameter metadata, value conversion helpers, and the `#[parameter_group]` macro.
   - Keeps parameter descriptions reusable across GUI, plugin, core config, and other plugin products.
 
-- `crates/foundation/parameter-nih-plug`
-  - Owns reusable NIH-plug host parameter generation and mirroring for generic parameter metadata.
-  - Provides the `NihPlugFieldAdapter` and `MirrorHostParam` extension points used by optional bridge crates.
+- `crates/foundation/parameter-nice-plug`
+  - Owns reusable nice-plug host parameter generation and mirroring for generic parameter metadata.
+  - Provides the `NicePlugFieldAdapter` and `MirrorHostParam` extension points used by optional bridge crates.
 
 - `crates/foundation/parameter-on-off`
   - Owns the reusable `OnOff<T>` value type and its serialization/value conversion behavior.
-  - Has no NIH-plug dependency.
+  - Has no nice-plug dependency.
 
-- `crates/foundation/parameter-on-off-nih-plug`
-  - Bridges `OnOff<f32>` into NIH-plug through `OnOffParam` and `OnOffF32Adapter`.
+- `crates/foundation/parameter-on-off-nice-plug`
+  - Bridges `OnOff<f32>` into nice-plug through `OnOffParam` and `OnOffF32Adapter`.
   - Depends on the base parameter crates, not on BPM product crates.
 
 Product, domain, and application crates may depend down into this foundation stack. Foundation crates must not depend back
@@ -246,7 +246,7 @@ The plugin crate is the production runtime and has the strictest execution const
 constraints:
 
 - The plugin `process` callback parses incoming MIDI and pushes events with `try_push` into a fixed ring buffer.
-- BPM computation runs from `nih-plug` background tasks, not directly from the audio callback.
+- BPM computation runs from `nice-plug` background tasks, not directly from the audio callback.
 - Cross-thread state crossing the callback boundary uses atomics, fixed buffers, or non-blocking handoff.
 - GUI updates are indirect through `GuiRemote`; the UI can repaint from shared state without the audio callback owning UI
   work.
@@ -258,7 +258,7 @@ collections to satisfy test harness limits; solve those limits in tests instead.
 
 ## Plugin Dependency Notes
 
-The plugin path currently uses forks of `nih-plug` and `egui-baseview`. This should be treated as a pragmatic extension
+The plugin path currently uses forks of `nice-plug` and `egui-baseview`. This should be treated as a pragmatic extension
 of upstream crates, not as a permanent divergence goal.
 
 The fork exists for plugin/editor compatibility work that the project currently needs: mutable background task execution,
