@@ -43,8 +43,8 @@ mimalloc = "0.1.52"
 wmidi = "4.0.11"
 
 toml = "1.1.2"
-nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "d40fec783b978b73dadb3a8ce78e0eea6fde2ab2", version = "0.2.0", default-features = false, features = ["assert_process_allocs"] }
-nice-plug-egui = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "d40fec783b978b73dadb3a8ce78e0eea6fde2ab2", version = "0.3.0" }
+nice-plug = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "abd0b85ec2f744d22167eb730e53318b7fd020c1", version = "0.2.0", default-features = false, features = ["assert_process_allocs"] }
+nice-plug-egui = { git = "https://codeberg.org/valsteen/nice-plug.git", rev = "abd0b85ec2f744d22167eb730e53318b7fd020c1", version = "0.3.0" }
 
 [lints]
 workspace = true
