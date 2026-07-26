@@ -7,7 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  WASM_BINDGEN_CLI_VERSION: 0.2.125
+  WASM_BINDGEN_CLI_VERSION: 0.2.126
 
 defaults:
   run:

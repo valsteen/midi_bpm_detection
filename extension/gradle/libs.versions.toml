@@ -1,9 +1,9 @@
 [versions]
 bitwig-extension-api = "25"
 detekt = "2.0.0-alpha.5"
-junit-jupiter = "6.0.1"
-kotlin = "2.4.0"
-spotless = "8.7.0"
+junit-jupiter = "6.1.2"
+kotlin = "2.4.10"
+spotless = "8.8.0"
 
 [libraries]
 bitwig-extension-api = { module = "com.bitwig:extension-api", version.ref = "bitwig-extension-api" }
