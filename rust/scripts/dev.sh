@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/.." && pwd)"
 cd "$ROOT"
 
-WASM_BINDGEN_CLI_VERSION="0.2.125"
+WASM_BINDGEN_CLI_VERSION="0.2.126"
 WASM_PORT="${WASM_PORT:-8080}"
 WASM_DEV_URL="http://127.0.0.1:${WASM_PORT}/midi_bpm_detection/#dev"
 WASM_DIST_DIR="$ROOT/crates/entrypoints/wasm/dist"

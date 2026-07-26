@@ -64,7 +64,7 @@ For WASM work, install:
 ```shell
 rustup target add wasm32-unknown-unknown
 cargo install trunk
-cargo install -f wasm-bindgen-cli --version 0.2.125
+cargo install -f wasm-bindgen-cli --version 0.2.126
 ```
 
 `wasm-bindgen-cli` must match the `wasm-bindgen` version resolved by Cargo. A mismatch shows up as a bindgen schema
@@ -345,7 +345,7 @@ Install the target and local tools once:
 ```shell
 rustup target add wasm32-unknown-unknown
 cargo install trunk
-cargo install -f wasm-bindgen-cli --version 0.2.125
+cargo install -f wasm-bindgen-cli --version 0.2.126
 ```
 
 Intended commands:
