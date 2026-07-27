@@ -77,7 +77,3 @@ impl DesktopConfig {
         Ok(write(config_path, serialized)?)
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/config.rs"]
-mod tests;

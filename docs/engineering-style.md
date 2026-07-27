@@ -44,6 +44,17 @@ When adding or changing a boundary, check what the caller can now access.
 - A capability type should expose methods only for behavior that genuinely belongs to that capability's state.
 - Cross-capability operations should make their dependencies visible at the call site.
 
+## Tests
+
+- Test observable behavior and stable consumer contracts, not declarations repeated as assertions. This applies equally
+  to Rust and Kotlin: do not instantiate a type and assert that its getters return the literals used to construct it,
+  or copy built-in defaults and inventories into tests merely to restate transient source data.
+- Exact-value assertions are appropriate when the value is itself a durable external contract, such as a serialized
+  key, protocol frame, service-loader entry, or host parameter identifier, or when the test exercises a transformation
+  that produces the value. Make that consumer or transformation visible in the test setup and name.
+- Prefer tests of state transitions, validation, parsing, effects, wiring, and failure behavior. If a data-only change
+  breaks a test without changing a consumer-visible contract, the test is probably tautological.
+
 ## Documentation
 
 Documentation should separate current behavior from future ideas.

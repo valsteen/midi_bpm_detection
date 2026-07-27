@@ -97,13 +97,6 @@ fn plugin_timing_rejects_zero_sample_rate() {
 }
 
 #[test]
-fn deferred_config_update_names_initial_sync_sample() {
-    let update = DeferredConfigUpdate::pending_initial_sync();
-
-    assert_eq!(update.changed_at_sample(), Some(1));
-}
-
-#[test]
 fn deferred_config_update_preserves_first_change_sample_until_taken() {
     let update = DeferredConfigUpdate::idle();
 
