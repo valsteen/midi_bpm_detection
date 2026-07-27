@@ -1,3 +1,9 @@
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.FileAlreadyExistsException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.util.Properties
 import java.util.zip.ZipFile
 
@@ -121,15 +127,93 @@ tasks.register("printBitwigExtensionInstallDirectory") {
     }
 }
 
-tasks.register<Copy>("installBitwigExtension") {
+tasks.register("installBitwigExtension") {
     group = "bitwig"
-    description = "Installs the Beat Detection Bitwig controller extension into the user Bitwig extensions directory."
+    description = "Installs the Beat Detection Bitwig controller extension without replacing an existing file identity."
     dependsOn(tasks.test)
     dependsOn(verifyBitwigExtensionArchiveContents)
-    from(bitwigExtensionOutputDirectory)
-    into(bitwigExtensionsDirectory.map { file(it) })
+    inputs.file(bitwigExtensionArchiveFile)
 
-    doFirst {
-        println("Installing Bitwig extension into: ${bitwigExtensionsDirectory.get()}")
+    doLast {
+        val installDirectory = file(bitwigExtensionsDirectory.get()).toPath()
+        val source = bitwigExtensionArchiveFile.get().asFile.toPath()
+        val target = installDirectory.resolve(bitwigExtensionArchiveName)
+        Files.createDirectories(installDirectory)
+        val replacement = Files.readAllBytes(source)
+
+        println("Installing Bitwig extension into: $installDirectory")
+
+        fun overwriteFile(
+            file: Path,
+            contents: ByteArray,
+        ) {
+            FileChannel.open(file, StandardOpenOption.WRITE).use { channel ->
+                val buffer = ByteBuffer.wrap(contents)
+                // Bitwig retains the open file identity; write the complete replacement before truncating the old tail.
+                channel.position(0)
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer)
+                }
+                channel.truncate(contents.size.toLong())
+                channel.force(true)
+            }
+        }
+
+        fun fileMatches(
+            file: Path,
+            expected: ByteArray,
+        ): Boolean = Files.readAllBytes(file).contentEquals(expected)
+
+        fun overwriteExistingTarget() {
+            val previous = Files.readAllBytes(target)
+
+            try {
+                overwriteFile(target, replacement)
+                check(fileMatches(target, replacement)) {
+                    "Installed Bitwig extension differs from the packaged archive"
+                }
+            } catch (error: Exception) {
+                val rollbackFailure =
+                    runCatching {
+                        overwriteFile(target, previous)
+                        check(fileMatches(target, previous)) {
+                            "Restored Bitwig extension differs from the previous archive"
+                        }
+                    }.exceptionOrNull()
+                if (rollbackFailure != null) {
+                    error.addSuppressed(rollbackFailure)
+                    throw GradleException(
+                        "Installing the Bitwig extension failed and restoring the previous archive also failed.",
+                        error,
+                    )
+                }
+                throw GradleException(
+                    "Installing the Bitwig extension failed; the previous archive was restored.",
+                    error,
+                )
+            }
+        }
+
+        if (Files.exists(target)) {
+            overwriteExistingTarget()
+        } else {
+            val staged = Files.createTempFile(installDirectory, ".BeatDetectionExtension-", ".tmp")
+            try {
+                overwriteFile(staged, replacement)
+                check(fileMatches(staged, replacement)) {
+                    "Staged Bitwig extension differs from the packaged archive"
+                }
+                try {
+                    Files.createLink(target, staged)
+                    check(fileMatches(target, replacement)) {
+                        "Installed Bitwig extension differs from the packaged archive"
+                    }
+                } catch (_: FileAlreadyExistsException) {
+                    overwriteExistingTarget()
+                }
+            } finally {
+                Files.deleteIfExists(staged)
+            }
+        }
     }
 }
