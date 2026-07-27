@@ -13,15 +13,10 @@ allprojects {
     version = "0.2.0"
 }
 
-val packageExtensions = tasks.register("packageExtensions") {
+tasks.register("packageExtensions") {
     group = "bitwig"
     description = "Packages all Bitwig extension outputs."
-}
-
-tasks.register("packageBitwigExtension") {
-    group = "bitwig"
-    description = "Packages the Beat Detection Bitwig extension."
-    dependsOn(packageExtensions)
+    dependsOn(":extensions:beat-detection-controller:verifyBitwigExtensionArchiveContents")
 }
 
 subprojects {
@@ -68,20 +63,6 @@ subprojects {
             allRules = true
             ignoreFailures = false
             parallel = true
-        }
-    }
-
-    if (path.startsWith(":extensions:")) {
-        afterEvaluate {
-            val packageTask =
-                tasks.findByName("verifyBitwigExtensionArchiveContents")
-                    ?: tasks.findByName("packageBitwigExtension")
-
-            packageTask?.let { extensionPackageTask ->
-                rootProject.tasks.named("packageExtensions") {
-                    dependsOn(extensionPackageTask)
-                }
-            }
         }
     }
 }

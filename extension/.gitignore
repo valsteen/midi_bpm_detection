@@ -1,9 +1,7 @@
-target/
 build/
 .idea/
 .gradle/
 .gradle-cache/
 *iml
-*.dylib
 **/.DS_Store
 gradle-local.properties

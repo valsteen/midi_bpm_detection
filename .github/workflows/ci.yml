@@ -40,7 +40,7 @@ jobs:
         run: ./gradlew spotlessCheck detekt
 
       - name: Package extension
-        run: ./gradlew packageBitwigExtension
+        run: ./gradlew packageExtensions
 
   format:
     name: format

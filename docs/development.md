@@ -227,25 +227,28 @@ to dispatch it. Do not create the release tag yet.
 
 ## Bitwig Controller Extension
 
-The companion Bitwig controller extension is a Gradle multi-project build under `extension/`.
+The companion Bitwig controller extensions use a Gradle multi-project build rooted at `extension/`. Loadable products
+live under `extension/extensions/`, while shared Kotlin libraries live under `extension/libs/`. Use
+`packageExtensions` for every product or a project-qualified task for one extension.
 
 Useful commands:
 
 ```shell
 ./gradlew test
 ./gradlew spotlessCheck detekt
-./gradlew packageBitwigExtension
-./gradlew printBitwigExtensionInstallDirectory
-./gradlew installBitwigExtension
+./gradlew packageExtensions
+./gradlew :extensions:beat-detection-controller:verifyBitwigExtensionArchiveContents
+./gradlew :extensions:beat-detection-controller:printBitwigExtensionInstallDirectory
+./gradlew :extensions:beat-detection-controller:installBitwigExtension
 ```
 
-`packageBitwigExtension` produces:
+The project-qualified `verifyBitwigExtensionArchiveContents` task packages and validates:
 
 ```text
 extension/extensions/beat-detection-controller/build/bitwig-extension/BeatDetectionExtension.bwextension
 ```
 
-`installBitwigExtension` resolves the local Bitwig extension directory in this order:
+The project-qualified `installBitwigExtension` task resolves the local Bitwig extension directory in this order:
 
 1. `-PbitwigExtensionsDir=...`
 2. `BITWIG_EXTENSIONS_DIR`

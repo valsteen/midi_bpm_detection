@@ -17,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "bitwig-beat-detection-controller"
+rootProject.name = "midi-bpm-detector-bitwig"
 
 include(":libs:bitwig-bootstrap")
 include(":extensions:beat-detection-controller")

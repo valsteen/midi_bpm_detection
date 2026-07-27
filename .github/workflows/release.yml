@@ -376,7 +376,7 @@ jobs:
 
       - name: Test and package extension
         working-directory: extension
-        run: ./gradlew test packageBitwigExtension
+        run: ./gradlew test :extensions:beat-detection-controller:verifyBitwigExtensionArchiveContents
 
       - name: Package versioned extension asset
         run: >-
