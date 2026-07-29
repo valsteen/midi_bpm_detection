@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
 use wasm_bindgen_test::*;
 
-use super::{BaseConfig, QueueItem, WASMConfig};
+use super::{BaseConfig, QueueItem, WASMConfig, wasm::keyboard_event_generates_tap};
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -80,4 +80,19 @@ fn dynamic_parameter_setter_queues_dynamic_parameters() {
         | QueueItem::DelayedDynamicUpdate
         | QueueItem::DelayedStaticUpdate => panic!("expected dynamic parameters"),
     }
+}
+
+#[wasm_bindgen_test]
+fn unclaimed_keyboard_event_generates_tap() {
+    assert!(keyboard_event_generates_tap(false, false));
+}
+
+#[wasm_bindgen_test]
+fn keyboard_event_owned_by_egui_does_not_generate_tap() {
+    assert!(!keyboard_event_generates_tap(false, true));
+}
+
+#[wasm_bindgen_test]
+fn repeated_keyboard_event_does_not_generate_tap() {
+    assert!(!keyboard_event_generates_tap(true, false));
 }

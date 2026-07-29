@@ -35,14 +35,29 @@ async fn sleep(duration: StdDuration) {
     JsFuture::from(promise).await.ok();
 }
 
+pub(crate) fn keyboard_event_generates_tap(is_repeat: bool, egui_wants_keyboard_input: bool) -> bool {
+    !is_repeat && !egui_wants_keyboard_input
+}
+
 #[wasm_bindgen]
 pub struct GuiRemoteWrapper {
-    _gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
+    gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
     redraw_sender: Sender<QueueItem>,
 }
 
 #[wasm_bindgen]
 impl GuiRemoteWrapper {
+    pub fn keyboard_event_in(&mut self, timestamp: f64, is_repeat: bool) {
+        let Some(context) = self.gui_remote.get_context() else {
+            return;
+        };
+        if !keyboard_event_generates_tap(is_repeat, context.egui_wants_keyboard_input()) {
+            return;
+        }
+
+        self.event_in(0, 0, 80, timestamp);
+    }
+
     pub fn event_in(&mut self, channel: u8, note: u8, velocity: u8, timestamp: f64) {
         let note = TimedEvent {
             timestamp: Duration::milliseconds(timestamp as i64),
@@ -154,5 +169,5 @@ pub fn run() -> Result<GuiRemoteWrapper> {
 
     start_gui(gui_builder)?;
 
-    Ok(GuiRemoteWrapper { _gui_remote: gui_remote, redraw_sender })
+    Ok(GuiRemoteWrapper { gui_remote, redraw_sender })
 }

@@ -132,9 +132,8 @@
             _guiRemote = guiRemote;
 
             document.addEventListener("keydown", (event) => {
-                const timestamp = event.timeStamp;
-                guiRemote.event_in(0,0,80,timestamp);
-            });
+                guiRemote.keyboard_event_in(event.timeStamp, event.repeat);
+            }, { capture: true });
         }
 
         if ("requestMIDIAccess" in navigator) {
