@@ -396,7 +396,8 @@ sequenceDiagram
     participant Model as BPMDetection
     participant Gui as GuiRemote
 
-    JS->>Wrapper: event_in(channel, note, velocity, timestamp)
+    JS->>Wrapper: event_in(...) or keyboard_event_in(timestamp, repeat)
+    Wrapper->>Wrapper: keyboard tap only if non-repeat and egui does not want input
     Wrapper->>Queue: QueueItem::Note(TimedEvent<NoteOn>)
     Gui->>Queue: QueueItem::StaticParameters / DynamicParameters
     Task->>Task: debounce note/config updates
