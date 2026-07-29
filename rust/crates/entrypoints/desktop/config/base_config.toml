@@ -22,15 +22,15 @@ cutoff = 100.0
 resolution = 0.699999988079071
 
 [dynamic_bpm_detection_config]
-beats_lookback = 8
+beats_lookback = 11
 
 [dynamic_bpm_detection_config.normal_distribution_weight]
 enabled = true
 value = 1.0
 
 [dynamic_bpm_detection_config.time_distance_weight]
-enabled = false
-value = 0.7300000190734863
+enabled = true
+value = 1.10
 
 [dynamic_bpm_detection_config.velocity_current_note_weight]
 enabled = false
@@ -46,11 +46,11 @@ value = 0.7599999904632568
 
 [dynamic_bpm_detection_config.multiplier_weight]
 enabled = true
-value = 0.6600000262260437
+value = 0.65
 
 [dynamic_bpm_detection_config.subdivision_weight]
-enabled = false
-value = 0.699999988079071
+enabled = true
+value = 1.80
 
 [dynamic_bpm_detection_config.octave_distance_weight]
 enabled = false
