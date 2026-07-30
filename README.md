@@ -162,14 +162,5 @@ This Bitwig tempo-control path has been manually tested on macOS with Bitwig Stu
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): cross-build-root overview, runtime modes, and architecture boundaries.
-- [Rust workspace architecture](rust/architecture.md): Rust crate map, crate groups, and Rust runtime constraints.
-- [Runtime lifecycle](docs/runtime-lifecycle.md): bootstrap wiring and data flows between plugin, desktop, WASM, GUI, and
-  BPM detection components.
-- [Plugin flow](docs/plugin-flow.md): host buffer processing, realtime handoff, background work, and tempo feedback.
-- [Bitwig tempo bridge](docs/bitwig-tempo-bridge.md): the narrow plugin-to-controller-extension contract used to set
-  Bitwig tempo, including the selected-device parameter rendezvous.
-- [Native MIDI flow](docs/native-midi-flow.md): desktop MIDI service, controller boundary, worker messages, and native
-  MIDI output ownership.
-- [Algorithm archaeology](docs/algorithm-archaeology.md): the original tempo-detection idea and why the histogram exists.
-- [Development commands](docs/development.md): setup, formatting, checking, plugin bundling, and WASM demo commands.
+The [documentation index](docs/README.md) covers architecture, runtime flows, the detection model, development workflows,
+and implementation conventions.

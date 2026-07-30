@@ -39,6 +39,14 @@ boundary rules so the entrypoint stays small.
 - The project is moving away from a broad central event bus where one enum or orchestrator knows everything.
 - Prefer explicit producer/consumer or service-handle boundaries where components connect during bootstrap, then
   communicate directly through narrow surfaces.
+- Bootstrap should read as the static runtime graph: which component owns each capability, which producer feeds which
+  consumer, and which relationship crosses a thread, task, host, or process boundary.
+- Wire stable relationships once during startup. Do not add runtime lookup or dynamic subscription when the producer and
+  consumer are already known.
+- Traits and closure surfaces should name one concrete capability. Do not combine unrelated callbacks into a capability
+  bag that recreates the application boundary behind indirect calls.
 - The closure-based service boundary is intentional: callers pass thread-safe closures to the owning service, and the
   service owns whatever channel/message ceremony is required internally.
+- For each crossing, state whether it carries a coherent latest snapshot, an ordered event, or a cumulative update. Use
+  atomics only for independently meaningful values whose mixed observation is acceptable.
 - Re-evaluate these choices as the architecture evolves. Do not preserve a pattern just because it exists.

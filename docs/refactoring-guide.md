@@ -63,6 +63,48 @@ Names like `shared`, `sync`, `manager`, `lane`, and `state` need justification.
 If callers must prove a variant cannot happen with `unreachable!`, `debug_assert!`, or "cannot happen here" comments,
 the abstraction is probably too broad. Split the type or move the shared representation later in the flow.
 
+Do not extract shared machinery for an anticipated consumer. A second completed use is evidence that an extraction may
+be useful, but keep the direct implementations when their dependencies, lifecycle, failure behavior, or performance
+constraints are materially different.
+
+### Capability Bags
+
+A type that accumulates callbacks, closures, handles, or trait objects for unrelated operations hides the same
+dependency breadth as a central orchestrator. The call site no longer shows which capability an operation requires, and
+bootstrap stops being a readable map of who produces and consumes what.
+
+Prefer focused producer or consumer capabilities wired explicitly at bootstrap. Keep a combined type only when the
+capabilities share one lifecycle and consumers genuinely need them together.
+
+### External Or Runtime Adapter Coupling
+
+An adapter is coupled upward when it imports application orchestration, UI policy, delivery rules, or domain-wide DTOs
+to expose one host, MIDI, browser, socket, or framework capability. The same smell appears when using one reusable
+capability forces a consumer to acquire runtime dependencies it does not need.
+
+Before moving the boundary, classify its current responsibilities:
+
+- external API mechanics, callbacks, readiness, threading, and framework-specific normalization;
+- the capability-specific values and operations the application needs;
+- product targeting, sequencing, delivery, presentation, and wire representation.
+
+Keep the first two in a focused adapter and the third in the owning application/runtime boundary. Inspect the dependency
+graph directly after the move: product/runtime code may depend on the adapter, but the adapter should not depend back on
+the whole product runtime.
+
+Preserve callback ordering, lifecycle, failure handling, realtime constraints, and delivery behavior. Dependency
+reversal alone is not evidence that behavior remained equivalent. Do not turn the cleanup into a universal wrapper for
+every host or runtime.
+
+### Reference-Driven Churn
+
+An established framework or reference architecture can reveal missing concepts, but it is evidence rather than
+authority. Do not refactor solely because the current layout differs from a reference model.
+
+Use the reference to name the concrete local tension, adopt only the concept that resolves it, and stop when the current
+use case has a coherent narrow contract. Record deliberate differences when host constraints, performance, dependency
+surface, or lifecycle make them important.
+
 ## Refactor Checklist
 
 Before editing:
@@ -78,9 +120,14 @@ During editing:
 - Prefer names that explain the current design, not the old design.
 - Avoid adding new abstractions until the current code proves they remove real complexity.
 - Keep comments short and tied to data flow, lifecycle, or boundary decisions.
+- Keep bootstrap wiring readable as a declaration of stable relationships; do not replace visible dependencies with
+  dynamic lookup or generic dispatch.
 
 Before finishing:
 
 - Re-read the diff for hidden broad access, empty enum branches, stale names, and newly generic helpers.
+- Check whether any new trait, wrapper, projection, or message exists for only one caller without narrowing a real
+  dependency or lifecycle boundary.
 - Run the narrowest useful verification, then broaden when the blast radius warrants it.
-- Update any durable docs or audit handoffs that would otherwise describe the old structure.
+- Update the durable current-state document that owns the changed fact. Keep audit handoffs and implementation history
+  in ignored coordination state.
