@@ -4,7 +4,9 @@ Repository-level instructions for AI coding agents working on this monorepo.
 
 ## Select Guidance
 
-- Use the [documentation index](docs/README.md) to select task-specific public documentation.
+- Follow [Engineering Guidance For Agents](agent-guides/engineering-style.md) for shared implementation policy.
+- Follow [Refactoring Guidance For Agents](agent-guides/refactoring-guide.md) for behavior-preserving cleanup and
+  structural work.
 - Follow [Repository Structure And Cross-Boundary Rules](agent-guides/repo-structure.md) for repository shape and
   cross-build-root boundaries.
 - Follow [Repository Documentation Guidance](agent-guides/documentation.md) when adding, reorganizing, or rewriting

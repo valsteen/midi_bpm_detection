@@ -5,7 +5,6 @@ Kotlin/Bitwig extension instructions for AI coding agents working under `extensi
 ## Read These First
 
 - The repository-level `../AGENTS.md` still applies.
-- Use `../docs/README.md` to select task-specific public documentation.
 - Use `../docs/development.md` for Gradle, lint, package, and install commands.
 - Use `../docs/bitwig-tempo-bridge.md` for the plugin-to-extension rendezvous and socket bridge.
 - Use `../docs/lint-exceptions.md` when reviewing an existing lint exception or an explicitly approved new one.

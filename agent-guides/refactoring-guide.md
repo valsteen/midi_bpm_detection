@@ -1,7 +1,8 @@
-# Refactoring Guide
+# Refactoring Guidance For Agents
 
-This guide records repository preferences for behavior-preserving cleanup and structural changes. Use it together with
-`engineering-style.md`, [development commands](development.md), and [lint exceptions](lint-exceptions.md).
+This guide records behavior-preserving cleanup and structural instructions for AI agents. Use it together with
+`engineering-style.md`, [development commands](../docs/development.md), and
+[lint exceptions](../docs/lint-exceptions.md).
 
 ## Refactoring Goals
 

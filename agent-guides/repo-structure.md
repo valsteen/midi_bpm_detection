@@ -11,18 +11,19 @@ longer routing and architecture rules so the entrypoint stays small.
   `../rust/architecture.md` for Rust crate grouping and dependency direction.
 - `extension/`: Gradle workspace for Bitwig controller extensions and reusable extension libraries. Follow
   `../extension/AGENTS.md` for Kotlin/Bitwig-specific instructions.
-- `docs/`: public architecture, development, runtime-flow, and cross-build-root documentation.
+- `docs/`: human-facing architecture, development, runtime-flow, and cross-build-root documentation.
 
 Keep Rust and Kotlin as separate build roots. Do not create a root mega-build that makes Cargo own the Kotlin extension
 or Gradle own the Rust workspace.
 
 ## Agent Guide Shape
 
-- Root `docs/` and `agent-guides/` files own cross-language principles, repository routing, and cross-build-root rules.
+- The root README, `docs/`, and `../rust/architecture.md` own human-facing project explanation.
+- Root `agent-guides/` files own cross-language agent policy, repository routing, and cross-build-root rules.
 - Build-root `AGENTS.md` files select local guidance and state only the consequences specific to that build root.
 - Build-root tooling guides own commands, configured tools, dependency policy, packaging, and test layout.
 - Build-root architecture guides own language/runtime constraints and dependency direction.
-- When a principle applies to both Rust and Kotlin, keep the shared form in `../docs/engineering-style.md`. Repeat it
+- When a principle applies to both Rust and Kotlin, keep the shared form in `engineering-style.md`. Repeat it
   locally only when language semantics, tooling, or runtime shape changes how it must be applied.
 
 ## Cross-Boundary Architecture

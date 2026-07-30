@@ -1,7 +1,7 @@
-# Engineering Style
+# Engineering Guidance For Agents
 
-This guide records durable implementation preferences for this repository. It applies to new features, bug fixes,
-refactors, reviews, and documentation work across build roots.
+This guide records durable cross-language implementation instructions for AI agents working in this repository. It
+applies to new features, bug fixes, refactors, reviews, and documentation work across build roots.
 
 ## Core Principles
 
