@@ -3,23 +3,17 @@
 Detailed Rust-facing documentation instructions for agents. Start from `../AGENTS.md`; this file holds the longer docs
 rules so the entrypoint stays small.
 
-## Writing Rules
+The repository-level [documentation guidance](../../agent-guides/documentation.md) owns canonical placement, public
+versus private state, present-tense wording, and document growth. The `Documentation` section of the root
+[README](../../README.md) catalogs human-facing project documentation.
 
-- When touching confusing code, clarify terminology near the code or in the relevant root docs.
-- Keep comments concise: where data comes from, where it goes, what moment in the flow it belongs to, and why the
-  boundary exists.
-- When documenting refactors, do not describe unchanged behavior as "restored" or "now" happening. Say that the behavior
-  is preserved and name only the structural change.
-- When documenting refactor targets, include the non-goal or stop condition so future agents do not expand the note into
-  speculative architecture work.
+## Rust-Specific Ownership
 
-## Routing
-
-- Use `../architecture.md` for human-facing Rust workspace architecture, crate maps, crate groups, and Rust runtime
-  constraints.
-- Use `../../docs/plugin-flow.md` for plugin realtime/audio callback details.
-- Use `../../docs/bitwig-tempo-bridge.md` for the narrow plugin-to-Bitwig-controller-extension tempo bridge.
-- Use `../../docs/development.md` for build, lint, format, and run commands.
-- Use `../../docs/native-midi-flow.md` for native MIDI and desktop flow details.
-- Use `../../docs/algorithm-archaeology.md` for algorithm history, interval-domain terminology, and histogram reasoning.
-- Use `../../docs/lint-exceptions.md` when reviewing or changing existing `#[allow(...)]` lint exceptions.
+- Use `../architecture.md` for crate maps, crate groups, Rust dependency direction, parameter-stack ownership, and
+  constraints shared by multiple Rust entrypoints.
+- Keep plugin callback sequencing, desktop MIDI ownership, and WASM scheduling in the task-specific runtime document
+  that owns the flow rather than duplicating those details in the crate map.
+- In realtime comments, name the constrained thread or callback, the crossing destination, and whether the handoff may
+  allocate, block, fail, coalesce, or lose intermediate values.
+- Keep algorithm and configuration terminology consistent with the canonical domain document; do not invent a
+  runtime-local synonym for the same concept.

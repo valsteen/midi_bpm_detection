@@ -1,13 +1,13 @@
 # AGENTS.md
 
-Repository instructions for AI coding agents working on this project.
+Kotlin/Bitwig extension instructions for AI coding agents working under `extension/`.
 
-## Working Style
+## Read These First
 
-- Make small, reviewable changes.
-- Do not add Kotlin suppressions or Detekt ignore rules without explicit human confirmation.
-- Treat compiler warnings, Detekt findings, and Spotless failures as issues to fix.
-- Do not revert unrelated changes. Assume unrecognized local changes came from the user.
+- The repository-level `../AGENTS.md` still applies.
+- Use `../docs/development.md` for Gradle, lint, package, and install commands.
+- Use `../docs/bitwig-tempo-bridge.md` for the plugin-to-extension rendezvous and socket bridge.
+- Use `../docs/lint-exceptions.md` when reviewing an existing lint exception or an explicitly approved new one.
 
 ## Kotlin And Extension Tooling
 
@@ -17,6 +17,8 @@ Repository instructions for AI coding agents working on this project.
 - Prefer `private` or `internal`; make declarations `public` only when Bitwig's loader or another module needs them.
 - Put reusable Bitwig ceremony in `libs/bitwig-bootstrap`.
 - Put loadable extension outputs in `extensions/*`.
+- Keep external API mechanics and callback normalization in focused Bitwig adapters. Product targeting, tempo-frame
+  delivery, and status presentation belong to their owning extension/runtime boundary.
 
 ## Bitwig Settings And Undo
 
@@ -27,9 +29,3 @@ Repository instructions for AI coding agents working on this project.
   prefer stable/coarse status, duplicate-write suppression, or a different feedback surface.
 - Do not use Settings > Controllers / Controller Preferences for user-facing runtime status unless Bitwig exposes a
   clearly non-editable informational widget. Keep that area for installation/configuration.
-
-## Documentation
-
-- Use `../docs/development.md` for build, lint, package, and install commands.
-- Use `../docs/bitwig-tempo-bridge.md` for the plugin-to-extension rendezvous and socket bridge.
-- Use `../docs/lint-exceptions.md` when reviewing or changing lint exceptions.
