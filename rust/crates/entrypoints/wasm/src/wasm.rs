@@ -18,12 +18,12 @@ use bpm_detection_core::{BPMDetection, TimedEvent, bpm_detection_receiver::BPMDe
 use chrono::Duration;
 use errors::{LogErrorWithExt, Result};
 use futures::{StreamExt, channel::mpsc::Sender};
-use gui::{GuiLifecycleOwner, GuiRemote, create_gui, start_gui};
+use gui::{BpmDisplayPublisher, GuiContextHandle, GuiLifecycleOwner, create_gui, eframe};
 use instant::Instant;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::{JsFuture, js_sys::Promise};
 
-use crate::{BaseConfig, QueueItem};
+use crate::{QueueItem, WASMConfig, WasmApp};
 
 async fn sleep(duration: StdDuration) {
     let promise = Promise::new(&mut |yes, _| {
@@ -41,17 +41,14 @@ pub(crate) fn keyboard_event_generates_tap(is_repeat: bool, egui_wants_keyboard_
 
 #[wasm_bindgen]
 pub struct GuiRemoteWrapper {
-    gui_remote: GuiRemote, // javascript will hold this value, or the GUI will be dropped
+    gui_context: GuiContextHandle,
     redraw_sender: Sender<QueueItem>,
 }
 
 #[wasm_bindgen]
 impl GuiRemoteWrapper {
     pub fn keyboard_event_in(&mut self, timestamp: f64, is_repeat: bool) {
-        let Some(context) = self.gui_remote.get_context() else {
-            return;
-        };
-        if !keyboard_event_generates_tap(is_repeat, context.egui_wants_keyboard_input()) {
+        if !keyboard_event_generates_tap(is_repeat, self.gui_context.egui_wants_keyboard_input()) {
             return;
         }
 
@@ -73,13 +70,14 @@ const REDRAW_THRESHOLD_MILLIS: u64 = 200;
 pub fn run() -> Result<GuiRemoteWrapper> {
     let (redraw_sender, mut redraw_receiver) = futures::channel::mpsc::channel(100);
 
-    let live_config = BaseConfig::new(redraw_sender.clone());
-    let static_bpm_detection_config = live_config.config.bpm_detection.static_bpm_detection_config.clone();
-    let mut dynamic_bpm_detection_config = live_config.config.bpm_detection.dynamic_bpm_detection_config.clone();
-    let (gui_remote, gui_builder) = create_gui(live_config, GuiLifecycleOwner::ParentRuntime);
+    let config = WASMConfig::default();
+    let static_bpm_detection_config = config.bpm_detection.static_bpm_detection_config.clone();
+    let mut dynamic_bpm_detection_config = config.bpm_detection.dynamic_bpm_detection_config.clone();
+    let (publisher, gui_context, gui) = create_gui();
+    let app = WasmApp::new(config, gui, redraw_sender.clone());
 
     wasm_bindgen_futures::spawn_local({
-        let mut gui_remote = gui_remote.clone();
+        let mut publisher: BpmDisplayPublisher = publisher;
         let update_static: Arc<AtomicRefCell<Option<StaticBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
         let update_dynamic: Arc<AtomicRefCell<Option<DynamicBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
         let update_notes: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
@@ -162,12 +160,38 @@ pub fn run() -> Result<GuiRemoteWrapper> {
                     continue;
                 };
 
-                gui_remote.receive_bpm_histogram_data(histogram_data, bpm);
+                publisher.receive_bpm_histogram_data(histogram_data, bpm);
             }
         }
     });
 
-    start_gui(gui_builder)?;
+    start_gui(app);
 
-    Ok(GuiRemoteWrapper { gui_remote, redraw_sender })
+    Ok(GuiRemoteWrapper { gui_context, redraw_sender })
+}
+
+fn start_gui(mut app: WasmApp) {
+    use eframe::wasm_bindgen::JsCast;
+
+    let document = web_sys::window().expect("No window").document().expect("No document");
+    let canvas = document
+        .get_element_by_id("the_canvas_id")
+        .expect("Failed to find the_canvas_id")
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .expect("the_canvas_id was not a HtmlCanvasElement");
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                canvas,
+                eframe::WebOptions::default(),
+                Box::new(move |cc| {
+                    cc.egui_ctx.set_theme(eframe::egui::ThemePreference::Dark);
+                    app.gui.attach_context(&cc.egui_ctx, GuiLifecycleOwner::ParentRuntime);
+                    Ok(Box::new(app))
+                }),
+            )
+            .await
+            .expect("failed to start eframe");
+    });
 }

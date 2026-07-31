@@ -62,3 +62,16 @@ fn select_index_returns_selected_device() {
     assert_eq!(selected, Some(virtual_port("a")));
     assert_eq!(selection.selected_index(), Some(1));
 }
+
+#[test]
+fn revision_changes_only_when_the_published_selection_changes() {
+    let mut selection = DeviceSelection::new();
+    let initial = selection.revision();
+
+    selection.refresh_devices(vec![MidiInputPort::None]);
+    let refreshed = selection.revision();
+    selection.refresh_devices(vec![MidiInputPort::None]);
+
+    assert_ne!(refreshed, initial);
+    assert_eq!(selection.revision(), refreshed);
+}

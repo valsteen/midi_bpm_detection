@@ -4,7 +4,6 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::module_name_repetitions)]
 
-mod bpm_detector_configuration;
 mod gui;
 mod plugin_config;
 mod plugin_parameters;
@@ -126,11 +125,11 @@ impl Default for MidiBpmDetector {
         let (events_sender, events_receiver) = StaticRb::<Event, 1000>::default().split();
         let events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false> = events_sender.freeze();
         let events_receiver: Frozen<Arc<SharedRb<Array<Event, 1000>>>, false, true> = events_receiver.freeze();
-        let gui_remote_handoff = Arc::new(AtomicCell::new(None));
+        let gui_output_handoff = Arc::new(AtomicCell::new(None));
         let daw_port = ArcAtomicOptionNonZeroU16::none();
 
-        let mut config = PluginConfig::default();
-        let send_tempo = config.send_tempo.clone();
+        let config = PluginConfig::default();
+        let send_tempo_output = ArcAtomicBool::new(config.send_tempo);
         let bpm_detection = BPMDetection::new(config.bpm_detection.static_bpm_detection_config.clone());
 
         let static_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
@@ -138,12 +137,13 @@ impl Default for MidiBpmDetector {
         let dynamic_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
 
         let params = Arc::new(MidiBpmDetectorParams::new(
-            &mut config,
+            &config,
             &static_bpm_detection_config_changed_at,
             &gui_config_changed_at,
             &dynamic_bpm_detection_config_changed_at,
             &current_sample,
             &daw_port,
+            send_tempo_output.clone(),
         ));
 
         let task_executor = task_executor::TaskExecutor::new(
@@ -152,18 +152,17 @@ impl Default for MidiBpmDetector {
                 config.bpm_detection.dynamic_bpm_detection_config,
                 events_receiver,
             ),
-            task_executor::GuiTaskOutput::new(None, gui_remote_handoff.clone(), params.editor_state.clone()),
-            task_executor::TempoControllerOutput::new(daw_port, send_tempo.clone()),
+            task_executor::GuiTaskOutput::new(None, gui_output_handoff.clone(), params.editor_state.clone()),
+            task_executor::TempoControllerOutput::new(daw_port, send_tempo_output),
         );
 
         let force_evaluate_bpm_detection = ArcAtomicBool::new(false);
 
         let gui_editor = GuiEditor {
             editor_state: params.editor_state.clone(),
-            bpm_detection_app: None,
-            gui_remote_handoff: gui_remote_handoff.clone(),
+            gui_state: None,
+            gui_output_handoff,
             force_evaluate_bpm_detection: force_evaluate_bpm_detection.clone(),
-            send_tempo,
             params: params.clone(),
         };
 
@@ -233,11 +232,11 @@ impl Plugin for MidiBpmDetector {
             self.params.editor_state.clone(),
             (async_executor, gui_editor),
             EguiNiceSettings::default(),
-            |egui_ctx, _extra_output_commands, (async_executor, gui_editor)| {
-                gui_editor.build(egui_ctx, async_executor.clone());
+            |egui_ctx, _extra_output_commands, (_async_executor, gui_editor)| {
+                gui_editor.build(egui_ctx);
             },
             |ui, setter, _extra_output_commands, (_async_executor, gui_editor)| {
-                gui_editor.update(setter, ui.ctx());
+                gui_editor.update(setter, ui);
             },
         )
     }

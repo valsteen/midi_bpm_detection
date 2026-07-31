@@ -1,8 +1,5 @@
 #![allow(clippy::missing_panics_doc)]
-use bpm_detection_config::{
-    DynamicBPMDetectionConfig, DynamicBPMDetectionConfigAccessor, GUIConfig, GUIConfigAccessor, Settings,
-    StaticBPMDetectionConfig,
-};
+use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, Settings, StaticBPMDetectionConfig};
 use errors::error_backtrace;
 use futures::channel::mpsc;
 use parameter_on_off::OnOff;
@@ -10,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
 use wasm_bindgen_test::*;
 
-use super::{BaseConfig, QueueItem, WASMConfig, wasm::keyboard_event_generates_tap};
+use super::{QueueItem, WASMConfig, WasmApp, wasm::keyboard_event_generates_tap};
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -33,17 +30,19 @@ const CONFIG: &str = "[test]
 enabled = false
 value = 1";
 
-fn base_config(sender: mpsc::Sender<QueueItem>) -> BaseConfig {
-    BaseConfig {
-        config: WASMConfig {
+fn wasm_app(sender: mpsc::Sender<QueueItem>) -> WasmApp {
+    let (_, _, gui) = gui::create_gui();
+    WasmApp::new(
+        WASMConfig {
             bpm_detection: Settings {
                 gui_config: GUIConfig::default(),
                 dynamic_bpm_detection_config: DynamicBPMDetectionConfig::default(),
                 static_bpm_detection_config: StaticBPMDetectionConfig::default(),
             },
         },
+        gui,
         sender,
-    }
+    )
 }
 
 #[wasm_bindgen_test]
@@ -53,24 +52,26 @@ fn test_config() {
 }
 
 #[wasm_bindgen_test]
-fn gui_parameter_setters_update_local_config_without_queueing_detection_config() {
+fn gui_changes_stay_local_without_queueing_detection_config() {
     let (sender, mut receiver) = mpsc::channel(4);
-    let mut config = base_config(sender);
+    let mut app = wasm_app(sender);
 
-    config.set_interpolation_duration(std::time::Duration::from_millis(250));
-    config.set_interpolation_curve(0.35);
+    app.editable.bpm.gui_config.interpolation_duration = std::time::Duration::from_millis(250);
+    app.editable.bpm.gui_config.interpolation_curve = 0.35;
+    app.commit(gui::GuiChanges { gui: true, ..gui::GuiChanges::default() });
 
     assert!(receiver.try_recv().is_err());
-    assert_eq!(config.interpolation_duration(), std::time::Duration::from_millis(250));
-    assert!((config.interpolation_curve() - 0.35).abs() < f32::EPSILON);
+    assert_eq!(app.editable.bpm.gui_config.interpolation_duration, std::time::Duration::from_millis(250));
+    assert!((app.editable.bpm.gui_config.interpolation_curve - 0.35).abs() < f32::EPSILON);
 }
 
 #[wasm_bindgen_test]
-fn dynamic_parameter_setter_queues_dynamic_parameters() {
+fn dynamic_change_receipt_queues_dynamic_parameters() {
     let (sender, mut receiver) = mpsc::channel(4);
-    let mut config = base_config(sender);
+    let mut app = wasm_app(sender);
 
-    config.set_beats_lookback(12);
+    app.editable.bpm.dynamic_bpm_detection_config.beats_lookback = 12;
+    app.commit(gui::GuiChanges { dynamic_detection: true, ..gui::GuiChanges::default() });
 
     let queued = receiver.try_recv().expect("dynamic update should be queued");
     match queued {

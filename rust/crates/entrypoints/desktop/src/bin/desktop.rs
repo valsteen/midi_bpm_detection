@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use desktop::{
+    app::DesktopApp,
     config::DesktopConfig,
     controller::DesktopController,
     controller_runtime::{DesktopControllerCommandQueue, PendingDesktopControllerRuntime, SharedDesktopController},
-    live_parameters::DesktopBaseConfig,
 };
-use errors::{LogErrorWithExt, Result, initialize_logging, initialize_panic_handler};
-use gui::{GuiLifecycleOwner, create_gui_shell, start_gui};
+use errors::{LogErrorWithExt, MakeReportExt, Result, initialize_logging, initialize_panic_handler};
+use gui::{
+    BpmDisplayPublisher, GuiContextHandle, GuiLifecycleOwner, create_gui,
+    eframe::{self, egui},
+};
 use mimalloc::MiMalloc;
 use sync::Mutex;
 
@@ -21,80 +24,65 @@ fn main() -> Result<()> {
     let config = DesktopConfig::new()?;
     let pending_controller_runtime = PendingDesktopControllerRuntime::new();
     let controller_commands = pending_controller_runtime.command_queue();
-    let (gui_remote, app_builder_shell) = create_gui_shell(GuiLifecycleOwner::ApplicationRuntime);
+    let (publisher, context, gui) = create_gui();
 
     let controller = start_desktop_controller(
         &config,
-        gui_remote.clone(),
+        publisher,
+        #[cfg(target_os = "macos")]
+        &context,
         #[cfg(target_os = "macos")]
         &controller_commands,
     )?;
     pending_controller_runtime.start(controller.clone())?;
 
-    let app_builder = app_builder_shell.with_config(build_gui_config(config, controller, controller_commands));
-    start_gui(app_builder)
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
+        run_and_return: true,
+        persist_window: true,
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Estimated BPM",
+        options,
+        Box::new(move |cc| {
+            let mut gui = gui;
+            gui.attach_context(&cc.egui_ctx, GuiLifecycleOwner::ApplicationRuntime);
+            Ok(Box::new(DesktopApp::new(config, gui, context, controller, controller_commands)))
+        }),
+    )
+    .report_msg("Could not display eframe")?;
+    Ok(())
 }
 
 fn start_desktop_controller(
     config: &DesktopConfig,
-    gui_remote: gui::GuiRemote,
-    #[cfg(target_os = "macos")] controller_commands: &DesktopControllerCommandQueue<gui::GuiRemote>,
-) -> Result<SharedDesktopController<gui::GuiRemote>> {
+    publisher: BpmDisplayPublisher,
+    #[cfg(target_os = "macos")] context: &GuiContextHandle,
+    #[cfg(target_os = "macos")] controller_commands: &DesktopControllerCommandQueue<BpmDisplayPublisher>,
+) -> Result<SharedDesktopController<BpmDisplayPublisher>> {
     let midi_service = bpm_detection_midi::MidiService::new(
         config.midi.clone(),
         config.bpm_detection.static_bpm_detection_config.clone(),
         config.bpm_detection.dynamic_bpm_detection_config.clone(),
         #[cfg(target_os = "macos")]
-        notify_device_change(gui_remote.clone(), controller_commands),
-        gui_remote,
+        notify_device_change(context.clone(), controller_commands),
+        publisher,
     )?;
     let mut desktop_controller = DesktopController::new(midi_service);
-
     desktop_controller.refresh_devices().log_error_msg("Could not refresh MIDI input list on startup").ok();
     Ok(Arc::new(Mutex::new(desktop_controller)))
 }
 
 #[cfg(target_os = "macos")]
 fn notify_device_change(
-    gui_remote: gui::GuiRemote,
-    controller_commands: &DesktopControllerCommandQueue<gui::GuiRemote>,
+    context: GuiContextHandle,
+    controller_commands: &DesktopControllerCommandQueue<BpmDisplayPublisher>,
 ) -> impl Fn() + Send + 'static {
-    let device_change_controller_commands = controller_commands.downgrade();
+    let commands = controller_commands.downgrade();
     move || {
-        let Some(controller_commands) = device_change_controller_commands.upgrade() else {
-            return;
-        };
-        let gui_remote = gui_remote.clone();
-
-        controller_commands.send("Could not refresh MIDI input list after device change", move |controller| {
-            let result = controller.refresh_devices();
-            gui_remote.request_repaint();
-            result
-        });
+        if let Some(commands) = commands.upgrade() {
+            commands.refresh_devices(context.clone());
+        }
     }
-}
-
-fn build_gui_config(
-    config: DesktopConfig,
-    controller: SharedDesktopController<gui::GuiRemote>,
-    controller_commands: DesktopControllerCommandQueue<gui::GuiRemote>,
-) -> DesktopBaseConfig<gui::GuiRemote> {
-    let static_controller_commands = controller_commands.clone();
-    let dynamic_controller_commands = controller_commands.clone();
-
-    DesktopBaseConfig::new(
-        config,
-        controller,
-        controller_commands,
-        Arc::new(move |static_config| {
-            static_controller_commands.send("Could not apply static BPM detection config", move |controller| {
-                controller.apply_static_config(static_config)
-            });
-        }),
-        Arc::new(move |dynamic_config| {
-            dynamic_controller_commands.send("Could not apply dynamic BPM detection config", move |controller| {
-                controller.apply_dynamic_config(dynamic_config)
-            });
-        }),
-    )
 }

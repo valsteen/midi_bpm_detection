@@ -3,8 +3,10 @@ use std::{
     thread,
 };
 
+use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
 use bpm_detection_core::bpm_detection_receiver::BPMDetectionReceiver;
 use errors::{LogErrorWithExt, Result};
+use gui::GuiContextHandle;
 
 use crate::controller::DesktopController;
 
@@ -182,7 +184,7 @@ impl<B> DesktopControllerCommandQueue<B>
 where
     B: BPMDetectionReceiver,
 {
-    pub fn send(
+    fn send(
         &self,
         error_message: &'static str,
         command: impl FnOnce(&mut DesktopController<B>) -> Result<()> + Send + 'static,
@@ -195,6 +197,30 @@ where
         // Callbacks stored by `DesktopController` use a weak queue handle so they can request work while the desktop
         // runtime is alive without becoming part of the ownership chain that keeps that runtime alive.
         WeakDesktopControllerCommandQueue { queue: self.queue.downgrade() }
+    }
+
+    pub fn apply_static_config(&self, config: StaticBPMDetectionConfig) {
+        self.send("Could not apply static BPM detection config", move |controller| {
+            controller.apply_static_config(config)
+        });
+    }
+
+    pub fn apply_dynamic_config(&self, config: DynamicBPMDetectionConfig) {
+        self.send("Could not apply dynamic BPM detection config", move |controller| {
+            controller.apply_dynamic_config(config)
+        });
+    }
+
+    pub fn refresh_devices(&self, context: GuiContextHandle) {
+        self.send("Could not refresh MIDI input list", move |controller| {
+            let result = controller.refresh_devices();
+            context.request_repaint();
+            result
+        });
+    }
+
+    pub fn select_device_index(&self, index: usize) {
+        self.send("Could not select MIDI input", move |controller| controller.select_device_index(index));
     }
 }
 

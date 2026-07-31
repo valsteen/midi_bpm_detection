@@ -1,26 +1,33 @@
+use bpm_detection_config::{
+    DynamicBPMDetectionConfigAccessor, GUIConfigAccessor, NormalDistributionConfigAccessor,
+    StaticBPMDetectionConfigAccessor,
+};
 use eframe::{egui, egui::Ui};
 
-use crate::{BPMDetectionConfig, add_slider::SlideAdder, app::BPMDetectionGUI};
+use crate::{BPMDetectionGUI, EditableSettings, GuiChanges, add_slider::SlideAdder};
 
 impl BPMDetectionGUI {
-    pub(crate) fn settings_panel<Config: BPMDetectionConfig>(ui: &mut Ui, config: &mut Config) {
+    pub(crate) fn settings_panel(ui: &mut Ui, settings: &mut EditableSettings) -> GuiChanges {
+        let mut changes = GuiChanges::default();
         egui::Grid::new("").num_columns(2).spacing([40.0, 4.0]).striped(true).show(ui, |ui| {
-            config.desktop_controls(ui);
+            let mut sliders = SlideAdder::new(ui, settings);
 
-            let mut slide_adder = SlideAdder::new(ui, config);
+            EditableSettings::gui_parameters().visit(&mut sliders);
+            changes.gui = sliders.take_changed();
 
-            Config::gui_parameters().visit(&mut slide_adder);
+            EditableSettings::static_bpm_detection_parameters().visit(&mut sliders);
+            changes.static_detection = sliders.take_changed();
 
-            Config::static_bpm_detection_parameters().visit(&mut slide_adder);
+            EditableSettings::normal_distribution_parameters().visit(&mut sliders);
+            changes.static_detection |= sliders.take_changed();
 
-            Config::normal_distribution_parameters().visit(&mut slide_adder);
+            EditableSettings::dynamic_bpm_detection_parameters().visit(&mut sliders);
+            changes.dynamic_detection = sliders.take_changed();
 
-            Config::dynamic_bpm_detection_parameters().visit(&mut slide_adder);
-
-            let mut send_tempo_enabled = config.get_send_tempo();
-            if ui.toggle_value(&mut send_tempo_enabled, "Send tempo").changed() {
-                config.set_send_tempo(send_tempo_enabled);
+            if let Some(send_tempo) = settings.send_tempo.as_mut() {
+                changes.send_tempo = ui.toggle_value(send_tempo, "Send tempo").changed();
             }
         });
+        changes
     }
 }

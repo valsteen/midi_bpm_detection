@@ -15,7 +15,7 @@ pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
     enabled: bool,
     parameter: &Parameter<Config, ParameterValueType>,
     get_set_value: impl FnMut(Option<f64>) -> f64,
-) {
+) -> bool {
     let mut slider = Slider::from_get_set(parameter.spec.range.clone(), get_set_value)
         .logarithmic(parameter.spec.logarithmic)
         .step_by(parameter.spec.step)
@@ -25,43 +25,50 @@ pub fn add_slider<GuiValueType: Asf64, Config, ParameterValueType>(
         slider = slider.text(*unit);
     }
 
-    ui.add_enabled(enabled, slider);
+    let changed = ui.add_enabled(enabled, slider).changed();
     ui.end_row();
+    changed
 }
 
 pub fn add_slider_default<GuiValueType, Config, ParameterValueType>(
     ui: &mut egui::Ui,
     parameter: &Parameter<Config, ParameterValueType>,
     mut get_set_as_f64: impl FnMut(Option<GuiValueType>) -> f64,
-) where
+) -> bool
+where
     GuiValueType: Asf64,
 {
     ui.label(parameter.spec.label);
 
     add_slider::<GuiValueType, Config, ParameterValueType>(ui, true, parameter, move |value_opt: Option<f64>| {
         get_set_as_f64(value_opt.map(GuiValueType::new_from))
-    });
+    })
 }
 
 pub struct SlideAdder<'a, Config> {
     ui: &'a mut egui::Ui,
     config: &'a mut Config,
+    changed: bool,
 }
 
 impl<'a, Config> SlideAdder<'a, Config> {
     pub fn new(ui: &'a mut egui::Ui, config: &'a mut Config) -> SlideAdder<'a, Config> {
-        Self { ui, config }
+        Self { ui, config, changed: false }
     }
 }
 
 impl<Config> SlideAdder<'_, Config> {
+    pub fn take_changed(&mut self) -> bool {
+        std::mem::take(&mut self.changed)
+    }
+
     pub fn add<ParameterValueType>(&mut self, parameter: &Parameter<Config, ParameterValueType>)
     where
         ParameterValueType: Asf64,
     {
-        let Self { ui, config } = self;
+        let Self { ui, config, changed } = self;
 
-        add_slider_default(ui, parameter, move |value_opt: Option<ParameterValueType>| match value_opt {
+        *changed |= add_slider_default(ui, parameter, move |value_opt: Option<ParameterValueType>| match value_opt {
             None => (parameter.get)(config).as_f64(),
             Some(new_value) => {
                 let value = new_value.as_f64();
@@ -88,9 +95,9 @@ impl<Config> SlideAdder<'_, Config> {
             (true, false)
         };
 
-        let Self { ui, config } = self;
+        let Self { ui, config, changed: receipt } = self;
 
-        add_slider::<ValueType, _, _>(ui, is_enabled, parameter, move |new_val_f64| {
+        let slider_changed = add_slider::<ValueType, _, _>(ui, is_enabled, parameter, move |new_val_f64| {
             let mut current_value = (parameter.get)(config);
 
             if changed {
@@ -108,6 +115,7 @@ impl<Config> SlideAdder<'_, Config> {
 
             current_value.value().as_f64()
         });
+        *receipt |= changed || slider_changed;
     }
 }
 

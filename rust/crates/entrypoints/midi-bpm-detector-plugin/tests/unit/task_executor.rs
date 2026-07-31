@@ -11,10 +11,9 @@ use chrono::Duration as ChronoDuration;
 use nice_plug::editor::dpi::LogicalSize;
 use parameter_on_off::OnOff;
 use ringbuf::{StaticRb, traits::Split};
-use sync::ArcAtomicOptionNonZeroU16;
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16};
 
 use super::*;
-use crate::plugin_config::SendTempoOutputState;
 
 fn note_pair() -> (TimedNoteOn, TimedNoteOn) {
     (
@@ -61,7 +60,7 @@ fn executor_with_connection(
         TempoControllerOutput {
             pending_port: ArcAtomicOptionNonZeroU16::none(),
             connection: Some(connection),
-            send_tempo: SendTempoOutputState::new(true),
+            send_tempo: ArcAtomicBool::new(true),
         },
     )
 }

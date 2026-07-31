@@ -16,17 +16,13 @@ use nice_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter_nice_plug::nice_plugin_parameter_group;
 use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
-use sync::ArcAtomicOptionNonZeroU16;
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16};
 
-use crate::{
-    DeferredConfigUpdate,
-    plugin_config::{PluginConfig, SendTempoOutputState},
-};
+use crate::{DeferredConfigUpdate, plugin_config::PluginConfig};
 
 #[nice_plugin_parameter_group(
     config = bpm_detection_config::GUIConfig,
-    group = "GUI",
-    accessor_macro = plugin_gui_params_accessors
+    group = "GUI"
 )]
 pub struct PluginGUIParams {
     pub interpolation_duration: FloatParam,
@@ -35,8 +31,7 @@ pub struct PluginGUIParams {
 
 #[nice_plugin_parameter_group(
     config = bpm_detection_config::DynamicBPMDetectionConfig,
-    group = "DynamicParams",
-    accessor_macro = plugin_dynamic_params_accessors
+    group = "DynamicParams"
 )]
 pub struct PluginDynamicParams {
     pub beats_lookback: IntParam,
@@ -64,8 +59,7 @@ pub struct PluginDynamicParams {
 
 #[nice_plugin_parameter_group(
     config = bpm_detection_config::NormalDistributionConfig,
-    group = "normal_distribution",
-    accessor_macro = normal_distribution_params_accessors
+    group = "normal_distribution"
 )]
 pub struct NormalDistributionParams {
     pub std_dev: FloatParam,
@@ -76,8 +70,7 @@ pub struct NormalDistributionParams {
 
 #[nice_plugin_parameter_group(
     config = bpm_detection_config::StaticBPMDetectionConfig,
-    group = "StaticParams",
-    accessor_macro = plugin_static_params_accessors
+    group = "StaticParams"
 )]
 pub struct PluginStaticParams {
     pub bpm_center: FloatParam,
@@ -155,13 +148,18 @@ impl MidiBpmDetectorParams {
         }
     }
 
+    pub(crate) fn read_editable_settings(&self) -> gui::EditableSettings {
+        gui::EditableSettings { bpm: self.read_settings(), send_tempo: Some(self.send_tempo.value()) }
+    }
+
     pub fn new(
-        config: &mut PluginConfig,
+        config: &PluginConfig,
         static_bpm_detection_config_changed_at: &DeferredConfigUpdate,
         gui_config_changed_at: &DeferredConfigUpdate,
         dynamic_bpm_detection_config_changed_at: &DeferredConfigUpdate,
         current_sample: &Arc<AtomicUsize>,
         daw_port: &ArcAtomicOptionNonZeroU16,
+        send_tempo_output: ArcAtomicBool,
     ) -> Self {
         let static_change_marker =
             HostParameterChangeMarker::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
@@ -176,7 +174,7 @@ impl MidiBpmDetectorParams {
 
         Self {
             editor_state: EguiState::from_size(LogicalSize::new(1200.0, 600.0)),
-            send_tempo: send_tempo_param(&config.send_tempo),
+            send_tempo: send_tempo_param(config.send_tempo, send_tempo_output),
             gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &update_gui_changed_at_f32),
             static_params: PluginStaticParams::new(
                 &config.bpm_detection.static_bpm_detection_config,
@@ -193,12 +191,9 @@ impl MidiBpmDetectorParams {
     }
 }
 
-fn send_tempo_param(send_tempo: &SendTempoOutputState) -> BoolParam {
-    BoolParam::new("Send tempo", send_tempo.enabled()).with_callback(Arc::new({
-        let send_tempo = send_tempo.clone();
-        move |value| {
-            send_tempo.set_from_host(value);
-        }
+fn send_tempo_param(initial: bool, output: ArcAtomicBool) -> BoolParam {
+    BoolParam::new("Send tempo", initial).with_callback(Arc::new(move |enabled| {
+        output.store(enabled, Ordering::Relaxed);
     }))
 }
 

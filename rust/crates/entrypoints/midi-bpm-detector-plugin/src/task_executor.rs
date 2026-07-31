@@ -10,12 +10,10 @@ use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
 use bpm_detection_core::{BPMDetection, TimedNoteOn, bpm_detection_receiver::BPMDetectionReceiver};
 use crossbeam::atomic::AtomicCell;
 use errors::{LogErrorWithExt, error, info};
-use gui::GuiRemote;
+use gui::{BpmDisplayPublisher, GuiContextHandle};
 use nice_plug_egui::EguiState;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use sync::ArcAtomicOptionNonZeroU16;
-
-use crate::plugin_config::SendTempoOutputState;
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16};
 
 const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);
@@ -61,50 +59,59 @@ impl DetectionRuntime {
 }
 
 pub(crate) struct GuiTaskOutput {
-    live_remote: Option<GuiRemote>,
-    remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
+    live_publisher: Option<BpmDisplayPublisher>,
+    live_context: Option<GuiContextHandle>,
+    handoff: Arc<AtomicCell<Option<GuiOutputHandoff>>>,
     editor_state: Arc<EguiState>,
 }
+
+pub(crate) type GuiOutputHandoff = (BpmDisplayPublisher, GuiContextHandle);
 
 impl GuiTaskOutput {
     #[must_use]
     pub(crate) fn new(
-        live_remote: Option<GuiRemote>,
-        remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
+        live_output: Option<GuiOutputHandoff>,
+        handoff: Arc<AtomicCell<Option<GuiOutputHandoff>>>,
         editor_state: Arc<EguiState>,
     ) -> Self {
-        Self { live_remote, remote_handoff, editor_state }
+        let (live_publisher, live_context) =
+            live_output.map_or((None, None), |(publisher, context)| (Some(publisher), Some(context)));
+        Self { live_publisher, live_context, handoff, editor_state }
     }
 
-    fn refresh_live_remote(&mut self) {
+    fn refresh_live_output(&mut self) {
         if !self.editor_state.is_open() {
-            self.live_remote = None;
+            self.live_publisher = None;
+            self.live_context = None;
         }
-        if let Some(new_live_remote) = self.remote_handoff.take() {
-            self.live_remote = Some(new_live_remote);
+        if let Some((publisher, context)) = self.handoff.take() {
+            self.live_publisher = Some(publisher);
+            self.live_context = Some(context);
         }
     }
 
     fn receive_daw_bpm(&self, bpm: f32) {
-        if let Some(live_remote) = &self.live_remote {
-            live_remote.receive_daw_bpm(bpm);
+        if let Some(publisher) = &self.live_publisher {
+            publisher.receive_daw_bpm(bpm);
         }
     }
 
     fn request_repaint(&mut self) {
-        self.refresh_live_remote();
-        if let Some(live_remote) = &mut self.live_remote {
-            live_remote.request_repaint();
+        self.refresh_live_output();
+        if let Some(context) = &self.live_context {
+            context.request_repaint();
         }
     }
 
     fn publish_bpm_detection_result(&mut self, bpm_detection_result: Option<(&[f32], f32)>) {
-        if let (true, Some(live_remote)) = (self.editor_state.is_open(), &mut self.live_remote) {
+        if self.editor_state.is_open() {
             if let Some((histogram_data_points, bpm)) = bpm_detection_result {
-                live_remote.receive_bpm_histogram_data(histogram_data_points, bpm);
-            } else {
+                if let Some(publisher) = &mut self.live_publisher {
+                    publisher.receive_bpm_histogram_data(histogram_data_points, bpm);
+                }
+            } else if let Some(context) = &self.live_context {
                 // happens when we still have no data but still have to see parameter changes
-                live_remote.request_repaint();
+                context.request_repaint();
             }
         }
     }
@@ -119,12 +126,12 @@ enum BpmPublication {
 pub(crate) struct TempoControllerOutput {
     pending_port: ArcAtomicOptionNonZeroU16,
     connection: Option<TcpStream>,
-    send_tempo: SendTempoOutputState,
+    send_tempo: ArcAtomicBool,
 }
 
 impl TempoControllerOutput {
     #[must_use]
-    pub(crate) fn new(pending_port: ArcAtomicOptionNonZeroU16, send_tempo: SendTempoOutputState) -> Self {
+    pub(crate) fn new(pending_port: ArcAtomicOptionNonZeroU16, send_tempo: ArcAtomicBool) -> Self {
         Self { pending_port, connection: None, send_tempo }
     }
 
@@ -135,7 +142,7 @@ impl TempoControllerOutput {
     }
 
     fn send_bpm(&mut self, bpm: f32) {
-        if let (true, Some(connection)) = (self.send_tempo.enabled(), &mut self.connection)
+        if let (true, Some(connection)) = (self.send_tempo.load(Ordering::Relaxed), &mut self.connection)
             && write_bpm_to_tempo_controller(connection, bpm).is_err()
         {
             self.connection = None;
@@ -205,7 +212,7 @@ fn process_notes(
     force_evaluate_bpm_detection: bool,
 ) -> BpmPublication {
     let mut evaluate_bpm_detection = force_evaluate_bpm_detection;
-    gui_output.refresh_live_remote();
+    gui_output.refresh_live_output();
     for event in events_receiver.pop_iter() {
         match event {
             Event::TimedNoteOn(timed_note_on) => {
