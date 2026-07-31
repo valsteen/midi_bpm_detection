@@ -23,6 +23,21 @@ fn host_and_gui_changes_to_different_dynamic_fields_survive() {
 }
 
 #[test]
+fn host_and_gui_changes_to_different_nested_static_fields_survive() {
+    let previous = editable_settings();
+    let mut draft = previous.clone();
+    draft.bpm.static_bpm_detection_config.normal_distribution.std_dev = 2.5;
+
+    let mut current_host = previous.clone();
+    current_host.bpm.static_bpm_detection_config.normal_distribution.cutoff = 0.75;
+
+    let draft = merge_host_changes(&draft, &previous, &current_host);
+
+    assert!((draft.bpm.static_bpm_detection_config.normal_distribution.std_dev - 2.5).abs() < f64::EPSILON);
+    assert!((draft.bpm.static_bpm_detection_config.normal_distribution.cutoff - 0.75).abs() < f32::EPSILON);
+}
+
+#[test]
 fn newer_observed_host_value_replaces_same_gui_draft_field() {
     let previous = editable_settings();
     let mut draft = previous.clone();
