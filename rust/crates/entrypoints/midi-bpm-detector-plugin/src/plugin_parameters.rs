@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, StaticBPMDetectionConfig};
+use bpm_detection_config::{DynamicBPMDetectionConfig, GUIConfig, Settings, StaticBPMDetectionConfig};
 use nice_plug::{
     editor::dpi::LogicalSize,
     params::{BoolParam, FloatParam, IntParam, Params},
@@ -147,6 +147,14 @@ impl HostParameterChangeMarker {
 }
 
 impl MidiBpmDetectorParams {
+    pub(crate) fn read_settings(&self) -> Settings {
+        Settings {
+            gui_config: self.gui_params.read_gui_config(),
+            static_bpm_detection_config: self.static_params.read_static_config(),
+            dynamic_bpm_detection_config: self.dynamic_params.read_dynamic_config(),
+        }
+    }
+
     pub fn new(
         config: &mut PluginConfig,
         static_bpm_detection_config_changed_at: &DeferredConfigUpdate,

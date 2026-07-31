@@ -13,25 +13,21 @@ use errors::{LogErrorWithExt, error, info};
 use gui::GuiRemote;
 use nice_plug_egui::EguiState;
 use ringbuf::{SharedRb, consumer::Consumer, storage::Array, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, RwLock};
+use sync::ArcAtomicOptionNonZeroU16;
 
-use crate::{
-    parameter_sync::ParameterSyncOrigin,
-    plugin_config::{PluginConfig, SendTempoOutputState},
-    plugin_parameters::{MidiBpmDetectorParams, PluginDynamicParams, PluginGUIParams, PluginStaticParams},
-};
+use crate::plugin_config::SendTempoOutputState;
 
 const TEMPO_CONTROLLER_CONNECT_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_WRITE_TIMEOUT: Duration = Duration::from_millis(10);
 const TEMPO_CONTROLLER_PAYLOAD_BYTES: u32 = 4;
 const TEMPO_CONTROLLER_FRAME_BYTES: usize = 8;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Task {
     ProcessNotes { force_evaluate_bpm_detection: bool },
-    StaticBPMDetectionConfig(ParameterSyncOrigin),
-    GUIConfig(ParameterSyncOrigin),
-    DynamicBPMDetectionConfig(ParameterSyncOrigin),
+    ApplyStaticConfig(StaticBPMDetectionConfig),
+    RefreshGui,
+    ApplyDynamicConfig(DynamicBPMDetectionConfig),
 }
 
 pub enum Event {
@@ -43,10 +39,8 @@ pub(crate) type EventsReceiver = Frozen<Arc<SharedRb<Array<Event, 1000>>>, false
 
 pub(crate) struct TaskExecutor {
     detection: DetectionRuntime,
-    gui_task_config_sync: GuiTaskConfigSync,
     gui_output: GuiTaskOutput,
     tempo_output: TempoControllerOutput,
-    params: Arc<MidiBpmDetectorParams>,
 }
 
 pub(crate) struct DetectionRuntime {
@@ -63,50 +57,6 @@ impl DetectionRuntime {
         events_receiver: EventsReceiver,
     ) -> Self {
         Self { bpm_detection, dynamic_bpm_detection_config, events_receiver }
-    }
-}
-
-pub(crate) struct GuiTaskConfigSync {
-    gui_task_config: Arc<RwLock<PluginConfig>>,
-    gui_must_update_config: ArcAtomicBool,
-}
-
-impl GuiTaskConfigSync {
-    #[must_use]
-    pub(crate) fn new(gui_task_config: Arc<RwLock<PluginConfig>>, gui_must_update_config: ArcAtomicBool) -> Self {
-        Self { gui_task_config, gui_must_update_config }
-    }
-
-    fn read_host_static_config(&self, host_params: &PluginStaticParams) -> StaticBPMDetectionConfig {
-        let mut config = self.gui_task_config.write();
-        config.bpm_detection.static_bpm_detection_config = host_params.read_static_config();
-        self.gui_must_update_config.store(true, Ordering::Relaxed);
-
-        config.bpm_detection.static_bpm_detection_config.clone()
-    }
-
-    fn read_gui_origin_static_config(&self) -> StaticBPMDetectionConfig {
-        self.gui_task_config.read().bpm_detection.static_bpm_detection_config.clone()
-    }
-
-    fn sync_host_gui_config(&self, host_params: &PluginGUIParams) {
-        {
-            let mut config = self.gui_task_config.write();
-            config.bpm_detection.gui_config = host_params.read_gui_config();
-        }
-        self.gui_must_update_config.store(true, Ordering::Relaxed);
-    }
-
-    fn read_host_dynamic_config(&self, host_params: &PluginDynamicParams) -> DynamicBPMDetectionConfig {
-        let mut config = self.gui_task_config.write();
-        config.bpm_detection.dynamic_bpm_detection_config = host_params.read_dynamic_config();
-        self.gui_must_update_config.store(true, Ordering::Relaxed);
-
-        config.bpm_detection.dynamic_bpm_detection_config.clone()
-    }
-
-    fn read_gui_origin_dynamic_config(&self) -> DynamicBPMDetectionConfig {
-        self.gui_task_config.read().bpm_detection.dynamic_bpm_detection_config.clone()
     }
 }
 
@@ -166,12 +116,6 @@ enum BpmPublication {
     NotRequired,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum ConfigApplyEffect {
-    ForceBpmRecompute,
-    NoImmediateBpmRecompute,
-}
-
 pub(crate) struct TempoControllerOutput {
     pending_port: ArcAtomicOptionNonZeroU16,
     connection: Option<TcpStream>,
@@ -203,88 +147,54 @@ impl TaskExecutor {
     #[must_use]
     pub(crate) fn new(
         detection: DetectionRuntime,
-        gui_task_config_sync: GuiTaskConfigSync,
         gui_output: GuiTaskOutput,
         tempo_output: TempoControllerOutput,
-        params: Arc<MidiBpmDetectorParams>,
     ) -> Self {
-        Self { detection, gui_task_config_sync, gui_output, tempo_output, params }
+        Self { detection, gui_output, tempo_output }
     }
 
     pub fn execute(&mut self, task: Task) {
-        self.tempo_output.connect_pending_port();
-
         match task {
             Task::ProcessNotes { force_evaluate_bpm_detection } => {
-                if process_notes(
-                    &mut self.detection.bpm_detection,
-                    &mut self.detection.events_receiver,
-                    &mut self.gui_output,
-                    force_evaluate_bpm_detection,
-                ) == BpmPublication::Required
-                {
-                    publish_bpm_detection_result(
-                        &mut self.detection.bpm_detection,
-                        &self.detection.dynamic_bpm_detection_config,
-                        &mut self.gui_output,
-                        &mut self.tempo_output,
-                    );
-                }
+                self.tempo_output.connect_pending_port();
+                self.execute_process_notes(force_evaluate_bpm_detection);
             }
-            Task::StaticBPMDetectionConfig(origin) => {
-                if apply_static_config(
-                    &mut self.detection.bpm_detection,
-                    &self.gui_task_config_sync,
-                    &self.params.static_params,
-                    origin,
-                ) == ConfigApplyEffect::ForceBpmRecompute
-                {
-                    self.tempo_output.connect_pending_port();
-                    if process_notes(
-                        &mut self.detection.bpm_detection,
-                        &mut self.detection.events_receiver,
-                        &mut self.gui_output,
-                        true,
-                    ) == BpmPublication::Required
-                    {
-                        publish_bpm_detection_result(
-                            &mut self.detection.bpm_detection,
-                            &self.detection.dynamic_bpm_detection_config,
-                            &mut self.gui_output,
-                            &mut self.tempo_output,
-                        );
-                    }
-                }
-            }
-            Task::GUIConfig(origin) => {
-                apply_gui_config(&self.gui_task_config_sync, &self.params.gui_params, &mut self.gui_output, origin);
-            }
-            Task::DynamicBPMDetectionConfig(origin) => {
-                if apply_dynamic_config(
-                    &mut self.detection.dynamic_bpm_detection_config,
-                    &self.gui_task_config_sync,
-                    &self.params.dynamic_params,
-                    origin,
-                ) == ConfigApplyEffect::ForceBpmRecompute
-                {
-                    self.tempo_output.connect_pending_port();
-                    if process_notes(
-                        &mut self.detection.bpm_detection,
-                        &mut self.detection.events_receiver,
-                        &mut self.gui_output,
-                        true,
-                    ) == BpmPublication::Required
-                    {
-                        publish_bpm_detection_result(
-                            &mut self.detection.bpm_detection,
-                            &self.detection.dynamic_bpm_detection_config,
-                            &mut self.gui_output,
-                            &mut self.tempo_output,
-                        );
-                    }
-                }
-            }
+            Task::ApplyStaticConfig(config) => self.apply_static_config(config),
+            Task::RefreshGui => self.gui_output.request_repaint(),
+            Task::ApplyDynamicConfig(config) => self.apply_dynamic_config(config),
         }
+    }
+
+    fn apply_static_config(&mut self, config: StaticBPMDetectionConfig) {
+        self.detection.bpm_detection.update_static_config(config);
+        self.recompute_after_config_change();
+    }
+
+    fn apply_dynamic_config(&mut self, config: DynamicBPMDetectionConfig) {
+        self.detection.dynamic_bpm_detection_config = config;
+        self.recompute_after_config_change();
+    }
+
+    fn execute_process_notes(&mut self, force_evaluate_bpm_detection: bool) {
+        if process_notes(
+            &mut self.detection.bpm_detection,
+            &mut self.detection.events_receiver,
+            &mut self.gui_output,
+            force_evaluate_bpm_detection,
+        ) == BpmPublication::Required
+        {
+            publish_bpm_detection_result(
+                &mut self.detection.bpm_detection,
+                &self.detection.dynamic_bpm_detection_config,
+                &mut self.gui_output,
+                &mut self.tempo_output,
+            );
+        }
+    }
+
+    fn recompute_after_config_change(&mut self) {
+        self.tempo_output.connect_pending_port();
+        self.execute_process_notes(true);
     }
 }
 
@@ -323,57 +233,6 @@ fn publish_bpm_detection_result(
         tempo_output.send_bpm(bpm);
     }
     gui_output.publish_bpm_detection_result(bpm_detection_result);
-}
-
-fn apply_static_config(
-    bpm_detection: &mut BPMDetection,
-    gui_task_config_sync: &GuiTaskConfigSync,
-    host_params: &PluginStaticParams,
-    origin: ParameterSyncOrigin,
-) -> ConfigApplyEffect {
-    match origin {
-        ParameterSyncOrigin::Host => {
-            bpm_detection.update_static_config(gui_task_config_sync.read_host_static_config(host_params));
-            ConfigApplyEffect::ForceBpmRecompute
-        }
-        ParameterSyncOrigin::Gui => {
-            bpm_detection.update_static_config(gui_task_config_sync.read_gui_origin_static_config());
-            // TODO GUI has a delay + bpm recompute mechanism on its side, but when it's daw,
-            // note receiver delays but recompute happens here, which is hard to follow
-            ConfigApplyEffect::NoImmediateBpmRecompute
-        }
-    }
-}
-
-fn apply_gui_config(
-    gui_task_config_sync: &GuiTaskConfigSync,
-    host_params: &PluginGUIParams,
-    gui_output: &mut GuiTaskOutput,
-    origin: ParameterSyncOrigin,
-) {
-    if origin == ParameterSyncOrigin::Host {
-        gui_task_config_sync.sync_host_gui_config(host_params);
-    }
-
-    gui_output.request_repaint();
-}
-
-fn apply_dynamic_config(
-    dynamic_bpm_detection_config: &mut DynamicBPMDetectionConfig,
-    gui_task_config_sync: &GuiTaskConfigSync,
-    host_params: &PluginDynamicParams,
-    origin: ParameterSyncOrigin,
-) -> ConfigApplyEffect {
-    match origin {
-        ParameterSyncOrigin::Host => {
-            *dynamic_bpm_detection_config = gui_task_config_sync.read_host_dynamic_config(host_params);
-            ConfigApplyEffect::ForceBpmRecompute
-        }
-        ParameterSyncOrigin::Gui => {
-            *dynamic_bpm_detection_config = gui_task_config_sync.read_gui_origin_dynamic_config();
-            ConfigApplyEffect::NoImmediateBpmRecompute
-        }
-    }
 }
 
 fn connect_to_tempo_controller(port: NonZeroU16) -> Option<TcpStream> {

@@ -109,6 +109,24 @@ fn deferred_config_update_preserves_first_change_sample_until_taken() {
 }
 
 #[test]
+fn due_config_update_is_taken_once() {
+    let update = DeferredConfigUpdate::idle();
+    update.mark_changed_at_if_idle(10);
+
+    assert!(MidiBpmDetector::take_config_update_ready_for_dispatch(15, 5, &update));
+    assert!(!MidiBpmDetector::take_config_update_ready_for_dispatch(15, 5, &update));
+}
+
+#[test]
+fn config_update_remains_pending_before_due_sample() {
+    let update = DeferredConfigUpdate::idle();
+    update.mark_changed_at_if_idle(10);
+
+    assert!(!MidiBpmDetector::take_config_update_ready_for_dispatch(14, 5, &update));
+    assert_eq!(update.changed_at_sample(), Some(10));
+}
+
+#[test]
 fn normal_distribution_remote_controls_match_canonical_settings_order() {
     std::thread::Builder::new()
         .name(String::from("normal_distribution_remote_controls"))

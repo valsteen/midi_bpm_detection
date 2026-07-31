@@ -6,7 +6,6 @@
 
 mod bpm_detector_configuration;
 mod gui;
-mod parameter_sync;
 mod plugin_config;
 mod plugin_parameters;
 mod task_executor;
@@ -28,11 +27,10 @@ use mimalloc::MiMalloc;
 use nice_plug::{midi::MidiResult, prelude::*};
 use nice_plug_egui::{EguiNiceSettings, create_egui_editor};
 use ringbuf::{SharedRb, StaticRb, producer::Producer, storage::Array, traits::Split, wrap::frozen::Frozen};
-use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize, RwLock};
+use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16, ArcAtomicOptionUsize};
 
 use crate::{
     gui::GuiEditor,
-    parameter_sync::{HOST_PARAMETER_SYNC_COALESCING_WINDOW, ParameterSyncOrigin},
     plugin_config::PluginConfig,
     plugin_parameters::MidiBpmDetectorParams,
     task_executor::{Event, Task},
@@ -53,8 +51,7 @@ pub struct MidiBpmDetector {
     params: Arc<MidiBpmDetectorParams>,
     current_sample: Arc<AtomicUsize>,
     timing: PluginTiming,
-    // should recompute bpm evaluation, even if there is no new notes. Happens after config change
-    // or GUI just reopened
+    // Recompute the current histogram when the GUI reopens even if no new notes arrived.
     force_evaluate_bpm_detection: ArcAtomicBool,
     events_sender: Frozen<Arc<SharedRb<Array<Event, 1000>>>, true, false>,
     task_executor_handoff: Option<task_executor::TaskExecutor>,
@@ -65,6 +62,7 @@ pub struct MidiBpmDetector {
 }
 
 const INITIAL_CONFIG_SYNC_SAMPLE: usize = 1;
+const PARAMETER_SYNC_COALESCING_WINDOW: chrono::Duration = chrono::Duration::milliseconds(50);
 
 #[derive(Clone)]
 pub(crate) struct DeferredConfigUpdate {
@@ -132,6 +130,7 @@ impl Default for MidiBpmDetector {
         let daw_port = ArcAtomicOptionNonZeroU16::none();
 
         let mut config = PluginConfig::default();
+        let send_tempo = config.send_tempo.clone();
         let bpm_detection = BPMDetection::new(config.bpm_detection.static_bpm_detection_config.clone());
 
         let static_bpm_detection_config_changed_at = DeferredConfigUpdate::pending_initial_sync();
@@ -147,19 +146,14 @@ impl Default for MidiBpmDetector {
             &daw_port,
         ));
 
-        let gui_task_config = Arc::new(RwLock::new(config.clone()));
-        let gui_must_update_config = ArcAtomicBool::new(false);
-
         let task_executor = task_executor::TaskExecutor::new(
             task_executor::DetectionRuntime::new(
                 bpm_detection,
                 config.bpm_detection.dynamic_bpm_detection_config,
                 events_receiver,
             ),
-            task_executor::GuiTaskConfigSync::new(gui_task_config.clone(), gui_must_update_config.clone()),
             task_executor::GuiTaskOutput::new(None, gui_remote_handoff.clone(), params.editor_state.clone()),
-            task_executor::TempoControllerOutput::new(daw_port, config.send_tempo.clone()),
-            params.clone(),
+            task_executor::TempoControllerOutput::new(daw_port, send_tempo.clone()),
         );
 
         let force_evaluate_bpm_detection = ArcAtomicBool::new(false);
@@ -169,9 +163,8 @@ impl Default for MidiBpmDetector {
             bpm_detection_app: None,
             gui_remote_handoff: gui_remote_handoff.clone(),
             force_evaluate_bpm_detection: force_evaluate_bpm_detection.clone(),
-            gui_task_config,
+            send_tempo,
             params: params.clone(),
-            gui_must_update_config,
         };
 
         Self {
@@ -273,16 +266,26 @@ impl Plugin for MidiBpmDetector {
             return if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal };
         };
         let current_sample = self.current_sample.load(Ordering::Relaxed);
-        let delay_by = duration_to_sample(sample_rate, HOST_PARAMETER_SYNC_COALESCING_WINDOW);
-        Self::execute_at_delay(current_sample, delay_by, &self.static_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::StaticBPMDetectionConfig(ParameterSyncOrigin::Host));
-        });
-        Self::execute_at_delay(current_sample, delay_by, &self.gui_config_changed_at, || {
-            context.execute_background(Task::GUIConfig(ParameterSyncOrigin::Host));
-        });
-        Self::execute_at_delay(current_sample, delay_by, &self.dynamic_bpm_detection_config_changed_at, || {
-            context.execute_background(Task::DynamicBPMDetectionConfig(ParameterSyncOrigin::Host));
-        });
+        let delay_by = duration_to_sample(sample_rate, PARAMETER_SYNC_COALESCING_WINDOW);
+        if Self::take_config_update_ready_for_dispatch(
+            current_sample,
+            delay_by,
+            &self.static_bpm_detection_config_changed_at,
+        ) {
+            let config = self.params.static_params.read_static_config();
+            context.execute_background(Task::ApplyStaticConfig(config));
+        }
+        if Self::take_config_update_ready_for_dispatch(current_sample, delay_by, &self.gui_config_changed_at) {
+            context.execute_background(Task::RefreshGui);
+        }
+        if Self::take_config_update_ready_for_dispatch(
+            current_sample,
+            delay_by,
+            &self.dynamic_bpm_detection_config_changed_at,
+        ) {
+            let config = self.params.dynamic_params.read_dynamic_config();
+            context.execute_background(Task::ApplyDynamicConfig(config));
+        }
         self.receive_notes_at_sample_rate(context, sample_rate);
         self.current_sample.fetch_add(buffer.samples(), Ordering::Relaxed);
         if self.params.editor_state.is_open() { ProcessStatus::KeepAlive } else { ProcessStatus::Normal }
@@ -337,14 +340,19 @@ impl MidiBpmDetector {
         has_new_events
     }
 
-    fn execute_at_delay(sample: usize, delay_by: usize, deferred_update: &DeferredConfigUpdate, cb: impl Fn()) {
+    fn take_config_update_ready_for_dispatch(
+        sample: usize,
+        delay_by: usize,
+        deferred_update: &DeferredConfigUpdate,
+    ) -> bool {
         let Some(changed_at_sample) = deferred_update.changed_at_sample() else {
-            return;
+            return false;
         };
-        if Self::has_delay_elapsed(sample, changed_at_sample, delay_by) {
-            cb();
-            deferred_update.take();
+        if !Self::has_delay_elapsed(sample, changed_at_sample, delay_by) {
+            return false;
         }
+        deferred_update.take();
+        true
     }
 
     fn has_delay_elapsed(sample: usize, changed_at_sample: usize, delay_by: usize) -> bool {

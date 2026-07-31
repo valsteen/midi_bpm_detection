@@ -4,12 +4,12 @@ use crossbeam::atomic::AtomicCell;
 use gui::{BPMDetectionApp, BPMDetectionConfig, GuiLifecycleOwner, GuiRemote, create_gui, eframe::egui::Context};
 use nice_plug::prelude::{AsyncExecutor, ParamSetter};
 use nice_plug_egui::EguiState;
-use sync::{ArcAtomicBool, RwLock};
+use sync::ArcAtomicBool;
 
 use crate::{
     MidiBpmDetector, MidiBpmDetectorParams,
     bpm_detector_configuration::{BaseConfig, LiveConfig},
-    plugin_config::PluginConfig,
+    plugin_config::{PluginConfig, SendTempoOutputState},
 };
 
 pub struct GuiEditor {
@@ -17,21 +17,14 @@ pub struct GuiEditor {
     pub bpm_detection_app: Option<BPMDetectionApp<BaseConfig>>,
     pub gui_remote_handoff: Arc<AtomicCell<Option<GuiRemote>>>,
     pub force_evaluate_bpm_detection: ArcAtomicBool,
-    pub gui_task_config: Arc<RwLock<PluginConfig>>,
-    pub gui_must_update_config: ArcAtomicBool,
+    pub send_tempo: SendTempoOutputState,
     pub params: Arc<MidiBpmDetectorParams>,
 }
 
 impl GuiEditor {
-    pub fn build(&mut self, egui_ctx: &Context, async_executor: AsyncExecutor<MidiBpmDetector>) {
-        let config = self.gui_task_config.read().clone();
-        let live_config = BaseConfig::new(
-            config.clone(),
-            self.gui_task_config.clone(),
-            async_executor,
-            self.force_evaluate_bpm_detection.clone(),
-            self.params.clone(),
-        );
+    pub fn build(&mut self, egui_ctx: &Context, _async_executor: AsyncExecutor<MidiBpmDetector>) {
+        let config = PluginConfig { bpm_detection: self.params.read_settings(), send_tempo: self.send_tempo.clone() };
+        let live_config = BaseConfig::new(config.clone(), self.params.clone());
         let (gui_remote, gui_builder) = create_gui(live_config, GuiLifecycleOwner::ParentRuntime);
         gui_remote.receive_keystrokes({
             let send_tempo = config.send_tempo.clone();
@@ -70,22 +63,11 @@ impl GuiEditor {
             param_setter.set_parameter(&self.params.send_tempo, send_tempo);
             param_setter.end_set_parameter(&self.params.send_tempo);
         }
-        live_config.base_config.apply_delayed_updates();
 
-        if self.gui_must_update_config.take(Ordering::Relaxed) {
-            live_config.base_config.config = self.gui_task_config.read().clone();
-        }
-
+        live_config.base_config.refresh_from_host();
         // error may happen if corresponding remote was dropped
         if bpm_detection_gui.update_context(egui_ctx, &mut live_config).is_err() {
             self.bpm_detection_app = None;
-            return;
-        }
-
-        if live_config.base_config.has_config_changes_via_ui {
-            let mut config = self.gui_task_config.write();
-            *config = live_config.base_config.config.clone();
-            live_config.base_config.has_config_changes_via_ui = false;
         }
     }
 }
