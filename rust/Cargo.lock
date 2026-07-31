@@ -3683,9 +3683,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "parameter-macro-support"
+version = "0.2.0"
+
+[[package]]
 name = "parameter-macros"
 version = "0.2.0"
 dependencies = [
+ "parameter-macro-support",
  "proc-macro2",
  "quote",
  "syn 3.0.3",
@@ -3706,6 +3711,7 @@ dependencies = [
 name = "parameter-nice-plug-macros"
 version = "0.2.0"
 dependencies = [
+ "parameter-macro-support",
  "proc-macro2",
  "quote",
  "syn 3.0.3",

@@ -8,6 +8,7 @@ license.workspace = true
 proc-macro = true
 
 [dependencies]
+parameter-macro-support = { path = "../../parameter-macro-support" }
 proc-macro2 = "1.0.106"
 quote = "1.0.46"
 syn = { version = "3.0.3", features = ["full"] }

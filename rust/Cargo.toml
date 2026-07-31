@@ -11,6 +11,7 @@ members = [
     "crates/support/sync",
     "crates/foundation/parameter",
     "crates/foundation/parameter/macros",
+    "crates/foundation/parameter-macro-support",
     "crates/foundation/parameter-on-off",
     "crates/foundation/parameter-on-off-nice-plug",
     "crates/foundation/parameter-nice-plug",

@@ -1,3 +1,4 @@
+use parameter_macro_support::ParameterGroupNaming;
 use proc_macro::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{
@@ -805,8 +806,9 @@ fn parameter_field_descriptor_type(config_type: &Type, field_ident: &Ident) -> R
     let Some(last_segment) = path.segments.last_mut() else {
         return Err(syn::Error::new_spanned(config_type, "config type path must not be empty"));
     };
-    let base_name = parameter_group_base_name(&last_segment.ident);
-    last_segment.ident = field_descriptor_ident(&base_name, field_ident);
+    let naming = ParameterGroupNaming::new(&last_segment.ident.to_string());
+    let descriptor_name = naming.field_descriptor_name(&field_ident.to_string());
+    last_segment.ident = Ident::new(&descriptor_name, field_ident.span());
 
     Ok(quote! { #path })
 }
@@ -1044,53 +1046,4 @@ fn is_type_named(ty: &Type, name: &str) -> bool {
     };
 
     type_path.path.segments.last().is_some_and(|segment| segment.ident == name)
-}
-
-fn parameter_group_base_name(struct_ident: &Ident) -> String {
-    let struct_name = struct_ident.to_string();
-    snake_case(struct_name.strip_suffix("Config").unwrap_or(&struct_name))
-}
-
-fn field_descriptor_ident(base_name: &str, field_name: &Ident) -> Ident {
-    let descriptor = format!("{}{}Field", upper_camel_case(base_name), upper_camel_case(&field_name.to_string()));
-
-    Ident::new(&descriptor, field_name.span())
-}
-
-fn upper_camel_case(name: &str) -> String {
-    let mut out = String::new();
-    let mut uppercase_next = true;
-
-    for ch in name.chars() {
-        if ch == '_' {
-            uppercase_next = true;
-            continue;
-        }
-        if uppercase_next {
-            out.push(ch.to_ascii_uppercase());
-            uppercase_next = false;
-        } else {
-            out.push(ch);
-        }
-    }
-
-    out
-}
-
-fn snake_case(name: &str) -> String {
-    let chars = name.chars().collect::<Vec<_>>();
-    let mut out = String::new();
-
-    for (index, ch) in chars.iter().copied().enumerate() {
-        if ch.is_uppercase() && index > 0 {
-            let previous = chars[index - 1];
-            let next = chars.get(index + 1).copied();
-            if previous.is_lowercase() || previous.is_ascii_digit() || next.is_some_and(char::is_lowercase) {
-                out.push('_');
-            }
-        }
-        out.push(ch.to_ascii_lowercase());
-    }
-
-    out
 }

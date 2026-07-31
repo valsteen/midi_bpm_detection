@@ -15,6 +15,7 @@
 //! - one type-level field descriptor marker per annotated field;
 //! - `Default` and `validate` impls for the config struct.
 
+use parameter_macro_support::ParameterGroupNaming;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -321,12 +322,14 @@ struct ParsedGroup {
     field_visitor: Ident,
     parameter_crate: Path,
     method_prefix: Ident,
+    naming: ParameterGroupNaming,
 }
 
 impl ParsedGroup {
     fn new(args: Punctuated<GroupArg, Token![,]>, struct_ident: &Ident) -> Result<Self> {
         let args = GroupArgs::try_from(args)?;
-        let base_name = parameter_group_base_name(struct_ident);
+        let naming = ParameterGroupNaming::new(&struct_ident.to_string());
+        let base_name = naming.base_name();
 
         Ok(Self {
             accessor: args.accessor.unwrap_or_else(|| format_ident!("{struct_ident}Accessor")),
@@ -339,7 +342,8 @@ impl ParsedGroup {
             visitor: args.visitor.unwrap_or_else(|| format_ident!("{base_name}ParameterVisitor")),
             field_visitor: format_ident!("{base_name}ParameterFieldVisitor"),
             parameter_crate: args.parameter_crate.unwrap_or_else(|| syn::parse_quote!(parameter)),
-            method_prefix: format_ident!("{}", snake_case(&base_name)),
+            method_prefix: format_ident!("{}", naming.method_prefix()),
+            naming,
         })
     }
 }
@@ -699,7 +703,8 @@ fn expand_field_descriptor_impls(group: &ParsedGroup, fields: &[ParameterField])
     let parameters = &group.parameters;
     let parameter_crate = &group.parameter_crate;
     let descriptors = fields.iter().map(|field| {
-        let descriptor = field_descriptor_ident(&group.method_prefix.to_string(), &field.field);
+        let descriptor_name = group.naming.field_descriptor_name(&field.field.to_string());
+        let descriptor = Ident::new(&descriptor_name, field.field.span());
         let field_name = &field.field;
         let const_name = &field.const_name;
         let ty = &field.ty;
@@ -805,53 +810,4 @@ fn screaming_snake_ident(field_name: &Ident) -> Ident {
     }
 
     Ident::new(&out, field_name.span())
-}
-
-fn parameter_group_base_name(struct_ident: &Ident) -> String {
-    let struct_name = struct_ident.to_string();
-    struct_name.strip_suffix("Config").unwrap_or(&struct_name).to_owned()
-}
-
-fn field_descriptor_ident(base_name: &str, field_name: &Ident) -> Ident {
-    let descriptor = format!("{}{}Field", upper_camel_case(base_name), upper_camel_case(&field_name.to_string()));
-
-    Ident::new(&descriptor, field_name.span())
-}
-
-fn upper_camel_case(name: &str) -> String {
-    let mut out = String::new();
-    let mut uppercase_next = true;
-
-    for ch in name.chars() {
-        if ch == '_' {
-            uppercase_next = true;
-            continue;
-        }
-        if uppercase_next {
-            out.push(ch.to_ascii_uppercase());
-            uppercase_next = false;
-        } else {
-            out.push(ch);
-        }
-    }
-
-    out
-}
-
-fn snake_case(name: &str) -> String {
-    let chars = name.chars().collect::<Vec<_>>();
-    let mut out = String::new();
-
-    for (index, ch) in chars.iter().copied().enumerate() {
-        if ch.is_uppercase() && index > 0 {
-            let previous = chars[index - 1];
-            let next = chars.get(index + 1).copied();
-            if previous.is_lowercase() || previous.is_ascii_digit() || next.is_some_and(char::is_lowercase) {
-                out.push('_');
-            }
-        }
-        out.push(ch.to_ascii_lowercase());
-    }
-
-    out
 }

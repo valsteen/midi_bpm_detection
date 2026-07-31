@@ -1,0 +1,8 @@
+[package]
+name = "parameter-macro-support"
+version.workspace = true
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
