@@ -57,25 +57,23 @@ struct RuntimeSettings {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EnabledValue {
-    On(f32),
-    Off(f32),
+    On(f64),
+    Off(f64),
 }
 
 impl Asf64 for EnabledValue {
     fn as_f64(&self) -> f64 {
-        let value = match self {
+        match self {
             Self::On(value) | Self::Off(value) => *value,
-        };
-        f64::from(value)
+        }
     }
 
     fn set_from_f64(&mut self, value: f64) {
-        let value = value as f32;
         *self = if matches!(self, Self::On(_)) { Self::On(value) } else { Self::Off(value) };
     }
 
     fn new_from(value: f64) -> Self {
-        Self::On(value as f32)
+        Self::On(value)
     }
 }
 
@@ -302,14 +300,14 @@ fn generated_merge_delegates_nested_config_fields() {
 
 #[test]
 fn generated_changed_field_mapper_reports_and_maps_only_changed_fields() {
-    let mapper = RecordingExampleMapper::default();
+    let recording_mapper = RecordingExampleMapper::default();
     let before = ExampleConfig { value: 3, weight: 1.0 };
     let after = ExampleConfig { value: 5, weight: 1.0 };
 
-    let mapped = mapper.map_changed_fields(&before, &after, &());
+    let changed_config = recording_mapper.map_changed_fields(&before, &after, &());
 
-    assert_eq!(mapper.changed_fields.into_inner(), ["value"]);
-    assert_eq!(mapped, after);
+    assert_eq!(recording_mapper.changed_fields.into_inner(), ["value"]);
+    assert_eq!(changed_config, after);
 }
 
 struct Labels(Vec<&'static str>);

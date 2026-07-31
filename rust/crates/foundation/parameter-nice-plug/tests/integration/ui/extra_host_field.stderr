@@ -1,0 +1,43 @@
+error[E0407]: method `count` is not a member of trait `ExampleChangedFieldMapper`
+  --> tests/integration/ui/extra_host_field.rs:12:1
+   |
+12 | #[nice_plugin_parameter_group(config = ExampleConfig, group = "example")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a member of trait `ExampleChangedFieldMapper`
+   |
+   = note: this error originates in the attribute macro `nice_plugin_parameter_group` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0425]: cannot find type `ExampleCountField` in this scope
+  --> tests/integration/ui/extra_host_field.rs:15:5
+   |
+ 5 | #[parameter_group]
+   | ------------------ similarly named struct `ExampleGainField` defined here
+...
+15 |     count: IntParam,
+   |     ^^^^^
+   |
+help: a struct with a similar name exists
+   |
+15 -     count: IntParam,
+15 +     ExampleGainField: IntParam,
+   |
+
+error[E0599]: `ExampleParameters<ExampleConfig>` is not an iterator
+  --> tests/integration/ui/extra_host_field.rs:15:5
+   |
+ 5 | #[parameter_group]
+   | ------------------ method `count` not found for this struct because it doesn't satisfy `ExampleParameters<ExampleConfig>: Iterator`
+...
+15 |     count: IntParam,
+   |     ^^^^^ `ExampleParameters<ExampleConfig>` is not an iterator
+   |
+   = note: the following trait bounds were not satisfied:
+           `ExampleParameters<ExampleConfig>: Iterator`
+           which is required by `&mut ExampleParameters<ExampleConfig>: Iterator`
+note: the trait `Iterator` must be implemented
+  --> $RUST/core/src/iter/traits/iterator.rs
+   |
+   | pub const trait Iterator {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `count`, perhaps you need to implement it:
+           candidate #1: `Iterator`

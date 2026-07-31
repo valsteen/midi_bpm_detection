@@ -19,6 +19,25 @@ pub use parameter_nice_plug_macros::nice_plugin_parameter_group;
 
 pub trait GeneratedNicePlugParams {}
 
+/// Mirrors only changed config fields into nice-plug host parameters.
+///
+/// The returned complete typed config is the mirror the caller can retain as
+/// its next draft.
+pub trait MirrorChangedConfig {
+    /// The complete typed config mirrored by this host parameter group.
+    type Config: Clone;
+
+    /// Mirrors fields that differ between `before` and `after`, then returns the
+    /// complete typed mirror for the caller's next draft.
+    #[must_use]
+    fn mirror_changed_config(
+        &self,
+        before: &Self::Config,
+        after: &Self::Config,
+        param_setter: &nice_plug::prelude::ParamSetter<'_>,
+    ) -> Self::Config;
+}
+
 pub trait NicePlugFieldAdapter<Config, Value> {
     type HostParam;
     type CallbackValue;

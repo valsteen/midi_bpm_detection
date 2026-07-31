@@ -9,7 +9,7 @@ use nice_plug::{
     prelude::{GuiContext, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
 };
 use parameter::parameter_group;
-use parameter_nice_plug::{GeneratedNicePlugParams, MirrorHostParam, nice_plugin_parameter_group};
+use parameter_nice_plug::{GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParam, nice_plugin_parameter_group};
 use parameter_on_off::OnOff;
 use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
 
@@ -163,6 +163,22 @@ fn mirror_host_param_preserves_on_off_enabled_only_updates() {
     assert_eq!(config.weighted_gain, OnOff::On(0.75));
     assert!(params.weighted_gain.is_enabled());
     assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn mirror_changed_config_preserves_on_off_enabled_only_updates() {
+    let callbacks = callbacks();
+    let before = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
+    let params = ExampleOnOffParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+    let after = ExampleOnOffConfig { weighted_gain: OnOff::Off(0.5), ..before.clone() };
+
+    let mirrored = params.mirror_changed_config(&before, &after, &setter);
+
+    assert_eq!(mirrored.weighted_gain, OnOff::Off(0.5));
+    assert!(!params.weighted_gain.is_enabled());
+    assert_eq!(context.actions(), []);
 }
 
 #[test]

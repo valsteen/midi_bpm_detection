@@ -79,5 +79,22 @@ pub struct ExamplePluginParams {
 }
 ```
 
+## Automatic Changed-Config Reconciliation
+
+The same config and host parameter declarations automatically provide typed
+merge and mirror operations:
+
+```rust
+use parameter::MergeChangedFields;
+use parameter_nice_plug::MirrorChangedConfig;
+
+let merged = ExampleConfig::merge_changed_fields(&draft, &previous, &current);
+let mirrored = params.mirror_changed_config(&before, &after, setter);
+```
+
+`PartialEq` comparisons preserve complete variant state, adapters stay behind
+`MirrorHostParam`, and nested parameter groups recurse into their own generated
+operations. No additional macro or duplicate field declaration is required.
+
 For the broader workspace boundaries around these crates, see
 `../../../docs/architecture.md`.

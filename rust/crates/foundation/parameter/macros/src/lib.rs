@@ -746,7 +746,10 @@ fn expand_merge_changed_fields_impl(
     let parameter_fields = fields.parameter_fields.iter().map(|field| {
         let field_name = &field.field;
         quote! {
-            #field_name: if current.#field_name == previous.#field_name {
+            #field_name: if ::std::cmp::PartialEq::eq(
+                &current.#field_name,
+                &previous.#field_name,
+            ) {
                 draft.#field_name.clone()
             } else {
                 current.#field_name.clone()
@@ -805,7 +808,7 @@ fn expand_changed_field_mapper_trait(
     let parameter_mappings = fields.parameter_fields.iter().map(|field| {
         let field_name = &field.field;
         quote! {
-            if after.#field_name != before.#field_name {
+            if ::std::cmp::PartialEq::ne(&after.#field_name, &before.#field_name) {
                 self.#field_name(&mut mapped, after.#field_name.clone(), context);
             }
         }
@@ -813,7 +816,7 @@ fn expand_changed_field_mapper_trait(
     let unannotated_mappings = fields.unannotated_fields.iter().map(|field| {
         let field_name = &field.field;
         quote! {
-            if after.#field_name != before.#field_name {
+            if ::std::cmp::PartialEq::ne(&after.#field_name, &before.#field_name) {
                 self.#field_name(&mut mapped, after.#field_name.clone(), context);
             }
         }

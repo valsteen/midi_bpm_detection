@@ -11,7 +11,7 @@ use nice_plug::{
 };
 use num_traits::ToPrimitive;
 use parameter::{Asf64, parameter_group};
-use parameter_nice_plug::{GeneratedNicePlugParams, MirrorHostParam, nice_plugin_parameter_group};
+use parameter_nice_plug::{GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParam, nice_plugin_parameter_group};
 
 #[parameter_group]
 #[derive(Clone, PartialEq, Debug)]
@@ -287,6 +287,54 @@ fn generated_group_reads_host_values_back_to_config() {
     let params = ExampleParentParams::new(&source_config, &callbacks.f32, &callbacks.i32);
 
     assert_eq!(params.read_config(), source_config);
+}
+
+#[test]
+fn generated_group_mirrors_only_changed_leaf_fields() {
+    let callbacks = callbacks();
+    let before = example_parent_config();
+    let after = ExampleParentConfig { gain: 1.75, ..before.clone() };
+    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+
+    let mirrored = params.mirror_changed_config(&before, &after, &setter);
+
+    assert_eq!(mirrored, after);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+}
+
+#[test]
+fn generated_group_skips_unchanged_fields() {
+    let callbacks = callbacks();
+    let before = example_parent_config();
+    let after = before.clone();
+    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+
+    let mirrored = params.mirror_changed_config(&before, &after, &setter);
+
+    assert_eq!(mirrored, after);
+    assert!(context.actions().is_empty());
+}
+
+#[test]
+fn generated_group_recurses_into_changed_nested_fields() {
+    let callbacks = callbacks();
+    let before = example_parent_config();
+    let after = ExampleParentConfig {
+        child: ExampleChildConfig { child_precise: 7.25, ..before.child.clone() },
+        ..before.clone()
+    };
+    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+
+    let mirrored = params.mirror_changed_config(&before, &after, &setter);
+
+    assert_eq!(mirrored, after);
+    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
 }
 
 #[test]

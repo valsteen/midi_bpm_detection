@@ -1,0 +1,31 @@
+error[E0425]: cannot find type `ExampleParentChildField` in this scope
+  --> tests/integration/ui/nested_field_as_leaf.rs:23:5
+   |
+12 | #[parameter_group]
+   | ------------------ similarly named struct `ExampleParentGainField` defined here
+...
+23 |     child: FloatParam,
+   |     ^^^^^
+   |
+help: a struct with a similar name exists
+   |
+23 -     child: FloatParam,
+23 +     ExampleParentGainField: FloatParam,
+   |
+
+error[E0599]: no method named `child` found for struct `ExampleParentParameters<Config>` in the current scope
+  --> tests/integration/ui/nested_field_as_leaf.rs:23:5
+   |
+12 | #[parameter_group]
+   | ------------------ method `child` not found for this struct
+...
+23 |     child: FloatParam,
+   |     ^^^^^ method not found in `ExampleParentParameters<ExampleParentConfig>`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `ExampleParentChangedFieldMapper` defines an item `child`, perhaps you need to implement it
+  --> tests/integration/ui/nested_field_as_leaf.rs:12:1
+   |
+12 | #[parameter_group]
+   | ^^^^^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `parameter_group` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -140,6 +140,7 @@ fn expand_plugin_parameter_group(
         .filter(|field| field.kind.is_mirrorable())
         .map(|field| expand_mirror_method(field, config_type, visibility))
         .collect::<Result<Vec<_>>>()?;
+    let changed_config_mirroring = expand_changed_config_mirroring(struct_ident, config_type, &fields)?;
     let accessor_macro = args
         .accessor_macro
         .as_ref()
@@ -215,7 +216,48 @@ fn expand_plugin_parameter_group(
 
         impl ::parameter_nice_plug::GeneratedNicePlugParams for #struct_ident {}
 
+        #changed_config_mirroring
+
         #accessor_macro
+    })
+}
+
+fn expand_changed_config_mirroring(
+    params_type: &Ident,
+    config_type: &Type,
+    fields: &[PluginParameterField],
+) -> Result<proc_macro2::TokenStream> {
+    let changed_field_mapper = changed_field_mapper_path(config_type)?;
+    let mapper_methods = fields
+        .iter()
+        .map(|field| expand_changed_field_mapper_method(field, config_type))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(quote! {
+        impl<'__parameter_nice_plug_setter>
+            #changed_field_mapper<::nice_plug::prelude::ParamSetter<'__parameter_nice_plug_setter>>
+            for #params_type
+        {
+            #(#mapper_methods)*
+        }
+
+        impl ::parameter_nice_plug::MirrorChangedConfig for #params_type {
+            type Config = #config_type;
+
+            fn mirror_changed_config(
+                &self,
+                before: &Self::Config,
+                after: &Self::Config,
+                param_setter: &::nice_plug::prelude::ParamSetter<'_>,
+            ) -> Self::Config {
+                <Self as #changed_field_mapper<_>>::map_changed_fields(
+                    self,
+                    before,
+                    after,
+                    param_setter,
+                )
+            }
+        }
     })
 }
 
@@ -526,6 +568,56 @@ fn expand_mirror_method(
     })
 }
 
+fn expand_changed_field_mapper_method(
+    field: &PluginParameterField,
+    config_type: &Type,
+) -> Result<proc_macro2::TokenStream> {
+    let field_ident = &field.ident;
+
+    match &field.kind {
+        PluginParameterFieldKind::Nested { .. } => {
+            let field_ty = &field.ty;
+
+            Ok(quote! {
+                fn #field_ident(
+                    &self,
+                    config: &mut #config_type,
+                    value: <#field_ty as ::parameter_nice_plug::MirrorChangedConfig>::Config,
+                    setter: &::nice_plug::prelude::ParamSetter<'_>,
+                ) {
+                    config.#field_ident = ::parameter_nice_plug::MirrorChangedConfig::mirror_changed_config(
+                        &self.#field_ident,
+                        &config.#field_ident,
+                        &value,
+                        setter,
+                    );
+                }
+            })
+        }
+        PluginParameterFieldKind::Float
+        | PluginParameterFieldKind::Int
+        | PluginParameterFieldKind::FloatU16Logarithmic
+        | PluginParameterFieldKind::Adapter { .. } => {
+            let descriptor = parameter_field_descriptor_type(config_type, field_ident)?;
+            let value = quote! {
+                <#descriptor as ::parameter::ParameterFieldDescriptor<#config_type>>::Value
+            };
+            let mirror_method = format_ident!("mirror_{field_ident}");
+
+            Ok(quote! {
+                fn #field_ident(
+                    &self,
+                    config: &mut #config_type,
+                    value: #value,
+                    setter: &::nice_plug::prelude::ParamSetter<'_>,
+                ) {
+                    self.#mirror_method(config, value, setter);
+                }
+            })
+        }
+    }
+}
+
 fn expand_accessor_macro(
     macro_ident: &Ident,
     params_type: &Ident,
@@ -811,6 +903,30 @@ fn parameter_field_descriptor_type(config_type: &Type, field_ident: &Ident) -> R
     last_segment.ident = Ident::new(&descriptor_name, field_ident.span());
 
     Ok(quote! { #path })
+}
+
+fn changed_field_mapper_path(config_type: &Type) -> Result<Path> {
+    let Type::Path(type_path) = config_type else {
+        return Err(syn::Error::new_spanned(
+            config_type,
+            "config type must be a path to generate changed-field mirroring",
+        ));
+    };
+    if type_path.qself.is_some() {
+        return Err(syn::Error::new_spanned(
+            config_type,
+            "qualified self types are not supported for generated changed-field mirroring",
+        ));
+    }
+
+    let mut path = type_path.path.clone();
+    let Some(last_segment) = path.segments.last_mut() else {
+        return Err(syn::Error::new_spanned(config_type, "config type path must not be empty"));
+    };
+    let naming = ParameterGroupNaming::new(&last_segment.ident.to_string());
+    last_segment.ident = Ident::new(&naming.changed_field_mapper_name(), last_segment.ident.span());
+
+    Ok(path)
 }
 
 struct PluginParameterArgs {

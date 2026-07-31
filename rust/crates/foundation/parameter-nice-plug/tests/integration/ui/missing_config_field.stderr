@@ -1,0 +1,10 @@
+error[E0046]: not all trait items implemented, missing: `count`
+  --> tests/integration/ui/missing_config_field.rs:14:1
+   |
+ 5 | #[parameter_group]
+   | ------------------ `count` from trait
+...
+14 | #[nice_plugin_parameter_group(config = ExampleConfig, group = "example")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `count` in implementation
+   |
+   = note: this error originates in the attribute macro `nice_plugin_parameter_group` (in Nightly builds, run with -Z macro-backtrace for more info)
