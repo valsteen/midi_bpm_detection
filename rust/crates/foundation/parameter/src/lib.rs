@@ -89,6 +89,19 @@ pub trait Asf64 {
     fn new_from(value: f64) -> Self;
 }
 
+/// Merges a draft configuration with a newly observed external configuration.
+///
+/// `draft` is the locally edited value, `previous` is the external value on
+/// which that draft was based, and `current` is the latest external value. For
+/// each field, implementations retain the draft field when the corresponding
+/// current and previous fields are equal; otherwise they select the current
+/// field. The returned complete value is the draft reconciled with every
+/// external change observed since it was created.
+pub trait MergeChangedFields: Sized {
+    #[must_use]
+    fn merge_changed_fields(draft: &Self, previous: &Self, current: &Self) -> Self;
+}
+
 impl Asf64 for u128 {
     fn as_f64(&self) -> f64 {
         *self as f64

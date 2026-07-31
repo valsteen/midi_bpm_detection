@@ -24,5 +24,9 @@ fn embedded_acronyms_preserve_generated_identifiers() {
 
     assert_eq!(naming.base_name(), "DynamicBPMDetection");
     assert_eq!(naming.method_prefix(), "dynamic_bpm_detection");
+    assert_eq!(
+        ParameterGroupNaming::new("DynamicBPMDetectionConfig").changed_field_mapper_name(),
+        "DynamicBPMDetectionChangedFieldMapper",
+    );
     assert_eq!(naming.field_descriptor_name("beats_lookback"), "DynamicBpmDetectionBeatsLookbackField",);
 }

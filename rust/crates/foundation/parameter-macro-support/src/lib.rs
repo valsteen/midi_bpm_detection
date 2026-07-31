@@ -30,6 +30,12 @@ impl ParameterGroupNaming {
         &self.method_prefix
     }
 
+    /// Returns the exhaustive changed-field mapper trait name for this group.
+    #[must_use]
+    pub fn changed_field_mapper_name(&self) -> String {
+        format!("{}ChangedFieldMapper", self.base_name())
+    }
+
     /// Returns the canonical descriptor type name for `field_name`.
     #[must_use]
     pub fn field_descriptor_name(&self, field_name: &str) -> String {

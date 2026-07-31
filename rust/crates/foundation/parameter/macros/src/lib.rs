@@ -13,13 +13,14 @@
 //! - named field identity accessors;
 //! - a field visitor trait and source-order `visit_fields` traversal;
 //! - one type-level field descriptor marker per annotated field;
+//! - changed-field merge and exhaustive mapper contracts;
 //! - `Default` and `validate` impls for the config struct.
 
 use parameter_macro_support::ParameterGroupNaming;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Attribute, Expr, Fields, Ident, ItemStruct, Lit, Path, Result, Token,
+    Attribute, Expr, Fields, Ident, ItemStruct, Lit, Path, Result, Token, Type,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -287,6 +288,8 @@ fn expand_parameter_group(
         &fields.parameter_fields,
     );
     let field_descriptor_impls = expand_field_descriptor_impls(&group, &fields.parameter_fields);
+    let merge_changed_fields_impl = expand_merge_changed_fields_impl(struct_ident, &group.parameter_crate, &fields);
+    let changed_field_mapper_trait = expand_changed_field_mapper_trait(&group, struct_ident, &fields);
     let parameters = &group.parameters;
 
     Ok(quote! {
@@ -309,6 +312,10 @@ fn expand_parameter_group(
         #parameters_impl
 
         #field_descriptor_impls
+
+        #merge_changed_fields_impl
+
+        #changed_field_mapper_trait
     })
 }
 
@@ -502,14 +509,16 @@ fn expand_default_impl(
         let const_name = &field.const_name;
         quote! { #field_name: #parameter_specs::#const_name.default }
     });
-    let default_unannotated_fields = fields.unannotated_fields.iter().map(|field_name| {
+    let default_unannotated_fields = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
         quote! { #field_name: ::std::default::Default::default() }
     });
     let validate_fields = fields.parameter_fields.iter().map(|field| {
         let const_name = &field.const_name;
         quote! { #parameters::<Self>::#const_name.validate_config_value(self)?; }
     });
-    let validate_unannotated_fields = fields.unannotated_fields.iter().map(|field_name| {
+    let validate_unannotated_fields = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
         quote! { self.#field_name.validate()?; }
     });
 
@@ -729,6 +738,112 @@ fn expand_field_descriptor_impls(group: &ParsedGroup, fields: &[ParameterField])
     }
 }
 
+fn expand_merge_changed_fields_impl(
+    struct_ident: &Ident,
+    parameter_crate: &Path,
+    fields: &ParsedFields,
+) -> proc_macro2::TokenStream {
+    let parameter_fields = fields.parameter_fields.iter().map(|field| {
+        let field_name = &field.field;
+        quote! {
+            #field_name: if current.#field_name == previous.#field_name {
+                draft.#field_name.clone()
+            } else {
+                current.#field_name.clone()
+            }
+        }
+    });
+    let unannotated_fields = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
+        let ty = &field.ty;
+        quote! {
+            #field_name: <#ty as #parameter_crate::MergeChangedFields>::merge_changed_fields(
+                &draft.#field_name,
+                &previous.#field_name,
+                &current.#field_name,
+            )
+        }
+    });
+
+    quote! {
+        impl #parameter_crate::MergeChangedFields for #struct_ident {
+            fn merge_changed_fields(draft: &Self, previous: &Self, current: &Self) -> Self {
+                Self {
+                    #(#parameter_fields,)*
+                    #(#unannotated_fields,)*
+                }
+            }
+        }
+    }
+}
+
+fn expand_changed_field_mapper_trait(
+    group: &ParsedGroup,
+    struct_ident: &Ident,
+    fields: &ParsedFields,
+) -> proc_macro2::TokenStream {
+    let mapper_name = group.naming.changed_field_mapper_name();
+    let mapper = Ident::new(&mapper_name, struct_ident.span());
+    let parameter_methods = fields.parameter_fields.iter().map(|field| {
+        let field_name = &field.field;
+        let ty = &field.ty;
+        quote! { fn #field_name(&self, config: &mut #struct_ident, value: #ty, context: &Context); }
+    });
+    let unannotated_methods = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
+        let ty = &field.ty;
+        quote! { fn #field_name(&self, config: &mut #struct_ident, value: #ty, context: &Context); }
+    });
+    let parameter_initializers = fields.parameter_fields.iter().map(|field| {
+        let field_name = &field.field;
+        quote! { #field_name: before.#field_name.clone() }
+    });
+    let unannotated_initializers = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
+        quote! { #field_name: before.#field_name.clone() }
+    });
+    let parameter_mappings = fields.parameter_fields.iter().map(|field| {
+        let field_name = &field.field;
+        quote! {
+            if after.#field_name != before.#field_name {
+                self.#field_name(&mut mapped, after.#field_name.clone(), context);
+            }
+        }
+    });
+    let unannotated_mappings = fields.unannotated_fields.iter().map(|field| {
+        let field_name = &field.field;
+        quote! {
+            if after.#field_name != before.#field_name {
+                self.#field_name(&mut mapped, after.#field_name.clone(), context);
+            }
+        }
+    });
+
+    quote! {
+        #[doc(hidden)]
+        pub trait #mapper<Context: ?Sized> {
+            #(#parameter_methods)*
+            #(#unannotated_methods)*
+
+            #[must_use]
+            fn map_changed_fields(
+                &self,
+                before: &#struct_ident,
+                after: &#struct_ident,
+                context: &Context,
+            ) -> #struct_ident {
+                let mut mapped = #struct_ident {
+                    #(#parameter_initializers,)*
+                    #(#unannotated_initializers,)*
+                };
+                #(#parameter_mappings)*
+                #(#unannotated_mappings)*
+                mapped
+            }
+        }
+    }
+}
+
 fn expand_unit(field: &ParameterField) -> proc_macro2::TokenStream {
     if let Some(unit) = &field.unit {
         quote! { Some(#unit) }
@@ -739,7 +854,12 @@ fn expand_unit(field: &ParameterField) -> proc_macro2::TokenStream {
 
 struct ParsedFields {
     parameter_fields: Vec<ParameterField>,
-    unannotated_fields: Vec<Ident>,
+    unannotated_fields: Vec<NestedField>,
+}
+
+struct NestedField {
+    field: Ident,
+    ty: Type,
 }
 
 fn parse_parameter_fields(input: &mut ItemStruct) -> Result<ParsedFields> {
@@ -758,7 +878,7 @@ fn parse_parameter_fields(input: &mut ItemStruct) -> Result<ParsedFields> {
         let parameter_args = match ParameterArgs::parse(&field.attrs) {
             Ok(Some(args)) => args,
             Ok(None) => {
-                unannotated_fields.push(field_name);
+                unannotated_fields.push(NestedField { field: field_name, ty: field.ty.clone() });
                 continue;
             }
             Err(err) => return Err(err),

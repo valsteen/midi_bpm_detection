@@ -1,6 +1,11 @@
-use parameter::{Asf64, Parameter, ParameterField, ParameterFieldDescriptor, ParameterSpec, parameter_group};
+use std::cell::RefCell;
+
+use parameter::{
+    Asf64, MergeChangedFields, Parameter, ParameterField, ParameterFieldDescriptor, ParameterSpec, parameter_group,
+};
 
 #[parameter_group]
+#[derive(Clone, Debug, PartialEq)]
 struct ExampleConfig {
     #[parameter(label = "Example value", range = 1.0..=5.0, step = 1.0, default = 3)]
     value: u8,
@@ -15,9 +20,15 @@ struct NestedExampleConfig {
     nested: NestedConfig,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq)]
 struct NestedConfig {
     valid: bool,
+}
+
+impl MergeChangedFields for NestedConfig {
+    fn merge_changed_fields(draft: &Self, previous: &Self, current: &Self) -> Self {
+        Self { valid: if current.valid == previous.valid { draft.valid } else { current.valid } }
+    }
 }
 
 impl NestedConfig {
@@ -42,6 +53,54 @@ struct StaticBPMDetectionConfig {
 struct RuntimeSettings {
     #[parameter(label = "Gain", range = 0.0..=1.0, default = 0.8)]
     gain: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EnabledValue {
+    On(f32),
+    Off(f32),
+}
+
+impl Asf64 for EnabledValue {
+    fn as_f64(&self) -> f64 {
+        let value = match self {
+            Self::On(value) | Self::Off(value) => *value,
+        };
+        f64::from(value)
+    }
+
+    fn set_from_f64(&mut self, value: f64) {
+        let value = value as f32;
+        *self = if matches!(self, Self::On(_)) { Self::On(value) } else { Self::Off(value) };
+    }
+
+    fn new_from(value: f64) -> Self {
+        Self::On(value as f32)
+    }
+}
+
+#[parameter_group]
+#[derive(Clone, Debug, PartialEq)]
+struct EnabledConfig {
+    #[parameter(label = "Enabled", range = 0.0..=1.0, default = EnabledValue::On(0.5))]
+    enabled: EnabledValue,
+}
+
+#[parameter_group]
+#[derive(Clone, Debug, PartialEq)]
+struct MergeChildConfig {
+    #[parameter(label = "Pending", range = 0.0..=10.0, default = 1)]
+    pending_value: u8,
+    #[parameter(label = "External", range = 0.0..=10.0, default = 1)]
+    external_value: u8,
+}
+
+#[parameter_group]
+#[derive(Clone, Debug, PartialEq)]
+struct MergeParentConfig {
+    #[parameter(label = "Parent", range = 0.0..=10.0, default = 1)]
+    parent_value: u8,
+    child: MergeChildConfig,
 }
 
 #[test]
@@ -204,6 +263,55 @@ fn unannotated_nested_fields_are_defaulted_validated_and_not_visited() {
     assert_eq!(labels.0, ["Example value"]);
 }
 
+#[test]
+fn generated_merge_retains_draft_fields_until_the_external_value_changes() {
+    let previous = ExampleConfig { value: 3, weight: 1.0 };
+    let draft = ExampleConfig { value: 5, weight: 1.0 };
+    let current = ExampleConfig { value: 3, weight: 1.5 };
+
+    let merged = ExampleConfig::merge_changed_fields(&draft, &previous, &current);
+
+    assert_eq!(merged, ExampleConfig { value: 5, weight: 1.5 });
+}
+
+#[test]
+fn generated_merge_compares_parameter_values_without_as_f64_conversion() {
+    let previous = EnabledConfig { enabled: EnabledValue::On(0.5) };
+    let draft = EnabledConfig { enabled: EnabledValue::On(0.75) };
+    let current = EnabledConfig { enabled: EnabledValue::Off(0.5) };
+
+    let merged = EnabledConfig::merge_changed_fields(&draft, &previous, &current);
+
+    assert_eq!(merged.enabled, current.enabled);
+}
+
+#[test]
+fn generated_merge_delegates_nested_config_fields() {
+    let previous =
+        MergeParentConfig { parent_value: 1, child: MergeChildConfig { pending_value: 1, external_value: 1 } };
+    let draft = MergeParentConfig { parent_value: 2, child: MergeChildConfig { pending_value: 2, external_value: 1 } };
+    let current =
+        MergeParentConfig { parent_value: 1, child: MergeChildConfig { pending_value: 1, external_value: 3 } };
+
+    let merged = MergeParentConfig::merge_changed_fields(&draft, &previous, &current);
+
+    assert_eq!(merged.parent_value, draft.parent_value);
+    assert_eq!(merged.child.pending_value, draft.child.pending_value);
+    assert_eq!(merged.child.external_value, current.child.external_value);
+}
+
+#[test]
+fn generated_changed_field_mapper_reports_and_maps_only_changed_fields() {
+    let mapper = RecordingExampleMapper::default();
+    let before = ExampleConfig { value: 3, weight: 1.0 };
+    let after = ExampleConfig { value: 5, weight: 1.0 };
+
+    let mapped = mapper.map_changed_fields(&before, &after, &());
+
+    assert_eq!(mapper.changed_fields.into_inner(), ["value"]);
+    assert_eq!(mapped, after);
+}
+
 struct Labels(Vec<&'static str>);
 
 impl ExampleParameterVisitor<ExampleConfig> for Labels {
@@ -244,6 +352,23 @@ struct NestedLabels(Vec<&'static str>);
 impl NestedExampleParameterVisitor<NestedExampleConfig> for NestedLabels {
     fn parameter<ValueType: Asf64>(&mut self, parameter: Parameter<NestedExampleConfig, ValueType>) {
         self.0.push(parameter.spec.label);
+    }
+}
+
+#[derive(Default)]
+struct RecordingExampleMapper {
+    changed_fields: RefCell<Vec<&'static str>>,
+}
+
+impl ExampleChangedFieldMapper<()> for RecordingExampleMapper {
+    fn value(&self, config: &mut ExampleConfig, value: u8, _context: &()) {
+        self.changed_fields.borrow_mut().push("value");
+        config.value = value;
+    }
+
+    fn weight(&self, config: &mut ExampleConfig, weight: f32, _context: &()) {
+        self.changed_fields.borrow_mut().push("weight");
+        config.weight = weight;
     }
 }
 
