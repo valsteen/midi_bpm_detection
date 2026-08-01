@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
 use wasm_bindgen_test::*;
 
-use super::{QueueItem, WASMConfig, WasmApp, wasm::keyboard_event_generates_tap};
+use super::{
+    PendingGuiCommits, QueueItem, WASMConfig, WasmApp, retain_or_send_dynamic, retain_or_send_static,
+    wasm::keyboard_event_generates_tap,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -72,6 +75,7 @@ fn dynamic_change_receipt_queues_dynamic_parameters() {
 
     app.editable.bpm.dynamic_bpm_detection_config.beats_lookback = 12;
     app.commit(gui::GuiChanges { dynamic_detection: true, ..gui::GuiChanges::default() });
+    app.flush_pending_commits(&gui::eframe::egui::Context::default());
 
     let queued = receiver.try_recv().expect("dynamic update should be queued");
     match queued {
@@ -81,6 +85,52 @@ fn dynamic_change_receipt_queues_dynamic_parameters() {
         | QueueItem::DelayedDynamicUpdate
         | QueueItem::DelayedStaticUpdate => panic!("expected dynamic parameters"),
     }
+}
+
+#[wasm_bindgen_test]
+fn full_queue_retains_only_the_latest_static_commit() {
+    let (mut sender, _receiver) = mpsc::channel(1);
+    let full = loop {
+        match sender.try_send(QueueItem::DelayedStaticUpdate) {
+            Ok(()) => {}
+            Err(error) => break error,
+        }
+    };
+    assert!(full.is_full());
+    let mut pending = PendingGuiCommits::default();
+
+    let mut first = StaticBPMDetectionConfig::default();
+    first.bpm_center = 100.0;
+    retain_or_send_static(&mut sender, &mut pending, first);
+
+    let mut latest = StaticBPMDetectionConfig::default();
+    latest.bpm_center = 120.0;
+    retain_or_send_static(&mut sender, &mut pending, latest.clone());
+
+    assert_eq!(pending.static_detection, Some(latest));
+}
+
+#[wasm_bindgen_test]
+fn full_queue_retains_only_the_latest_dynamic_commit() {
+    let (mut sender, _receiver) = mpsc::channel(1);
+    let full = loop {
+        match sender.try_send(QueueItem::DelayedDynamicUpdate) {
+            Ok(()) => {}
+            Err(error) => break error,
+        }
+    };
+    assert!(full.is_full());
+    let mut pending = PendingGuiCommits::default();
+
+    let mut first = DynamicBPMDetectionConfig::default();
+    first.beats_lookback = 12;
+    retain_or_send_dynamic(&mut sender, &mut pending, first);
+
+    let mut latest = DynamicBPMDetectionConfig::default();
+    latest.beats_lookback = 20;
+    retain_or_send_dynamic(&mut sender, &mut pending, latest.clone());
+
+    assert_eq!(pending.dynamic_detection, Some(latest));
 }
 
 #[wasm_bindgen_test]

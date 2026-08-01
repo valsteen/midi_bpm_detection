@@ -4,15 +4,8 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cast_possible_truncation)]
 
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration as StdDuration,
-};
+use std::time::Duration as StdDuration;
 
-use atomic_refcell::AtomicRefCell;
 use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig};
 use bpm_detection_core::{BPMDetection, TimedEvent, bpm_detection_receiver::BPMDetectionReceiver, note_events::NoteOn};
 use chrono::Duration;
@@ -67,6 +60,20 @@ impl GuiRemoteWrapper {
 
 const REDRAW_THRESHOLD_MILLIS: u64 = 200;
 
+fn schedule_delayed_static_update(mut redraw_sender: Sender<QueueItem>) {
+    wasm_bindgen_futures::spawn_local(async move {
+        sleep(StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS)).await;
+        redraw_sender.try_send(QueueItem::DelayedStaticUpdate).ok();
+    });
+}
+
+fn schedule_delayed_dynamic_update(mut redraw_sender: Sender<QueueItem>) {
+    wasm_bindgen_futures::spawn_local(async move {
+        sleep(StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS)).await;
+        redraw_sender.try_send(QueueItem::DelayedDynamicUpdate).ok();
+    });
+}
+
 pub fn run() -> Result<GuiRemoteWrapper> {
     let (redraw_sender, mut redraw_receiver) = futures::channel::mpsc::channel(100);
 
@@ -78,70 +85,49 @@ pub fn run() -> Result<GuiRemoteWrapper> {
 
     wasm_bindgen_futures::spawn_local({
         let mut publisher: BpmDisplayPublisher = publisher;
-        let update_static: Arc<AtomicRefCell<Option<StaticBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
-        let update_dynamic: Arc<AtomicRefCell<Option<DynamicBPMDetectionConfig>>> = Arc::new(AtomicRefCell::default());
-        let update_notes: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
         let redraw_sender = redraw_sender.clone();
 
         async move {
             let mut bpm_detection = BPMDetection::new(static_bpm_detection_config);
+            let mut pending_static: Option<StaticBPMDetectionConfig> = None;
+            let mut pending_dynamic: Option<DynamicBPMDetectionConfig> = None;
+            let mut notes_changed = false;
             'main: while let Some(mut redraw_reason) = redraw_receiver.next().await {
                 let now = Instant::now();
                 loop {
                     match redraw_reason {
                         QueueItem::StaticParameters(new_static_bpm_detection_config) => {
-                            let mut update = update_static.borrow_mut();
-
-                            if update.is_none() {
-                                wasm_bindgen_futures::spawn_local({
-                                    let mut redraw_sender = redraw_sender.clone();
-                                    async move {
-                                        sleep(StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS)).await;
-                                        redraw_sender.try_send(QueueItem::DelayedStaticUpdate).ok();
-                                    }
-                                });
+                            if pending_static.is_none() {
+                                schedule_delayed_static_update(redraw_sender.clone());
                             }
-                            *update = Some(new_static_bpm_detection_config);
+                            pending_static = Some(new_static_bpm_detection_config);
                             continue 'main;
                         }
                         QueueItem::DynamicParameters(new_dynamic_bpm_detection_config) => {
-                            let mut update = update_dynamic.borrow_mut();
-
-                            if update.is_none() {
-                                wasm_bindgen_futures::spawn_local({
-                                    let mut redraw_sender = redraw_sender.clone();
-                                    async move {
-                                        sleep(StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS)).await;
-                                        redraw_sender.try_send(QueueItem::DelayedDynamicUpdate).ok();
-                                    }
-                                });
+                            if pending_dynamic.is_none() {
+                                schedule_delayed_dynamic_update(redraw_sender.clone());
                             }
-                            *update = Some(new_dynamic_bpm_detection_config);
+                            pending_dynamic = Some(new_dynamic_bpm_detection_config);
                             continue 'main;
                         }
                         QueueItem::Note(note) => {
                             bpm_detection.receive_note_on(note);
 
-                            if !update_notes.fetch_or(true, Ordering::Relaxed) {
-                                wasm_bindgen_futures::spawn_local({
-                                    let mut redraw_sender = redraw_sender.clone();
-                                    async move {
-                                        sleep(StdDuration::from_millis(REDRAW_THRESHOLD_MILLIS)).await;
-                                        redraw_sender.try_send(QueueItem::DelayedDynamicUpdate).ok();
-                                    }
-                                });
+                            if !notes_changed {
+                                notes_changed = true;
+                                schedule_delayed_dynamic_update(redraw_sender.clone());
                             }
                             continue 'main;
                         }
 
                         QueueItem::DelayedStaticUpdate => {
-                            if let Some(new_static_bpm_detection_config) = update_static.borrow_mut().take() {
+                            if let Some(new_static_bpm_detection_config) = pending_static.take() {
                                 bpm_detection.update_static_config(new_static_bpm_detection_config);
                             }
                         }
                         QueueItem::DelayedDynamicUpdate => {
-                            update_notes.store(false, Ordering::Relaxed);
-                            if let Some(new_dynamic_bpm_detection_config) = update_dynamic.borrow_mut().take() {
+                            notes_changed = false;
+                            if let Some(new_dynamic_bpm_detection_config) = pending_dynamic.take() {
                                 dynamic_bpm_detection_config = new_dynamic_bpm_detection_config;
                             }
                         }

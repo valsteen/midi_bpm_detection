@@ -3,7 +3,7 @@
 use bpm_detection_config::{DynamicBPMDetectionConfig, Settings, StaticBPMDetectionConfig};
 use bpm_detection_core::{TimedEvent, note_events::NoteOn};
 use derivative::Derivative;
-use errors::{LogErrorWithExt, error_backtrace};
+use errors::{error, error_backtrace};
 use futures::channel::mpsc::Sender;
 use gui::{BPMDetectionGUI, EditableSettings, GuiChanges, eframe};
 use serde::{Deserialize, Serialize};
@@ -41,37 +41,91 @@ enum QueueItem {
     DelayedStaticUpdate,
 }
 
+#[derive(Default)]
+struct PendingGuiCommits {
+    static_detection: Option<StaticBPMDetectionConfig>,
+    dynamic_detection: Option<DynamicBPMDetectionConfig>,
+}
+
 pub struct WasmApp {
     editable: EditableSettings,
     pub(crate) gui: BPMDetectionGUI,
     sender: Sender<QueueItem>,
+    pending: PendingGuiCommits,
 }
 
 impl WasmApp {
     fn new(config: WASMConfig, gui: BPMDetectionGUI, sender: Sender<QueueItem>) -> Self {
-        Self { editable: EditableSettings { bpm: config.bpm_detection, send_tempo: None }, gui, sender }
+        Self {
+            editable: EditableSettings { bpm: config.bpm_detection, send_tempo: None },
+            gui,
+            sender,
+            pending: PendingGuiCommits::default(),
+        }
     }
 
     fn commit(&mut self, changes: GuiChanges) {
         if changes.static_detection {
-            let value = self.editable.bpm.static_bpm_detection_config.clone();
-            self.sender.try_send(QueueItem::StaticParameters(value)).log_error_msg("channel full").ok();
+            self.pending.static_detection = Some(self.editable.bpm.static_bpm_detection_config.clone());
         }
         if changes.dynamic_detection {
-            let value = self.editable.bpm.dynamic_bpm_detection_config.clone();
-            self.sender.try_send(QueueItem::DynamicParameters(value)).log_error_msg("channel full").ok();
+            self.pending.dynamic_detection = Some(self.editable.bpm.dynamic_bpm_detection_config.clone());
+        }
+    }
+
+    fn flush_pending_commits(&mut self, context: &eframe::egui::Context) {
+        if let Some(value) = self.pending.static_detection.take() {
+            retain_or_send_static(&mut self.sender, &mut self.pending, value);
+        }
+        if let Some(value) = self.pending.dynamic_detection.take() {
+            retain_or_send_dynamic(&mut self.sender, &mut self.pending, value);
+        }
+        if self.pending.static_detection.is_some() || self.pending.dynamic_detection.is_some() {
+            context.request_repaint_after(std::time::Duration::from_millis(16));
+        }
+    }
+}
+
+fn retain_or_send_static(
+    sender: &mut Sender<QueueItem>,
+    pending: &mut PendingGuiCommits,
+    value: StaticBPMDetectionConfig,
+) {
+    match sender.try_send(QueueItem::StaticParameters(value.clone())) {
+        Ok(()) => pending.static_detection = None,
+        Err(send_error) if send_error.is_full() => pending.static_detection = Some(value),
+        Err(send_error) => {
+            error!("WASM detector queue is closed: {send_error}");
+            pending.static_detection = None;
+        }
+    }
+}
+
+fn retain_or_send_dynamic(
+    sender: &mut Sender<QueueItem>,
+    pending: &mut PendingGuiCommits,
+    value: DynamicBPMDetectionConfig,
+) {
+    match sender.try_send(QueueItem::DynamicParameters(value.clone())) {
+        Ok(()) => pending.dynamic_detection = None,
+        Err(send_error) if send_error.is_full() => pending.dynamic_detection = Some(value),
+        Err(send_error) => {
+            error!("WASM detector queue is closed: {send_error}");
+            pending.dynamic_detection = None;
         }
     }
 }
 
 impl eframe::App for WasmApp {
-    fn logic(&mut self, _ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         self.gui.prepare();
+        self.flush_pending_commits(ctx);
     }
 
     fn ui(&mut self, ui: &mut eframe::egui::Ui, _frame: &mut eframe::Frame) {
         let changes = eframe::egui::CentralPanel::default().show(ui, |ui| self.gui.show(ui, &mut self.editable)).inner;
         self.commit(changes);
+        self.flush_pending_commits(ui.ctx());
     }
 }
 

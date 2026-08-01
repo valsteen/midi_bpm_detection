@@ -15,7 +15,6 @@ parameter-on-off = { path = "../../foundation/parameter-on-off" }
 
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
-atomic_refcell = "0.1.14"
 wasm-bindgen = "0.2"
 derivative = "2.2.0"
 chrono = { version = "0.4.45", features = ["wasmbind"] }
