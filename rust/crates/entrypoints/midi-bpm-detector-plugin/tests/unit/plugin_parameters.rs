@@ -26,7 +26,9 @@ impl RemoteControlsPage for RemoteControlNames {
         self.0.push(param.name().to_owned());
     }
 
-    fn add_spacer(&mut self) {}
+    fn add_spacer(&mut self) {
+        self.0.push(String::from("<spacer>"));
+    }
 }
 
 #[test]
@@ -56,8 +58,8 @@ fn plugin_on_off_params_initialize_enabled_state_from_matching_config_field() {
         ArcAtomicBool::new(config.send_tempo),
     );
 
-    assert!(params.dynamic_params.velocity_current_note_weight.is_enabled());
-    assert!(!params.dynamic_params.velocity_note_from_weight.is_enabled());
+    assert!(params.dynamic_params.velocity_current_note_weight.read().is_enabled());
+    assert!(!params.dynamic_params.velocity_note_from_weight.read().is_enabled());
 }
 
 #[test]
@@ -83,15 +85,26 @@ fn dynamic_remote_controls_expose_every_dynamic_parameter() {
         remote_controls.0,
         [
             "Beats Lookback",
+            "<spacer>",
+            "Normal distribution enabled",
             "Normal distribution",
+            "Time distance enabled",
             "Time distance",
+            "Note velocity enabled",
             "Note velocity",
+            "From note velocity enabled",
             "From note velocity",
+            "In beat range enabled",
             "In beat range",
+            "Multiplier enabled",
             "Multiplier",
+            "Subdivision enabled",
             "Subdivision",
+            "Octave distance enabled",
             "Octave distance",
+            "Pitch distance enabled",
             "Pitch distance",
+            "High tempo bias enabled",
             "High tempo bias",
         ]
     );
@@ -198,7 +211,7 @@ fn static_generated_field_names_and_groups_match_host_parameters_in_order() {
 }
 
 #[test]
-fn dynamic_on_off_persistent_keys_match_parameter_ids() {
+fn dynamic_parameter_ids_order_visibility_and_state_surface_are_stable() {
     let config = PluginConfig::default();
     let current_sample = Arc::new(AtomicUsize::new(0));
     let changed_at = DeferredConfigUpdate::idle();
@@ -212,22 +225,45 @@ fn dynamic_on_off_persistent_keys_match_parameter_ids() {
         &daw_port,
         ArcAtomicBool::new(config.send_tempo),
     );
-    let persistent_keys = params.serialize_fields().into_keys().collect::<Vec<_>>();
+    let param_map = params.dynamic_params.param_map();
+    let ids = param_map.iter().map(|(id, _, _)| id.as_str()).collect::<Vec<_>>();
 
-    for key in [
-        "normal_distribution_weight_onoff",
-        "time_distance_weight_onoff",
-        "velocity_current_note_weight_onoff",
-        "velocity_note_from_weight_onoff",
-        "in_beat_range_weight_onoff",
-        "multiplier_weight_onoff",
-        "subdivision_weight_onoff",
-        "octave_distance_weight_onoff",
-        "pitch_distance_weight_onoff",
-        "high_tempo_bias_weight_onoff",
-    ] {
-        assert!(persistent_keys.contains(&String::from(key)));
+    assert_eq!(
+        ids,
+        [
+            "beats_lookback",
+            "normal_distribution_weight_enabled",
+            "normal_distribution_weight",
+            "time_distance_weight_enabled",
+            "time_distance_weight",
+            "velocity_current_note_weight_enabled",
+            "velocity_current_note_weight",
+            "velocity_note_from_weight_enabled",
+            "velocity_note_from_weight",
+            "in_beat_range_weight_enabled",
+            "in_beat_range_weight",
+            "multiplier_weight_enabled",
+            "multiplier_weight",
+            "subdivision_weight_enabled",
+            "subdivision_weight",
+            "octave_distance_weight_enabled",
+            "octave_distance_weight",
+            "pitch_distance_weight_enabled",
+            "pitch_distance_weight",
+            "high_tempo_bias_weight_enabled",
+            "high_tempo_bias_weight",
+        ]
+    );
+    for (id, param, group) in &param_map {
+        assert_eq!(group, "");
+        if id.ends_with("_enabled") {
+            let flags = unsafe { param.flags() };
+            assert!(
+                !flags.intersects(ParamFlags::NON_AUTOMATABLE | ParamFlags::HIDDEN | ParamFlags::HIDE_IN_GENERIC_UI)
+            );
+        }
     }
+    assert!(params.dynamic_params.serialize_fields().is_empty());
 }
 
 #[test]
@@ -245,10 +281,11 @@ fn dynamic_generated_field_names_match_host_parameter_ids_in_order() {
         &daw_port,
         ArcAtomicBool::new(config.send_tempo),
     );
-    let param_ids = params
+    let value_param_ids = params
         .dynamic_params
         .param_map()
         .into_iter()
+        .filter(|(id, _, _)| !id.ends_with("_enabled"))
         .map(|(id, _, group)| {
             assert_eq!(group, "");
             id
@@ -258,7 +295,7 @@ fn dynamic_generated_field_names_match_host_parameter_ids_in_order() {
 
     DynamicBPMDetectionConfig::PARAMETERS.visit_fields(&mut field_names);
 
-    assert_eq!(param_ids, field_names.0);
+    assert_eq!(value_param_ids, field_names.0);
 }
 
 #[test]

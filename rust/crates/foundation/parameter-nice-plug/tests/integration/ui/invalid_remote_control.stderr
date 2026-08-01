@@ -1,0 +1,5 @@
+error: `remote_control` must be "spacer_after"
+  --> tests/integration/ui/invalid_remote_control.rs:13:46
+   |
+13 |     #[nice_plugin_parameter(remote_control = "new_page")]
+   |                                              ^^^^^^^^^^

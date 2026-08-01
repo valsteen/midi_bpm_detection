@@ -1,0 +1,5 @@
+error: `callback = ...` is no longer supported; adapters receive the group's logical change notification
+  --> tests/integration/ui/stale_callback_arg.rs:13:62
+   |
+13 |     #[nice_plugin_parameter(adapter = some_adapter::Adapter, callback = f32)]
+   |                                                              ^^^^^^^^

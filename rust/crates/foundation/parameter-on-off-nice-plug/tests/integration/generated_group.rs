@@ -1,12 +1,15 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use nice_plug::{
     context::PluginApi,
     params::{FloatParam, IntParam, Param, Params},
-    prelude::{GuiContext, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
+    prelude::{GuiContext, ParamFlags, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
 };
 use parameter::parameter_group;
 use parameter_nice_plug::{GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParam, nice_plugin_parameter_group};
@@ -26,7 +29,7 @@ pub struct ExampleOnOffConfig {
 
 #[nice_plugin_parameter_group(config = ExampleOnOffConfig, group = "on_off", accessor_macro = example_on_off_accessors)]
 pub struct ExampleOnOffParams {
-    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
     pub weighted_gain: OnOffParam,
     pub plain_gain: FloatParam,
     pub steps: IntParam,
@@ -48,99 +51,81 @@ fn generated_group_implements_marker_trait() {
 }
 
 #[test]
-fn on_off_adapter_persists_enabled_state_and_reads_config() {
-    let callbacks = callbacks();
+fn on_off_adapter_exposes_enabled_then_value_with_stable_host_contract() {
+    let on_change = on_change();
     let source_config = ExampleOnOffConfig { weighted_gain: OnOff::Off(0.75), plain_gain: 1.25, steps: 4 };
-    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
-
-    assert_eq!(params.weighted_gain.param().name(), "Weighted gain");
-    assert!(!params.weighted_gain.is_enabled());
-    assert_eq!(params.weighted_gain.read(), OnOff::Off(0.75));
-    assert_eq!(params.read_config(), source_config);
-
-    let serialized = params.weighted_gain.serialize_fields();
-    assert!(serialized.contains_key("weighted_gain_onoff"));
-
-    let enabled_params = ExampleOnOffParams::new(
-        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.75), plain_gain: 1.25, steps: 4 },
-        &callbacks.f32,
-        &callbacks.i32,
-    );
-    enabled_params.weighted_gain.deserialize_fields(&serialized);
-
-    assert!(!enabled_params.weighted_gain.is_enabled());
-}
-
-#[test]
-fn on_off_adapter_enabled_state_can_be_set_without_param_setter_policy() {
-    let callbacks = callbacks();
-    let params = ExampleOnOffParams::new(
-        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.75), plain_gain: 1.25, steps: 4 },
-        &callbacks.f32,
-        &callbacks.i32,
-    );
-
-    params.weighted_gain.set_enabled(false);
-
-    assert_eq!(params.weighted_gain.read(), OnOff::Off(0.75));
-    assert_eq!(params.weighted_gain.serialize_fields()["weighted_gain_onoff"], "false");
-}
-
-#[test]
-fn generated_group_persists_on_off_enabled_state() {
-    let callbacks = callbacks();
-    let params = ExampleOnOffParams::new(
-        &ExampleOnOffConfig { weighted_gain: OnOff::Off(0.75), plain_gain: 1.25, steps: 4 },
-        &callbacks.f32,
-        &callbacks.i32,
-    );
-
-    let serialized = params.serialize_fields();
-
-    assert!(serialized.contains_key("weighted_gain_onoff"));
-
-    let enabled_params = ExampleOnOffParams::new(
-        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.75), plain_gain: 1.25, steps: 4 },
-        &callbacks.f32,
-        &callbacks.i32,
-    );
-    enabled_params.deserialize_fields(&serialized);
-
-    assert!(!enabled_params.weighted_gain.is_enabled());
-}
-
-#[test]
-fn on_off_adapter_maps_ids_and_remote_controls_in_source_order() {
-    let callbacks = callbacks();
-    let params = ExampleOnOffParams::new(
-        &ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.25, steps: 4 },
-        &callbacks.f32,
-        &callbacks.i32,
-    );
-    let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
+    let params = ExampleOnOffParams::new(&source_config, &on_change);
+    let param_map = params.param_map();
+    let ids_and_groups = param_map.iter().map(|(id, _, group)| (id.as_str(), group.as_str())).collect::<Vec<_>>();
+    let labels = param_map.iter().map(|(_, param, _)| unsafe { param.name().to_owned() }).collect::<Vec<_>>();
     let mut remote_controls = RemoteControlNames(Vec::new());
 
     params.add_remote_controls(&mut remote_controls);
 
     assert_eq!(
         ids_and_groups,
-        [
-            (String::from("weighted_gain"), String::new()),
-            (String::from("plain_gain"), String::new()),
-            (String::from("steps"), String::new()),
-        ]
+        [("weighted_gain_enabled", ""), ("weighted_gain", ""), ("plain_gain", ""), ("steps", ""),]
     );
-    assert_eq!(remote_controls.0, ["Weighted gain", "Plain gain", "Steps"]);
+    assert_eq!(labels, ["Weighted gain enabled", "Weighted gain", "Plain gain", "Steps"]);
+    assert_eq!(remote_controls.0, ["Weighted gain enabled", "Weighted gain", "Plain gain", "Steps"]);
+    for (_, param, _) in &param_map[..2] {
+        let flags = unsafe { param.flags() };
+        assert!(!flags.intersects(ParamFlags::NON_AUTOMATABLE | ParamFlags::HIDDEN | ParamFlags::HIDE_IN_GENERIC_UI));
+    }
+    assert_eq!(params.weighted_gain.read(), OnOff::Off(0.75));
+    assert_eq!(params.read_config(), source_config);
+    assert!(params.weighted_gain.serialize_fields().is_empty());
+    assert!(params.serialize_fields().is_empty());
 }
 
 #[test]
-fn mirror_host_param_preserves_on_off_enabled_only_updates() {
-    let callbacks = callbacks();
-    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
-    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+fn on_off_adapter_combines_independently_applied_host_values() {
+    let on_change = on_change();
+    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.25, steps: 4 };
+    let params = ExampleOnOffParams::new(&source_config, &on_change);
+    let param_map = params.param_map();
+    let enabled = param_map[0].1;
+    let value = param_map[1].1;
+
+    unsafe {
+        enabled._internal_set_normalized_value(0.0);
+        value._internal_set_normalized_value(value.preview_normalized(0.75));
+    }
+
+    assert_eq!(params.weighted_gain.read(), OnOff::Off(0.75));
+    assert_eq!(params.read_config().weighted_gain, OnOff::Off(0.75));
+}
+
+#[test]
+fn either_on_off_host_parameter_emits_the_same_logical_change_notification() {
+    let change_count = Arc::new(AtomicUsize::new(0));
+    let on_change = {
+        let change_count = change_count.clone();
+        move || {
+            change_count.fetch_add(1, Ordering::Relaxed);
+        }
+    };
+    let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.25, steps: 4 };
+    let params = ExampleOnOffParams::new(&source_config, &on_change);
+    let param_map = params.param_map();
+    let enabled = param_map[0].1;
+    let value = param_map[1].1;
+
+    unsafe {
+        enabled._internal_set_normalized_value(0.0);
+        value._internal_set_normalized_value(value.preview_normalized(0.75));
+    }
+
+    assert_eq!(change_count.load(Ordering::Relaxed), 2);
+}
+
+#[test]
+fn mirror_host_param_requests_enabled_only_change_from_boolean_parameter() {
+    let (params, mut config) = example_params(OnOff::On(0.5));
+    let param_map = params.param_map();
+    let enabled = param_map[0].1;
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
-    let mut config = source_config;
 
     params.weighted_gain.mirror_host_param(
         &mut config,
@@ -150,8 +135,17 @@ fn mirror_host_param_preserves_on_off_enabled_only_updates() {
     );
 
     assert_eq!(config.weighted_gain, OnOff::Off(0.5));
-    assert!(!params.weighted_gain.is_enabled());
-    assert_eq!(context.actions(), []);
+    assert_eq!(params.weighted_gain.read(), OnOff::On(0.5));
+    assert_eq!(context.actions(), setter_actions(enabled));
+}
+
+#[test]
+fn mirror_host_param_requests_value_only_change_from_float_parameter() {
+    let (params, mut config) = example_params(OnOff::On(0.5));
+    let param_map = params.param_map();
+    let value = param_map[1].1;
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
 
     params.weighted_gain.mirror_host_param(
         &mut config,
@@ -161,15 +155,39 @@ fn mirror_host_param_preserves_on_off_enabled_only_updates() {
     );
 
     assert_eq!(config.weighted_gain, OnOff::On(0.75));
-    assert!(params.weighted_gain.is_enabled());
-    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+    assert_eq!(params.weighted_gain.read(), OnOff::On(0.5));
+    assert_eq!(context.actions(), setter_actions(value));
 }
 
 #[test]
-fn mirror_changed_config_preserves_on_off_enabled_only_updates() {
-    let callbacks = callbacks();
+fn mirror_host_param_requests_both_concrete_parameters_in_pair_order() {
+    let (params, mut config) = example_params(OnOff::On(0.5));
+    let param_map = params.param_map();
+    let enabled = param_map[0].1;
+    let value = param_map[1].1;
+    let context = RecordingGuiContext::default();
+    let setter = ParamSetter::new(&context);
+
+    params.weighted_gain.mirror_host_param(
+        &mut config,
+        &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
+        OnOff::Off(0.75),
+        &setter,
+    );
+
+    let mut expected = setter_actions(enabled);
+    expected.extend(setter_actions(value));
+    assert_eq!(config.weighted_gain, OnOff::Off(0.75));
+    assert_eq!(params.weighted_gain.read(), OnOff::On(0.5));
+    assert_eq!(context.actions(), expected);
+}
+
+#[test]
+fn mirror_changed_config_routes_enabled_only_change_through_boolean_parameter() {
+    let on_change = on_change();
     let before = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
-    let params = ExampleOnOffParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let params = ExampleOnOffParams::new(&before, &on_change);
+    let enabled = params.param_map()[0].1;
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let after = ExampleOnOffConfig { weighted_gain: OnOff::Off(0.5), ..before.clone() };
@@ -177,31 +195,35 @@ fn mirror_changed_config_preserves_on_off_enabled_only_updates() {
     let mirrored = params.mirror_changed_config(&before, &after, &setter);
 
     assert_eq!(mirrored.weighted_gain, OnOff::Off(0.5));
-    assert!(!params.weighted_gain.is_enabled());
-    assert_eq!(context.actions(), []);
+    assert_eq!(params.weighted_gain.read(), OnOff::On(0.5));
+    assert_eq!(context.actions(), setter_actions(enabled));
 }
 
 #[test]
 fn generated_field_mirror_methods_use_parameter_field_descriptor_value_types() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
-    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let params = ExampleOnOffParams::new(&source_config, &on_change);
+    let param_map = params.param_map();
+    let enabled = param_map[0].1;
+    let value = param_map[1].1;
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let mut config = source_config;
 
     params.mirror_weighted_gain(&mut config, OnOff::Off(0.625), &setter);
 
+    let mut expected = setter_actions(enabled);
+    expected.extend(setter_actions(value));
     assert_eq!(config.weighted_gain, OnOff::Off(0.625));
-    assert!(!params.weighted_gain.is_enabled());
-    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End]);
+    assert_eq!(context.actions(), expected);
 }
 
 #[test]
 fn generated_accessor_helper_implements_live_accessor_without_repeating_fields() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let source_config = ExampleOnOffConfig { weighted_gain: OnOff::On(0.5), plain_gain: 1.0, steps: 3 };
-    let params = ExampleOnOffParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let params = ExampleOnOffParams::new(&source_config, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let mut live = ExampleOnOffLive { config: source_config, params, setter: &setter, after_set_count: 0 };
@@ -218,12 +240,18 @@ fn generated_accessor_helper_implements_live_accessor_without_repeating_fields()
     assert!((live.config.plain_gain - 1.75).abs() < f32::EPSILON);
     assert_eq!(live.config.steps, 6);
     assert_eq!(live.after_set_count, 3);
-    assert_eq!(context.actions(), [SetterAction::Begin, SetterAction::Set, SetterAction::End].repeat(3));
+    assert_eq!(context.actions().len(), 12);
 }
 
-struct Callbacks {
-    f32: Arc<dyn Fn(f32) + Send + Sync>,
-    i32: Arc<dyn Fn(i32) + Send + Sync>,
+fn example_params(weighted_gain: OnOff<f32>) -> (ExampleOnOffParams, ExampleOnOffConfig) {
+    let on_change = on_change();
+    let config = ExampleOnOffConfig { weighted_gain, plain_gain: 1.0, steps: 3 };
+    let params = ExampleOnOffParams::new(&config, &on_change);
+    (params, config)
+}
+
+fn on_change() -> impl Fn() + Clone + Send + Sync + 'static {
+    || {}
 }
 
 struct ExampleOnOffLive<'a, 'setter> {
@@ -239,10 +267,6 @@ impl ExampleOnOffLive<'_, '_> {
     }
 }
 
-fn callbacks() -> Callbacks {
-    Callbacks { f32: Arc::new(|_: f32| {}), i32: Arc::new(|_: i32| {}) }
-}
-
 struct RemoteControlNames(Vec<String>);
 
 impl RemoteControlsPage for RemoteControlNames {
@@ -255,9 +279,13 @@ impl RemoteControlsPage for RemoteControlNames {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SetterAction {
-    Begin,
-    Set,
-    End,
+    Begin(ParamPtr),
+    Set(ParamPtr),
+    End(ParamPtr),
+}
+
+fn setter_actions(param: ParamPtr) -> Vec<SetterAction> {
+    vec![SetterAction::Begin(param), SetterAction::Set(param), SetterAction::End(param)]
 }
 
 #[derive(Default)]
@@ -280,16 +308,16 @@ impl GuiContext for RecordingGuiContext {
         false
     }
 
-    unsafe fn raw_begin_set_parameter(&self, _param: ParamPtr) {
-        self.actions.lock().unwrap().push(SetterAction::Begin);
+    unsafe fn raw_begin_set_parameter(&self, param: ParamPtr) {
+        self.actions.lock().unwrap().push(SetterAction::Begin(param));
     }
 
-    unsafe fn raw_set_parameter_normalized(&self, _param: ParamPtr, _normalized: f32) {
-        self.actions.lock().unwrap().push(SetterAction::Set);
+    unsafe fn raw_set_parameter_normalized(&self, param: ParamPtr, _normalized: f32) {
+        self.actions.lock().unwrap().push(SetterAction::Set(param));
     }
 
-    unsafe fn raw_end_set_parameter(&self, _param: ParamPtr) {
-        self.actions.lock().unwrap().push(SetterAction::End);
+    unsafe fn raw_end_set_parameter(&self, param: ParamPtr) {
+        self.actions.lock().unwrap().push(SetterAction::End(param));
     }
 
     fn get_state(&self) -> PluginState {

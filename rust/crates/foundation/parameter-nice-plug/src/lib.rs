@@ -40,13 +40,14 @@ pub trait MirrorChangedConfig {
 
 pub trait NicePlugFieldAdapter<Config, Value> {
     type HostParam;
-    type CallbackValue;
 
-    fn to_host_param(
+    fn to_host_param<OnChange>(
         field: &ParameterField<Config, Value>,
         config: &Config,
-        callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
-    ) -> Self::HostParam;
+        on_change: &OnChange,
+    ) -> Self::HostParam
+    where
+        OnChange: Fn() + Clone + Send + Sync + 'static;
 
     fn set_config_from_host_param(parameter: &Parameter<Config, Value>, config: &mut Config, param: &Self::HostParam);
 
@@ -71,43 +72,49 @@ pub trait MirrorHostParam<Config, Value> {
 
 pub trait ToNicePlugParam<ValueType> {
     type Param: Param;
-    type CallbackValue;
 
-    fn to_param(&self, value: ValueType, callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>) -> Self::Param;
+    fn to_param<OnChange>(&self, value: ValueType, on_change: &OnChange) -> Self::Param
+    where
+        OnChange: Fn() + Clone + Send + Sync + 'static;
 }
 
-pub fn to_plugin_float_param<Config, ValueType>(
+pub fn to_plugin_float_param<Config, ValueType, OnChange>(
     parameter: &Parameter<Config, ValueType>,
     config: &Config,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
+    on_change: &OnChange,
 ) -> FloatParam
 where
-    Parameter<Config, ValueType>: ToNicePlugParam<ValueType, Param = FloatParam, CallbackValue = f32>,
+    Parameter<Config, ValueType>: ToNicePlugParam<ValueType, Param = FloatParam>,
+    OnChange: Fn() + Clone + Send + Sync + 'static,
 {
     let value = (parameter.get)(config);
 
-    parameter.to_param(value, callback)
+    parameter.to_param(value, on_change)
 }
 
-pub fn to_plugin_int_param<Config, ValueType>(
+pub fn to_plugin_int_param<Config, ValueType, OnChange>(
     parameter: &Parameter<Config, ValueType>,
     config: &Config,
-    callback: &Arc<dyn Fn(i32) + Send + Sync>,
+    on_change: &OnChange,
 ) -> IntParam
 where
-    Parameter<Config, ValueType>: ToNicePlugParam<ValueType, Param = IntParam, CallbackValue = i32>,
+    Parameter<Config, ValueType>: ToNicePlugParam<ValueType, Param = IntParam>,
+    OnChange: Fn() + Clone + Send + Sync + 'static,
 {
     let value = (parameter.get)(config);
 
-    parameter.to_param(value, callback)
+    parameter.to_param(value, on_change)
 }
 
-pub fn to_plugin_u16_logarithmic_param<Config>(
+pub fn to_plugin_u16_logarithmic_param<Config, OnChange>(
     parameter: &Parameter<Config, u16>,
     config: &Config,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
-    u16_range_to_logarithmic_param(parameter, (parameter.get)(config), callback)
+    on_change: &OnChange,
+) -> FloatParam
+where
+    OnChange: Fn() + Clone + Send + Sync + 'static,
+{
+    u16_range_to_logarithmic_param(parameter, (parameter.get)(config), on_change)
 }
 
 pub trait SetConfigFromFloatParam<Config>: Sized {
@@ -141,14 +148,12 @@ pub fn set_config_from_int_param<Config, ValueType>(
 macro_rules! impl_to_param_for_float {
     ($float_type:ty) => {
         impl<Config> ToNicePlugParam<$float_type> for Parameter<Config, $float_type> {
-            type CallbackValue = f32;
             type Param = FloatParam;
 
-            fn to_param(
-                &self,
-                value: $float_type,
-                callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
-            ) -> Self::Param {
+            fn to_param<OnChange>(&self, value: $float_type, on_change: &OnChange) -> Self::Param
+            where
+                OnChange: Fn() + Clone + Send + Sync + 'static,
+            {
                 let range = if self.spec.logarithmic {
                     FloatRange::Skewed {
                         min: metadata_f64_to_f32(*self.spec.range.start()),
@@ -162,8 +167,9 @@ macro_rules! impl_to_param_for_float {
                     }
                 };
 
+                let on_change = on_change.clone();
                 let mut param = FloatParam::new(self.spec.label, parameter_value_to_f32(&value), range)
-                    .with_callback(callback.clone());
+                    .with_callback(Arc::new(move |_| on_change()));
                 if let Some(unit) = self.spec.unit {
                     param = param.with_unit(unit);
                 }
@@ -180,14 +186,13 @@ macro_rules! impl_to_param_for_float {
 macro_rules! impl_to_param_for_integer {
     ($int_type:ty) => {
         impl<Config> ToNicePlugParam<$int_type> for Parameter<Config, $int_type> {
-            type CallbackValue = i32;
             type Param = IntParam;
 
-            fn to_param(
-                &self,
-                value: $int_type,
-                callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
-            ) -> Self::Param {
+            fn to_param<OnChange>(&self, value: $int_type, on_change: &OnChange) -> Self::Param
+            where
+                OnChange: Fn() + Clone + Send + Sync + 'static,
+            {
+                let on_change = on_change.clone();
                 let mut param = IntParam::new(
                     self.spec.label,
                     parameter_value_to_i32(&value),
@@ -196,7 +201,7 @@ macro_rules! impl_to_param_for_integer {
                         max: metadata_f64_to_i32(*self.spec.range.end()),
                     },
                 )
-                .with_callback(callback.clone());
+                .with_callback(Arc::new(move |_| on_change()));
                 if let Some(unit) = self.spec.unit {
                     param = param.with_unit(unit);
                 }
@@ -213,11 +218,13 @@ impl_to_param_for_integer!(u16);
 impl_to_param_for_integer!(u8);
 
 impl<Config> ToNicePlugParam<Duration> for Parameter<Config, Duration> {
-    type CallbackValue = f32;
     type Param = FloatParam;
 
-    fn to_param(&self, value: Duration, callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>) -> Self::Param {
-        float_param_from_metadata(self, value.as_secs_f32(), callback)
+    fn to_param<OnChange>(&self, value: Duration, on_change: &OnChange) -> Self::Param
+    where
+        OnChange: Fn() + Clone + Send + Sync + 'static,
+    {
+        float_param_from_metadata(self, value.as_secs_f32(), on_change)
     }
 }
 
@@ -335,11 +342,15 @@ impl<Config> SetConfigFromIntParam<Config> for u8 {
     }
 }
 
-fn u16_range_to_logarithmic_param<Config>(
+fn u16_range_to_logarithmic_param<Config, OnChange>(
     parameter: &Parameter<Config, u16>,
     value: u16,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
+    on_change: &OnChange,
+) -> FloatParam
+where
+    OnChange: Fn() + Clone + Send + Sync + 'static,
+{
+    let on_change = on_change.clone();
     let mut param = FloatParam::new(
         parameter.spec.label,
         f32::from(value),
@@ -349,18 +360,21 @@ fn u16_range_to_logarithmic_param<Config>(
             factor: 0.3,
         },
     )
-    .with_callback(callback.clone());
+    .with_callback(Arc::new(move |_| on_change()));
     if let Some(unit) = parameter.spec.unit {
         param = param.with_unit(unit);
     }
     param.with_step_size(metadata_f64_to_f32(parameter.spec.step.max(1.0)))
 }
 
-fn float_param_from_metadata<Config, ValueType>(
+fn float_param_from_metadata<Config, ValueType, OnChange>(
     parameter: &Parameter<Config, ValueType>,
     value: f32,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
+    on_change: &OnChange,
+) -> FloatParam
+where
+    OnChange: Fn() + Clone + Send + Sync + 'static,
+{
     let range = if parameter.spec.logarithmic {
         FloatRange::Skewed {
             min: metadata_f64_to_f32(*parameter.spec.range.start()),
@@ -374,7 +388,8 @@ fn float_param_from_metadata<Config, ValueType>(
         }
     };
 
-    let mut param = FloatParam::new(parameter.spec.label, value, range).with_callback(callback.clone());
+    let on_change = on_change.clone();
+    let mut param = FloatParam::new(parameter.spec.label, value, range).with_callback(Arc::new(move |_| on_change()));
     if let Some(unit) = parameter.spec.unit {
         param = param.with_unit(unit);
     }

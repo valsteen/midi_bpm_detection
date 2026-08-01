@@ -1,13 +1,7 @@
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use nice_plug::{
-    params::{FloatParam, Param, Params, persist},
+    params::{BoolParam, FloatParam, Param, Params},
     prelude::{FloatRange, ParamPtr, ParamSetter, RemoteControlsPage},
 };
 use num_traits::ToPrimitive;
@@ -16,46 +10,36 @@ use parameter_nice_plug::{MirrorHostParam, NicePlugFieldAdapter};
 use parameter_on_off::OnOff;
 
 pub struct OnOffParam {
-    id: &'static str,
+    enabled_id: String,
+    value_id: &'static str,
+    enabled: BoolParam,
     value: FloatParam,
-    enabled_key: String,
-    enabled: AtomicBool,
 }
 
 impl OnOffParam {
-    pub fn new(id: &'static str, value: FloatParam, initial_value: OnOff<f32>) -> Self {
-        Self { id, value, enabled_key: format!("{id}_onoff"), enabled: AtomicBool::new(initial_value.is_enabled()) }
-    }
-
-    pub fn param(&self) -> &FloatParam {
-        &self.value
-    }
-
-    pub fn is_enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
-    }
-
-    pub fn set_enabled(&self, enabled: bool) {
-        self.enabled.store(enabled, Ordering::Relaxed);
+    fn new(enabled_id: String, value_id: &'static str, enabled: BoolParam, value: FloatParam) -> Self {
+        Self { enabled_id, value_id, enabled, value }
     }
 
     pub fn read(&self) -> OnOff<f32> {
-        OnOff::new(self.is_enabled(), self.value.unmodulated_plain_value())
+        OnOff::new(self.enabled.unmodulated_plain_value(), self.value.unmodulated_plain_value())
     }
 }
 
 pub struct OnOffF32Adapter;
 
 impl<Config> NicePlugFieldAdapter<Config, OnOff<f32>> for OnOffF32Adapter {
-    type CallbackValue = f32;
     type HostParam = OnOffParam;
 
-    fn to_host_param(
+    fn to_host_param<OnChange>(
         field: &ParameterField<Config, OnOff<f32>>,
         config: &Config,
-        callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
-    ) -> Self::HostParam {
-        to_plugin_on_off_f32_param(field, config, callback)
+        on_change: &OnChange,
+    ) -> Self::HostParam
+    where
+        OnChange: Fn() + Clone + Send + Sync + 'static,
+    {
+        to_plugin_on_off_f32_param(field, config, on_change)
     }
 
     fn set_config_from_host_param(
@@ -79,51 +63,36 @@ impl<Config> NicePlugFieldAdapter<Config, OnOff<f32>> for OnOffF32Adapter {
     }
 
     fn add_remote_control(param: &Self::HostParam, page: &mut impl RemoteControlsPage) {
-        page.add_param(param.param());
+        page.add_param(&param.enabled);
+        page.add_param(&param.value);
     }
 }
 
 unsafe impl Params for OnOffParam {
     fn param_map(&self) -> Vec<(String, ParamPtr, String)> {
-        vec![(String::from(self.id), self.value.as_ptr(), String::new())]
-    }
-
-    fn serialize_fields(&self) -> BTreeMap<String, String> {
-        let mut serialized = BTreeMap::new();
-        match persist::serialize_field(&self.is_enabled()) {
-            Ok(data) => {
-                serialized.insert(self.enabled_key.clone(), data);
-            }
-            Err(err) => {
-                nice_plug::nice_debug_assert_failure!("Could not serialize '{}': {}", self.enabled_key, err);
-            }
-        }
-        serialized
-    }
-
-    fn deserialize_fields(&self, serialized: &BTreeMap<String, String>) {
-        let Some(data) = serialized.get(&self.enabled_key) else {
-            return;
-        };
-
-        match persist::deserialize_field(data) {
-            Ok(is_enabled) => self.enabled.store(is_enabled, Ordering::Relaxed),
-            Err(err) => {
-                nice_plug::nice_debug_assert_failure!("Could not deserialize '{}': {}", self.enabled_key, err);
-            }
-        }
+        vec![
+            (self.enabled_id.clone(), self.enabled.as_ptr(), String::new()),
+            (String::from(self.value_id), self.value.as_ptr(), String::new()),
+        ]
     }
 }
 
-pub fn to_plugin_on_off_f32_param<Config>(
+pub fn to_plugin_on_off_f32_param<Config, OnChange>(
     field: &ParameterField<Config, OnOff<f32>>,
     config: &Config,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> OnOffParam {
+    on_change: &OnChange,
+) -> OnOffParam
+where
+    OnChange: Fn() + Clone + Send + Sync + 'static,
+{
     let parameter = &field.parameter;
     let value = (parameter.get)(config);
+    let enabled_on_change = on_change.clone();
+    let enabled = BoolParam::new(format!("{} enabled", parameter.spec.label), value.is_enabled())
+        .with_callback(Arc::new(move |_| enabled_on_change()));
+    let value_param = float_param_from_metadata(parameter, value.value(), on_change);
 
-    OnOffParam::new(field.field_name, float_param_from_metadata(parameter, value.value(), callback), value)
+    OnOffParam::new(format!("{}_enabled", field.field_name), field.field_name, enabled, value_param)
 }
 
 pub fn set_config_from_on_off_f32_param<Config>(
@@ -144,19 +113,24 @@ impl<Config> MirrorHostParam<Config, OnOff<f32>> for OnOffParam {
     ) {
         let previous_value = (parameter.get)(config);
 
-        self.set_enabled(value.is_enabled());
+        if previous_value.is_enabled() != value.is_enabled() {
+            set_bool_host_param(&self.enabled, value.is_enabled(), param_setter);
+        }
         if (previous_value.value() - value.value()).abs() > f32::EPSILON {
-            set_float_host_param(self.param(), value.value(), param_setter);
+            set_float_host_param(&self.value, value.value(), param_setter);
         }
         (parameter.set)(config, value);
     }
 }
 
-fn float_param_from_metadata<Config, ValueType>(
+fn float_param_from_metadata<Config, ValueType, OnChange>(
     parameter: &Parameter<Config, ValueType>,
     value: f32,
-    callback: &Arc<dyn Fn(f32) + Send + Sync>,
-) -> FloatParam {
+    on_change: &OnChange,
+) -> FloatParam
+where
+    OnChange: Fn() + Clone + Send + Sync + 'static,
+{
     let range = if parameter.spec.logarithmic {
         FloatRange::Skewed {
             min: metadata_f64_to_f32(*parameter.spec.range.start()),
@@ -170,7 +144,9 @@ fn float_param_from_metadata<Config, ValueType>(
         }
     };
 
-    let mut param = FloatParam::new(parameter.spec.label, value, range).with_callback(callback.clone());
+    let value_on_change = on_change.clone();
+    let mut param =
+        FloatParam::new(parameter.spec.label, value, range).with_callback(Arc::new(move |_| value_on_change()));
     if let Some(unit) = parameter.spec.unit {
         param = param.with_unit(unit);
     }
@@ -183,6 +159,12 @@ fn float_param_from_metadata<Config, ValueType>(
 
 fn metadata_f64_to_f32(value: f64) -> f32 {
     value.to_f32().expect("parameter metadata should fit in nice-plug f32 values")
+}
+
+fn set_bool_host_param(enabled_param: &BoolParam, enabled: bool, param_setter: &ParamSetter<'_>) {
+    param_setter.begin_set_parameter(enabled_param);
+    param_setter.set_parameter(enabled_param, enabled);
+    param_setter.end_set_parameter(enabled_param);
 }
 
 fn set_float_host_param(value_param: &FloatParam, value: f32, param_setter: &ParamSetter<'_>) {

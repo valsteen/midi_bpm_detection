@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
@@ -42,6 +45,7 @@ pub struct ExampleParentConfig {
 
 #[nice_plugin_parameter_group(config = ExampleParentConfig, group = "parent")]
 pub struct ExampleParentParams {
+    #[nice_plugin_parameter(remote_control = "spacer_after")]
     pub gain: FloatParam,
     pub count: IntParam,
     #[nice_plugin_parameter(adapter = "float_u16_logarithmic")]
@@ -91,7 +95,7 @@ pub struct ExternalAdapterConfig {
 
 #[nice_plugin_parameter_group(config = ExternalAdapterConfig, group = "external")]
 pub struct ExternalAdapterParams {
-    #[nice_plugin_parameter(adapter = external_gain::Adapter, callback = f32)]
+    #[nice_plugin_parameter(adapter = external_gain::Adapter)]
     pub custom_gain: external_gain::ExternalGainParam,
 }
 
@@ -127,16 +131,19 @@ mod external_gain {
     }
 
     impl<Config> NicePlugFieldAdapter<Config, ExternalGain> for Adapter {
-        type CallbackValue = f32;
         type HostParam = ExternalGainParam;
 
-        fn to_host_param(
+        fn to_host_param<OnChange>(
             field: &ParameterField<Config, ExternalGain>,
             config: &Config,
-            callback: &Arc<dyn Fn(Self::CallbackValue) + Send + Sync>,
-        ) -> Self::HostParam {
+            on_change: &OnChange,
+        ) -> Self::HostParam
+        where
+            OnChange: Fn() + Clone + Send + Sync + 'static,
+        {
             let parameter = &field.parameter;
             let value = (parameter.get)(config);
+            let on_change = on_change.clone();
             let host_param = FloatParam::new(
                 parameter.spec.label,
                 value.0,
@@ -145,7 +152,7 @@ mod external_gain {
                     max: metadata_to_f32(*parameter.spec.range.end()),
                 },
             )
-            .with_callback(callback.clone());
+            .with_callback(Arc::new(move |_| on_change()));
 
             Self::HostParam { id: field.field_name, value: host_param }
         }
@@ -252,8 +259,8 @@ pub struct AcronymGUIParams {
 
 #[test]
 fn generated_group_maps_field_ids_in_catalog_order_without_local_groups() {
-    let callback = callback_f32();
-    let params = ExampleChildParams::new(&ExampleChildConfig { child_gain: 1.25, child_precise: 4.75 }, &callback);
+    let on_change = on_change();
+    let params = ExampleChildParams::new(&ExampleChildConfig { child_gain: 1.25, child_precise: 4.75 }, &on_change);
     let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
 
     assert_eq!(
@@ -264,8 +271,8 @@ fn generated_group_maps_field_ids_in_catalog_order_without_local_groups() {
 
 #[test]
 fn generated_group_maps_float_int_adapter_and_nested_fields_in_source_order() {
-    let callbacks = callbacks();
-    let params = ExampleParentParams::new(&example_parent_config(), &callbacks.f32, &callbacks.i32);
+    let on_change = on_change();
+    let params = ExampleParentParams::new(&example_parent_config(), &on_change);
     let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
 
     assert_eq!(
@@ -282,19 +289,19 @@ fn generated_group_maps_float_int_adapter_and_nested_fields_in_source_order() {
 
 #[test]
 fn generated_group_reads_host_values_back_to_config() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let source_config = example_parent_config();
-    let params = ExampleParentParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let params = ExampleParentParams::new(&source_config, &on_change);
 
     assert_eq!(params.read_config(), source_config);
 }
 
 #[test]
 fn generated_group_mirrors_only_changed_leaf_fields() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let before = example_parent_config();
     let after = ExampleParentConfig { gain: 1.75, ..before.clone() };
-    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let params = ExampleParentParams::new(&before, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
@@ -306,10 +313,10 @@ fn generated_group_mirrors_only_changed_leaf_fields() {
 
 #[test]
 fn generated_group_skips_unchanged_fields() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let before = example_parent_config();
     let after = before.clone();
-    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let params = ExampleParentParams::new(&before, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
@@ -321,13 +328,13 @@ fn generated_group_skips_unchanged_fields() {
 
 #[test]
 fn generated_group_recurses_into_changed_nested_fields() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let before = example_parent_config();
     let after = ExampleParentConfig {
         child: ExampleChildConfig { child_precise: 7.25, ..before.child.clone() },
         ..before.clone()
     };
-    let params = ExampleParentParams::new(&before, &callbacks.f32, &callbacks.i32);
+    let params = ExampleParentParams::new(&before, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
@@ -339,8 +346,8 @@ fn generated_group_recurses_into_changed_nested_fields() {
 
 #[test]
 fn generated_group_preserves_parameter_metadata() {
-    let callbacks = callbacks();
-    let params = ExampleParentParams::new(&example_parent_config(), &callbacks.f32, &callbacks.i32);
+    let on_change = on_change();
+    let params = ExampleParentParams::new(&example_parent_config(), &on_change);
 
     assert_eq!(params.gain.name(), "Gain");
     assert_eq!(params.count.name(), "Count");
@@ -350,9 +357,9 @@ fn generated_group_preserves_parameter_metadata() {
 
 #[test]
 fn generated_group_reads_duration_float_params_back_to_config() {
-    let callback = callback_f32();
+    let on_change = on_change();
     let source_config = ExampleDurationConfig { delay: Duration::from_secs_f32(0.82), curve: 1.25 };
-    let params = ExampleDurationParams::new(&source_config, &callback);
+    let params = ExampleDurationParams::new(&source_config, &on_change);
 
     assert_eq!(params.delay.name(), "Delay");
     assert!((params.delay.unmodulated_plain_value() - 0.82).abs() < f32::EPSILON);
@@ -361,9 +368,9 @@ fn generated_group_reads_duration_float_params_back_to_config() {
 
 #[test]
 fn external_adapter_constructs_reads_mirrors_and_adds_remote_control() {
-    let callback = callback_f32();
+    let on_change = on_change();
     let source_config = ExternalAdapterConfig { custom_gain: ExternalGain(0.6) };
-    let params = ExternalAdapterParams::new(&source_config, &callback);
+    let params = ExternalAdapterParams::new(&source_config, &on_change);
     let ids_and_groups = params.param_map().into_iter().map(|(id, _, group)| (id, group)).collect::<Vec<_>>();
     let mut remote_controls = RemoteControlNames(Vec::new());
     let context = RecordingGuiContext::default();
@@ -383,6 +390,36 @@ fn external_adapter_constructs_reads_mirrors_and_adds_remote_control() {
 }
 
 #[test]
+fn generated_group_uses_one_logical_notification_for_float_and_int_host_callbacks() {
+    let change_count = Arc::new(AtomicUsize::new(0));
+    let on_change = {
+        let change_count = change_count.clone();
+        move || {
+            change_count.fetch_add(1, Ordering::Relaxed);
+        }
+    };
+    let params = ExampleParentParams::new(&example_parent_config(), &on_change);
+
+    unsafe {
+        params.gain.as_ptr()._internal_set_normalized_value(0.9);
+        params.count.as_ptr()._internal_set_normalized_value(0.0);
+    }
+
+    assert_eq!(change_count.load(Ordering::Relaxed), 2);
+}
+
+#[test]
+fn generated_group_emits_source_local_remote_control_spacer_after_declared_field() {
+    let on_change = on_change();
+    let params = ExampleParentParams::new(&example_parent_config(), &on_change);
+    let mut remote_controls = RemoteControlNames(Vec::new());
+
+    params.add_remote_controls(&mut remote_controls);
+
+    assert_eq!(remote_controls.0, ["Gain", "<spacer>", "Count", "Sample rate", "Child gain", "Child precise"]);
+}
+
+#[test]
 fn generated_group_implements_marker_trait() {
     fn assert_generated<T: GeneratedNicePlugParams>() {}
 
@@ -393,17 +430,17 @@ fn generated_group_implements_marker_trait() {
 
 #[test]
 fn mirror_host_param_updates_config_and_writes_host_param_through_setter() {
-    let callbacks = callbacks();
+    let on_change = on_change();
     let source_config = ExampleParentConfig {
         gain: 1.0,
         count: 4,
         sample_rate: 450,
         child: ExampleChildConfig { child_gain: 1.5, child_precise: 4.75 },
     };
-    let params = ExampleParentParams::new(&source_config, &callbacks.f32, &callbacks.i32);
+    let params = ExampleParentParams::new(&source_config, &on_change);
     let duration_params = ExampleDurationParams::new(
         &ExampleDurationConfig { delay: Duration::from_secs_f32(0.5), curve: 0.7 },
-        &callbacks.f32,
+        &on_change,
     );
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
@@ -437,9 +474,9 @@ fn mirror_host_param_updates_config_and_writes_host_param_through_setter() {
 
 #[test]
 fn generated_field_mirror_methods_can_name_path_qualified_config_descriptors() {
-    let callback = callback_f32();
+    let on_change = on_change();
     let source_config = path_config::PathConfig { path_gain: 0.75 };
-    let params = PathParams::new(&source_config, &callback);
+    let params = PathParams::new(&source_config, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let mut config = source_config;
@@ -452,9 +489,9 @@ fn generated_field_mirror_methods_can_name_path_qualified_config_descriptors() {
 
 #[test]
 fn generated_field_mirror_methods_use_canonical_public_reexported_config_paths() {
-    let callback = callback_f32();
+    let on_change = on_change();
     let source_config = canonical_public_config::ReexportedConfig { reexported_gain: 0.75 };
-    let params = ReexportedParams::new(&source_config, &callback);
+    let params = ReexportedParams::new(&source_config, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let mut config = source_config;
@@ -467,9 +504,9 @@ fn generated_field_mirror_methods_use_canonical_public_reexported_config_paths()
 
 #[test]
 fn generated_field_mirror_methods_match_parameter_group_acronym_descriptor_names() {
-    let callback = callback_f32();
+    let on_change = on_change();
     let source_config = acronym_public_config::GUIConfig { interpolation_duration: Duration::from_millis(500) };
-    let params = AcronymGUIParams::new(&source_config, &callback);
+    let params = AcronymGUIParams::new(&source_config, &on_change);
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
     let mut config = source_config;
@@ -489,17 +526,8 @@ fn example_parent_config() -> ExampleParentConfig {
     }
 }
 
-struct Callbacks {
-    f32: Arc<dyn Fn(f32) + Send + Sync>,
-    i32: Arc<dyn Fn(i32) + Send + Sync>,
-}
-
-fn callbacks() -> Callbacks {
-    Callbacks { f32: callback_f32(), i32: Arc::new(|_: i32| {}) }
-}
-
-fn callback_f32() -> Arc<dyn Fn(f32) + Send + Sync> {
-    Arc::new(|_: f32| {})
+fn on_change() -> impl Fn() + Clone + Send + Sync + 'static {
+    || {}
 }
 
 fn metadata_to_f32(value: f64) -> f32 {
@@ -513,7 +541,9 @@ impl RemoteControlsPage for RemoteControlNames {
         self.0.push(param.name().to_owned());
     }
 
-    fn add_spacer(&mut self) {}
+    fn add_spacer(&mut self) {
+        self.0.push(String::from("<spacer>"));
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

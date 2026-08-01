@@ -122,7 +122,6 @@ fn expand_plugin_parameter_group(
     let struct_ident = &input.ident;
     let visibility = &input.vis;
     let config_type = &args.config_type;
-    let new_signature_callbacks = expand_new_signature_callbacks(&fields);
     let constructor_fields =
         fields.iter().map(|field| expand_constructor_field(field, config_type)).collect::<Result<Vec<_>>>()?;
     let readback_fields =
@@ -152,10 +151,14 @@ fn expand_plugin_parameter_group(
         #input
 
         impl #struct_ident {
-            #visibility fn new(
+            #visibility fn new<OnChange>(
                 config: &#config_type,
-                #(#new_signature_callbacks,)*
-            ) -> Self {
+                on_change: &OnChange,
+            ) -> Self
+            where
+                OnChange: ::core::ops::Fn() + ::core::clone::Clone + ::core::marker::Send
+                    + ::core::marker::Sync + 'static,
+            {
                 let parameters = #config_type::PARAMETERS;
 
                 Self {
@@ -271,7 +274,7 @@ fn expand_constructor_field(field: &PluginParameterField, config_type: &Type) ->
                 #field_ident: ::parameter_nice_plug::to_plugin_float_param(
                     &parameters.#field_ident(),
                     config,
-                    update_changed_at_f32,
+                    on_change,
                 )
             }
         }
@@ -280,7 +283,7 @@ fn expand_constructor_field(field: &PluginParameterField, config_type: &Type) ->
                 #field_ident: ::parameter_nice_plug::to_plugin_int_param(
                     &parameters.#field_ident(),
                     config,
-                    update_changed_at_i32,
+                    on_change,
                 )
             }
         }
@@ -289,13 +292,12 @@ fn expand_constructor_field(field: &PluginParameterField, config_type: &Type) ->
                 #field_ident: ::parameter_nice_plug::to_plugin_u16_logarithmic_param(
                     &parameters.#field_ident(),
                     config,
-                    update_changed_at_f32,
+                    on_change,
                 )
             }
         }
-        PluginParameterFieldKind::Adapter { adapter, callback } => {
+        PluginParameterFieldKind::Adapter { adapter } => {
             let value = parameter_field_value_type(config_type, field_ident)?;
-            let callback_argument = callback.argument();
             quote! {
                 #field_ident: <#adapter as ::parameter_nice_plug::NicePlugFieldAdapter<
                     #config_type,
@@ -303,13 +305,13 @@ fn expand_constructor_field(field: &PluginParameterField, config_type: &Type) ->
                 >>::to_host_param(
                     &parameters.#field_field_ident(),
                     config,
-                    #callback_argument,
+                    on_change,
                 )
             }
         }
         PluginParameterFieldKind::Nested { .. } => {
             quote! {
-                #field_ident: <#field_ty>::new(&config.#field_ident, update_changed_at_f32)
+                #field_ident: <#field_ty>::new(&config.#field_ident, on_change)
             }
         }
     };
@@ -484,20 +486,30 @@ fn expand_remote_control_entry(field: &PluginParameterField, config_type: &Type)
         }
     };
 
-    Ok(remote_control)
+    let spacer = field.remote_control_spacer_after.then(|| {
+        quote! {
+            page.add_spacer();
+        }
+    });
+
+    Ok(quote! {
+        #remote_control
+        #spacer
+    })
 }
 
 struct PluginParameterField {
     ident: Ident,
     ty: Type,
     kind: PluginParameterFieldKind,
+    remote_control_spacer_after: bool,
 }
 
 enum PluginParameterFieldKind {
     Float,
     Int,
     FloatU16Logarithmic,
-    Adapter { adapter: Path, callback: CallbackKind },
+    Adapter { adapter: Path },
     Nested { group: LitStr },
 }
 
@@ -521,13 +533,15 @@ fn parse_plugin_parameter_fields(input: &mut ItemStruct) -> Result<Vec<PluginPar
             };
             let parameter_attr = PluginParameterArgs::parse(&field.attrs)?;
             let nested_attr = NestedArgs::parse(&field.attrs)?;
+            let remote_control_spacer_after =
+                parameter_attr.as_ref().is_some_and(|args| args.remote_control_spacer_after);
             field.attrs.retain(|attr| {
                 !attr.path().is_ident("nice_plugin_parameter") && !attr.path().is_ident("nice_plugin_nested")
             });
             let ty = field.ty.clone();
             let kind = plugin_parameter_field_kind(&ty, parameter_attr, nested_attr)?;
 
-            Ok(PluginParameterField { ident, ty, kind })
+            Ok(PluginParameterField { ident, ty, kind, remote_control_spacer_after })
         })
         .collect()
 }
@@ -931,28 +945,13 @@ fn changed_field_mapper_path(config_type: &Type) -> Result<Path> {
 
 struct PluginParameterArgs {
     attribute: Attribute,
-    adapter: PluginParameterAdapter,
-    callback: Option<CallbackKind>,
+    adapter: Option<PluginParameterAdapter>,
+    remote_control_spacer_after: bool,
 }
 
 enum PluginParameterAdapter {
     BuiltIn(LitStr),
     Path(Path),
-}
-
-#[derive(Clone, Copy)]
-enum CallbackKind {
-    F32,
-    I32,
-}
-
-impl CallbackKind {
-    fn argument(self) -> proc_macro2::TokenStream {
-        match self {
-            Self::F32 => quote! { update_changed_at_f32 },
-            Self::I32 => quote! { update_changed_at_i32 },
-        }
-    }
 }
 
 impl PluginParameterArgs {
@@ -962,18 +961,27 @@ impl PluginParameterArgs {
         };
         let args = attribute.parse_args_with(Punctuated::<PluginParameterArg, Token![,]>::parse_terminated)?;
         let mut adapter = None;
-        let mut callback = None;
+        let mut remote_control = None;
 
         for arg in args {
             match arg.value {
                 PluginParameterArgValue::Adapter(value) if arg.name == "adapter" => {
                     assign_arg_once(&mut adapter, value, arg.name)?;
                 }
-                PluginParameterArgValue::Callback(value) if arg.name == "callback" => {
-                    assign_arg_once(&mut callback, value, arg.name)?;
+                PluginParameterArgValue::RemoteControl(value) if arg.name == "remote_control" => {
+                    validate_remote_control_declaration(&value)?;
+                    assign_arg_once(&mut remote_control, value, arg.name)?;
+                }
+                PluginParameterArgValue::StaleCallback if arg.name == "callback" => {
+                    return Err(syn::Error::new_spanned(
+                        arg.name,
+                        "`callback = ...` is no longer supported; adapters receive the group's logical change \
+                         notification",
+                    ));
                 }
                 PluginParameterArgValue::Adapter(_)
-                | PluginParameterArgValue::Callback(_)
+                | PluginParameterArgValue::RemoteControl(_)
+                | PluginParameterArgValue::StaleCallback
                 | PluginParameterArgValue::Unknown => {
                     let message = format!("unknown argument `{}` in #[nice_plugin_parameter(...)]", arg.name);
                     return Err(syn::Error::new_spanned(arg.name, message));
@@ -981,15 +989,23 @@ impl PluginParameterArgs {
             }
         }
 
-        let Some(adapter) = adapter else {
+        if adapter.is_none() && remote_control.is_none() {
             return Err(syn::Error::new_spanned(
                 &attribute,
                 "missing `adapter = \"...\"` in #[nice_plugin_parameter(...)]",
             ));
-        };
+        }
 
-        Ok(Some(Self { attribute, adapter, callback }))
+        Ok(Some(Self { attribute, adapter, remote_control_spacer_after: remote_control.is_some() }))
     }
+}
+
+fn validate_remote_control_declaration(value: &LitStr) -> Result<()> {
+    if value.value() != "spacer_after" {
+        return Err(syn::Error::new_spanned(value, "`remote_control` must be \"spacer_after\""));
+    }
+
+    Ok(())
 }
 
 struct PluginParameterArg {
@@ -999,7 +1015,8 @@ struct PluginParameterArg {
 
 enum PluginParameterArgValue {
     Adapter(PluginParameterAdapter),
-    Callback(CallbackKind),
+    RemoteControl(LitStr),
+    StaleCallback,
     Unknown,
 }
 
@@ -1014,27 +1031,17 @@ impl Parse for PluginParameterArg {
             } else {
                 PluginParameterAdapter::Path(input.parse()?)
             })
+        } else if name == "remote_control" {
+            PluginParameterArgValue::RemoteControl(input.parse()?)
         } else if name == "callback" {
-            PluginParameterArgValue::Callback(CallbackKind::parse(input)?)
+            let _: Expr = input.parse()?;
+            PluginParameterArgValue::StaleCallback
         } else {
             let _: Expr = input.parse()?;
             PluginParameterArgValue::Unknown
         };
 
         Ok(Self { name, value })
-    }
-}
-
-impl CallbackKind {
-    fn parse(input: ParseStream<'_>) -> Result<Self> {
-        let ty: Type = input.parse()?;
-        if is_type_named(&ty, "f32") {
-            Ok(Self::F32)
-        } else if is_type_named(&ty, "i32") {
-            Ok(Self::I32)
-        } else {
-            Err(syn::Error::new_spanned(ty, "`callback` must be `f32` or `i32`"))
-        }
     }
 }
 
@@ -1097,7 +1104,15 @@ fn plugin_parameter_field_kind(
                 parameter_attr.attribute.path().to_token_stream()
             ),
         )),
-        (Some(parameter_attr), None) => plugin_parameter_adapter_kind(ty, parameter_attr),
+        (Some(parameter_attr), None) => match parameter_attr.adapter {
+            Some(adapter) => plugin_parameter_adapter_kind(ty, adapter),
+            None if is_float_param(ty) => Ok(PluginParameterFieldKind::Float),
+            None if is_int_param(ty) => Ok(PluginParameterFieldKind::Int),
+            None => Err(syn::Error::new_spanned(
+                ty,
+                "remote-control declarations require a FloatParam or IntParam field unless an adapter is provided",
+            )),
+        },
         (None, Some(nested_attr)) => Ok(PluginParameterFieldKind::Nested { group: nested_attr.group }),
         (None, None) if is_float_param(ty) => Ok(PluginParameterFieldKind::Float),
         (None, None) if is_int_param(ty) => Ok(PluginParameterFieldKind::Int),
@@ -1108,8 +1123,8 @@ fn plugin_parameter_field_kind(
     }
 }
 
-fn plugin_parameter_adapter_kind(ty: &Type, args: PluginParameterArgs) -> Result<PluginParameterFieldKind> {
-    match args.adapter {
+fn plugin_parameter_adapter_kind(ty: &Type, adapter: PluginParameterAdapter) -> Result<PluginParameterFieldKind> {
+    match adapter {
         PluginParameterAdapter::BuiltIn(adapter) => {
             let adapter_value = adapter.value();
             if adapter_value == "float_u16_logarithmic" && is_float_param(ty) {
@@ -1121,31 +1136,8 @@ fn plugin_parameter_adapter_kind(ty: &Type, args: PluginParameterArgs) -> Result
 
             Err(syn::Error::new_spanned(adapter, "unsupported #[nice_plugin_parameter(adapter = ...)] value"))
         }
-        PluginParameterAdapter::Path(adapter) => {
-            let Some(callback) = args.callback else {
-                return Err(syn::Error::new_spanned(
-                    adapter,
-                    "path adapters require `callback = f32` or `callback = i32`",
-                ));
-            };
-
-            Ok(PluginParameterFieldKind::Adapter { adapter, callback })
-        }
+        PluginParameterAdapter::Path(adapter) => Ok(PluginParameterFieldKind::Adapter { adapter }),
     }
-}
-
-fn expand_new_signature_callbacks(fields: &[PluginParameterField]) -> Vec<proc_macro2::TokenStream> {
-    let mut callbacks = vec![quote! { update_changed_at_f32: &::std::sync::Arc<dyn Fn(f32) + Send + Sync> }];
-    if fields.iter().any(|field| {
-        matches!(
-            field.kind,
-            PluginParameterFieldKind::Int | PluginParameterFieldKind::Adapter { callback: CallbackKind::I32, .. }
-        )
-    }) {
-        callbacks.push(quote! { update_changed_at_i32: &::std::sync::Arc<dyn Fn(i32) + Send + Sync> });
-    }
-
-    callbacks
 }
 
 fn is_float_param(ty: &Type) -> bool {

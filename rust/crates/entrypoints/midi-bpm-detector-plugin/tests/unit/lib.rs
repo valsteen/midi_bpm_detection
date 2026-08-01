@@ -1,6 +1,19 @@
-use nice_plug::prelude::{ClapPlugin, Param, RemoteControlsContext, RemoteControlsPage, RemoteControlsSection};
+use std::sync::{Mutex, atomic::Ordering};
 
-use super::{DeferredConfigUpdate, MidiBpmDetector, PluginTiming};
+use nice_plug::{
+    context::PluginApi,
+    midi::PluginNoteEvent,
+    prelude::{
+        AuxiliaryBuffers, Buffer, ClapPlugin, Param, Params, Plugin, ProcessContext, RemoteControlsContext,
+        RemoteControlsPage, RemoteControlsSection, Transport,
+    },
+};
+use parameter_on_off::OnOff;
+
+use super::{
+    DeferredConfigUpdate, MidiBpmDetector, PARAMETER_SYNC_COALESCING_WINDOW, PluginTiming, duration_to_sample,
+    task_executor::Task,
+};
 
 #[derive(Default)]
 struct RemoteControlContext {
@@ -158,4 +171,93 @@ fn assert_normal_distribution_remote_controls_match_canonical_settings_order() {
         normal_distribution_page.params,
         ["Standard deviation", "Normal distribution resolution", "Normal distribution cutoff", "factor",]
     );
+}
+
+#[test]
+fn enabled_only_host_automation_dispatches_updated_dynamic_config() {
+    std::thread::Builder::new()
+        .name(String::from("enabled_only_dynamic_dispatch"))
+        .stack_size(32 * 1024 * 1024)
+        .spawn(assert_enabled_only_host_automation_dispatches_updated_dynamic_config)
+        .expect("enabled-only dynamic-dispatch test thread should start")
+        .join()
+        .expect("enabled-only dynamic-dispatch test should not panic");
+}
+
+fn assert_enabled_only_host_automation_dispatches_updated_dynamic_config() {
+    let mut plugin = MidiBpmDetector::default();
+    let _ = plugin.static_bpm_detection_config_changed_at.take();
+    let _ = plugin.gui_config_changed_at.take();
+    let _ = plugin.dynamic_bpm_detection_config_changed_at.take();
+    assert!(plugin.timing.initialize(48_000.0));
+
+    let before = plugin.params.dynamic_params.normal_distribution_weight.read();
+    let enabled = !before.is_enabled();
+    let enabled_param = plugin
+        .params
+        .dynamic_params
+        .param_map()
+        .into_iter()
+        .find_map(|(id, param, _)| (id == "normal_distribution_weight_enabled").then_some(param))
+        .expect("normal distribution enabled parameter should exist");
+
+    unsafe {
+        enabled_param._internal_set_normalized_value(if enabled { 1.0 } else { 0.0 });
+    }
+    assert_eq!(plugin.params.dynamic_params.normal_distribution_weight.read(), OnOff::new(enabled, before.value()));
+
+    plugin.current_sample.store(duration_to_sample(48_000, PARAMETER_SYNC_COALESCING_WINDOW), Ordering::Relaxed);
+    let mut buffer = Buffer::default();
+    let mut auxiliary_inputs: [Buffer<'_>; 0] = [];
+    let mut auxiliary_outputs: [Buffer<'_>; 0] = [];
+    let mut auxiliary_buffers = AuxiliaryBuffers { inputs: &mut auxiliary_inputs, outputs: &mut auxiliary_outputs };
+    let mut context = RecordingProcessContext::new(48_000.0);
+
+    Plugin::process(&mut plugin, &mut buffer, &mut auxiliary_buffers, &mut context);
+
+    let tasks = context.tasks.into_inner().unwrap();
+    assert_eq!(tasks.len(), 1);
+    let Task::ApplyDynamicConfig(config) = &tasks[0] else {
+        panic!("expected one dynamic-config task, got {:?}", tasks[0]);
+    };
+    assert_eq!(config.normal_distribution_weight, OnOff::new(enabled, before.value()));
+}
+
+struct RecordingProcessContext {
+    transport: Transport,
+    tasks: Mutex<Vec<Task>>,
+}
+
+impl RecordingProcessContext {
+    fn new(sample_rate: f32) -> Self {
+        Self { transport: Transport::new(sample_rate), tasks: Mutex::new(Vec::new()) }
+    }
+}
+
+impl ProcessContext<MidiBpmDetector> for RecordingProcessContext {
+    fn plugin_api(&self) -> PluginApi {
+        PluginApi::Standalone
+    }
+
+    fn execute_background(&self, task: Task) {
+        self.tasks.lock().unwrap().push(task);
+    }
+
+    fn execute_gui(&self, task: Task) {
+        self.tasks.lock().unwrap().push(task);
+    }
+
+    fn transport(&self) -> &Transport {
+        &self.transport
+    }
+
+    fn next_event(&mut self) -> Option<PluginNoteEvent<MidiBpmDetector>> {
+        None
+    }
+
+    fn send_event(&mut self, _event: PluginNoteEvent<MidiBpmDetector>) {}
+
+    fn set_latency_samples(&self, _samples: u32) {}
+
+    fn set_current_voice_capacity(&self, _capacity: u32) {}
 }
