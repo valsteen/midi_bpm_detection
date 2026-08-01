@@ -88,6 +88,19 @@ where
     pub fn apply_dynamic_config(&self, config: DynamicBPMDetectionConfig) -> Result<()> {
         self.execute(move |midi_in, _| midi_in.change_bpm_detection_config_live(config))
     }
+
+    /// Update whether the running MIDI service publishes detected tempo.
+    ///
+    /// # Errors
+    ///
+    /// This operation currently cannot fail; the result keeps the capability compatible with the controller command
+    /// boundary.
+    pub fn set_send_tempo(&self, enabled: bool) -> Result<()> {
+        self.midi_service.get(move |midi_service| {
+            midi_service.set_send_tempo(enabled);
+            Ok(())
+        })
+    }
 }
 
 fn select_after_connecting(

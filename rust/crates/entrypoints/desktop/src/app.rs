@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use bpm_detection_midi::MidiInputPort;
 use gui::{
     BPMDetectionGUI, BpmDisplayPublisher, EditableSettings, GuiChanges, GuiContextHandle,
@@ -39,10 +37,7 @@ impl DesktopApp {
         controller: SharedDesktopController<BpmDisplayPublisher>,
         commands: DesktopControllerCommandQueue<BpmDisplayPublisher>,
     ) -> Self {
-        let editable = EditableSettings {
-            bpm: config.bpm_detection.clone(),
-            send_tempo: Some(config.midi.send_tempo.load(Ordering::Relaxed)),
-        };
+        let editable = EditableSettings { bpm: config.bpm_detection.clone(), send_tempo: Some(config.midi.send_tempo) };
         Self {
             config,
             editable,
@@ -108,7 +103,8 @@ impl DesktopApp {
         }
         if gui_changes.send_tempo {
             let enabled = self.editable.send_tempo.expect("desktop supports send tempo");
-            self.config.midi.send_tempo.store(enabled, Ordering::Relaxed);
+            self.config.midi.send_tempo = enabled;
+            self.commands.set_send_tempo(enabled);
         }
         if desktop_changes.refresh_devices {
             self.commands.refresh_devices(self.context.clone());

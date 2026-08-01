@@ -24,7 +24,8 @@ use crate::fake_midi_output::VirtualMidiOutput;
 #[cfg(unix)]
 use crate::midi_output::VirtualMidiOutput;
 use crate::{
-    MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker, worker_command::BpmWorkerCommand,
+    MidiOutputRuntimeState, MidiServiceConfig, midi_input_port::MidiInputPort, sysex::SysExCommand, worker,
+    worker_command::BpmWorkerCommand,
 };
 
 pub struct MidiIn<B> {
@@ -42,6 +43,7 @@ where
 {
     fn new(
         midi_service_config: &MidiServiceConfig,
+        output_state: MidiOutputRuntimeState,
         bpm_detection_config: StaticBPMDetectionConfig,
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_device_changes_notification: impl Fn() + Send + 'static,
@@ -52,7 +54,7 @@ where
         let (worker_commands_sender, worker_commands_receiver) = std::sync::mpsc::channel();
 
         worker::spawn(
-            midi_service_config,
+            output_state,
             bpm_detection_config,
             dynamic_bpm_detection_config,
             worker_commands_receiver,
@@ -187,6 +189,7 @@ fn midi_timestamp_to_elapsed_duration(timestamp: u64, start_timestamp: u64) -> O
 
 pub struct MidiService<B> {
     commands_sender: CommandsSender<B>,
+    output_state: MidiOutputRuntimeState,
 }
 
 impl<B> MidiService<B>
@@ -195,6 +198,7 @@ where
 {
     fn start_service(
         midi_service_config: MidiServiceConfig,
+        output_state: MidiOutputRuntimeState,
         bpm_detection_config: StaticBPMDetectionConfig,
         dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
         #[cfg(target_os = "macos")] send_devices_change_notification: impl Fn() + Send + 'static,
@@ -206,6 +210,7 @@ where
             let mut midi_input_connection = None; // just a value holder. Dropping it means we stop listening
             let midi_in = match MidiIn::new(
                 &midi_service_config,
+                output_state,
                 bpm_detection_config,
                 dynamic_bpm_detection_config,
                 #[cfg(target_os = "macos")]
@@ -236,17 +241,23 @@ where
         #[cfg(target_os = "macos")] send_devices_change_notification: impl Fn() + Send + 'static,
         bpm_detection_receiver: B,
     ) -> Result<Self> {
-        Ok(Self {
-            commands_sender: Self::start_service(
-                midi_service_config,
-                bpm_detection_config,
-                dynamic_bpm_detection_config,
-                #[cfg(target_os = "macos")]
-                send_devices_change_notification,
-                bpm_detection_receiver,
-            )?
-            .recv()??,
-        })
+        let output_state = MidiOutputRuntimeState::new(&midi_service_config);
+        let commands_sender = Self::start_service(
+            midi_service_config,
+            output_state.clone(),
+            bpm_detection_config,
+            dynamic_bpm_detection_config,
+            #[cfg(target_os = "macos")]
+            send_devices_change_notification,
+            bpm_detection_receiver,
+        )?
+        .recv()??;
+
+        Ok(Self { commands_sender, output_state })
+    }
+
+    pub fn set_send_tempo(&self, enabled: bool) {
+        self.output_state.set_send_tempo(enabled);
     }
 
     pub fn execute<R, F>(&self, command: F) -> Result<R>

@@ -211,6 +211,10 @@ where
         });
     }
 
+    pub fn set_send_tempo(&self, enabled: bool) {
+        self.send("Could not apply send-tempo setting", move |controller| controller.set_send_tempo(enabled));
+    }
+
     pub fn refresh_devices(&self, context: GuiContextHandle) {
         self.send("Could not refresh MIDI input list", move |controller| {
             let result = controller.refresh_devices();

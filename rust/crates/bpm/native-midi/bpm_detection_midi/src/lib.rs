@@ -1,6 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 
+use std::sync::atomic::Ordering;
+
 use bpm_detection_core::{TimedEvent, note_events::NoteOn};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub use coremidi::restart;
@@ -28,8 +30,27 @@ mod worker_command;
 #[serde(deny_unknown_fields)]
 pub struct MidiServiceConfig {
     pub device_name: String,
-    pub send_tempo: ArcAtomicBool,
-    pub enable_midi_clock: ArcAtomicBool,
+    pub send_tempo: bool,
+    pub enable_midi_clock: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct MidiOutputRuntimeState {
+    pub(crate) send_tempo: ArcAtomicBool,
+    pub(crate) enable_midi_clock: ArcAtomicBool,
+}
+
+impl MidiOutputRuntimeState {
+    fn new(config: &MidiServiceConfig) -> Self {
+        Self {
+            send_tempo: ArcAtomicBool::new(config.send_tempo),
+            enable_midi_clock: ArcAtomicBool::new(config.enable_midi_clock),
+        }
+    }
+
+    fn set_send_tempo(&self, enabled: bool) {
+        self.send_tempo.store(enabled, Ordering::Relaxed);
+    }
 }
 
 #[must_use]

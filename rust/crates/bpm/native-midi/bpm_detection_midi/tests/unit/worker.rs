@@ -3,6 +3,16 @@ use chrono::Duration;
 use wmidi::{Channel, ControlFunction, U7};
 
 use super::*;
+use crate::{MidiOutputRuntimeState, MidiServiceConfig};
+
+#[derive(Clone, Copy)]
+struct TestReceiver;
+
+impl BPMDetectionReceiver for TestReceiver {
+    fn receive_bpm_histogram_data(&mut self, _histogram_data_points: &[f32], _detected_bpm: f32) {}
+
+    fn receive_daw_bpm(&self, _bpm: f32) {}
+}
 
 #[derive(Default)]
 struct TestMidiOutput {
@@ -25,6 +35,31 @@ impl MidiOutput for TestMidiOutput {
 
 fn timed_note_on_at(timestamp: Duration) -> TimedNoteOn {
     TimedNoteOn { timestamp, event: NoteOn { channel: 0, pitch: 60, velocity: 100 } }
+}
+
+#[test]
+fn live_send_tempo_change_controls_publication_without_mutating_config() {
+    let config = MidiServiceConfig { device_name: "Test".to_owned(), send_tempo: false, enable_midi_clock: false };
+    let output_state = MidiOutputRuntimeState::new(&config);
+    let (midi_output_sender, midi_output_receiver) = std::sync::mpsc::channel();
+    let mut publisher = DetectedBpmPublisher {
+        receiver: TestReceiver,
+        midi_output_sender,
+        clock_interval_microseconds: Arc::new(AtomicU64::new(1)),
+        output_state: output_state.clone(),
+    };
+
+    publisher.publish(&[], 120.0);
+    assert!(midi_output_receiver.try_recv().is_err());
+
+    output_state.set_send_tempo(true);
+    publisher.publish(&[], 123.0);
+
+    assert!(matches!(
+        midi_output_receiver.try_recv(),
+        Ok(MidiOutputCommand::Tempo(bpm)) if (bpm - 123.0).abs() < f32::EPSILON
+    ));
+    assert!(!config.send_tempo);
 }
 
 #[test]

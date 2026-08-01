@@ -12,9 +12,8 @@ use bpm_detection_config::{DynamicBPMDetectionConfig, StaticBPMDetectionConfig, 
 use bpm_detection_core::{BPMDetection, bpm_detection_receiver::BPMDetectionReceiver};
 use errors::Result;
 use log::error;
-use sync::ArcAtomicBool;
 
-use crate::{MidiServiceConfig, midi_output_trait::MidiOutput, worker_command::BpmWorkerCommand};
+use crate::{MidiOutputRuntimeState, midi_output_trait::MidiOutput, worker_command::BpmWorkerCommand};
 
 const MAX_CLOCK_INTERVAL_MICROSECONDS: u64 = 1_000_000;
 const FALLBACK_CLOCK_BPM: f32 = 120.0;
@@ -248,7 +247,7 @@ where
     receiver: B,
     midi_output_sender: Sender<MidiOutputCommand>,
     clock_interval_microseconds: Arc<AtomicU64>,
-    send_tempo: ArcAtomicBool,
+    output_state: MidiOutputRuntimeState,
 }
 
 impl<B> DetectedBpmPublisher<B>
@@ -258,7 +257,7 @@ where
     fn publish(&mut self, histogram_data_points: &[f32], bpm: f32) {
         // Detected BPM drives two desktop side effects: MIDI clock interval and optional tempo SysEx.
         self.clock_interval_microseconds.store(midi_clock_interval_microseconds(bpm), Ordering::Relaxed);
-        if self.send_tempo.load(Ordering::Relaxed)
+        if self.output_state.send_tempo.load(Ordering::Relaxed)
             && let Err(err) = self.midi_output_sender.send(MidiOutputCommand::Tempo(bpm))
         {
             error!("could not send tempo to MIDI output thread : {err:?}");
@@ -269,7 +268,7 @@ where
 }
 
 pub fn spawn(
-    midi_service_config: &MidiServiceConfig,
+    output_state: MidiOutputRuntimeState,
     static_bpm_detection_config: StaticBPMDetectionConfig,
     dynamic_bpm_detection_config: DynamicBPMDetectionConfig,
     worker_commands_receiver: Receiver<BpmWorkerCommand>,
@@ -278,18 +277,15 @@ pub fn spawn(
 ) -> Result<()> {
     let initial_clock_interval_microseconds = midi_clock_interval_microseconds(static_bpm_detection_config.bpm_center);
     let clock_interval_microseconds = Arc::new(AtomicU64::new(initial_clock_interval_microseconds));
-    let midi_output_sender = spawn_midi_output_controller(
-        midi_service_config.enable_midi_clock.clone(),
-        clock_interval_microseconds.clone(),
-        midi_output,
-    )?;
+    let midi_output_sender =
+        spawn_midi_output_controller(output_state.clone(), clock_interval_microseconds.clone(), midi_output)?;
 
     let worker_midi_output_sender = midi_output_sender.clone();
     let bpm_publisher = DetectedBpmPublisher {
         receiver: bpm_detection_receiver,
         midi_output_sender,
         clock_interval_microseconds,
-        send_tempo: midi_service_config.send_tempo.clone(),
+        output_state,
     };
 
     thread::Builder::new().name("BPM worker".to_string()).spawn(move || {
@@ -308,7 +304,7 @@ pub fn spawn(
 }
 
 fn spawn_midi_output_controller<C>(
-    enable_midi_clock: ArcAtomicBool,
+    output_state: MidiOutputRuntimeState,
     clock_interval_microseconds: Arc<AtomicU64>,
     mut midi_output: C,
 ) -> Result<Sender<MidiOutputCommand>>
@@ -321,11 +317,11 @@ where
 
     midi_output_thread.spawn(move || {
         loop {
-            if enable_midi_clock.load(Ordering::Relaxed) {
+            if output_state.enable_midi_clock.load(Ordering::Relaxed) {
                 if clock_emitter_loop(
                     &mut midi_output,
                     &midi_output_receiver,
-                    &enable_midi_clock,
+                    &output_state,
                     &clock_interval_microseconds,
                 )
                 .is_err()
@@ -334,7 +330,7 @@ where
                 }
             } else {
                 // Clock enable is an atomic flag, not a queued command, so poll while idle to react promptly.
-                while !enable_midi_clock.load(Ordering::Relaxed) {
+                while !output_state.enable_midi_clock.load(Ordering::Relaxed) {
                     match midi_output_receiver.recv_timeout(MIDI_OUTPUT_IDLE_POLL_INTERVAL) {
                         Ok(command) => handle_midi_output_command(&mut midi_output, command),
                         Err(RecvTimeoutError::Disconnected) => return,
@@ -351,7 +347,7 @@ where
 fn clock_emitter_loop<C>(
     clock_emitter: &mut C,
     midi_output_receiver: &Receiver<MidiOutputCommand>,
-    enable_midi_clock: &ArcAtomicBool,
+    output_state: &MidiOutputRuntimeState,
     clock_interval_microseconds: &Arc<AtomicU64>,
 ) -> Result<(), ()>
 where
@@ -359,7 +355,7 @@ where
 {
     let mut next_tick = Instant::now();
 
-    while enable_midi_clock.load(Ordering::Relaxed) {
+    while output_state.enable_midi_clock.load(Ordering::Relaxed) {
         // Apply queued output commands before each tick; tempo commands are coalesced by the drain helper.
         drain_midi_output_commands(clock_emitter, midi_output_receiver)?;
 
