@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
+use desktop::controller_runtime::DesktopControllerCommandQueue;
 use desktop::{
     app::DesktopApp,
     config::DesktopConfig,
     controller::DesktopController,
-    controller_runtime::{DesktopControllerCommandQueue, PendingDesktopControllerRuntime, SharedDesktopController},
+    controller_runtime::{PendingDesktopControllerRuntime, SharedDesktopController},
 };
 use errors::{LogErrorWithExt, MakeReportExt, Result, initialize_logging, initialize_panic_handler};
+#[cfg(target_os = "macos")]
+use gui::GuiContextHandle;
 use gui::{
-    BpmDisplayPublisher, GuiContextHandle, GuiLifecycleOwner, create_gui,
+    BpmDisplayPublisher, GuiLifecycleOwner, create_gui,
     eframe::{self, egui},
 };
 use mimalloc::MiMalloc;
