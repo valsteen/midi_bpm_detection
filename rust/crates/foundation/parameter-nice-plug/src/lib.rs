@@ -39,29 +39,33 @@ pub trait MirrorChangedConfig {
 }
 
 pub trait NicePlugFieldAdapter<Config, Value> {
-    type HostParam;
+    type HostParams;
 
-    fn to_host_param<OnChange>(
+    fn to_host_params<OnChange>(
         field: &ParameterField<Config, Value>,
         config: &Config,
         on_change: &OnChange,
-    ) -> Self::HostParam
+    ) -> Self::HostParams
     where
         OnChange: Fn() + Clone + Send + Sync + 'static;
 
-    fn set_config_from_host_param(parameter: &Parameter<Config, Value>, config: &mut Config, param: &Self::HostParam);
+    fn set_config_from_host_params(
+        parameter: &Parameter<Config, Value>,
+        config: &mut Config,
+        host_params: &Self::HostParams,
+    );
 
-    fn add_param_map(param: &Self::HostParam, params: &mut Vec<(String, ParamPtr, String)>);
+    fn add_param_map(host_params: &Self::HostParams, params: &mut Vec<(String, ParamPtr, String)>);
 
-    fn serialize_fields(param: &Self::HostParam, serialized: &mut BTreeMap<String, String>);
+    fn serialize_fields(host_params: &Self::HostParams, serialized: &mut BTreeMap<String, String>);
 
-    fn deserialize_fields(param: &Self::HostParam, serialized: &BTreeMap<String, String>);
+    fn deserialize_fields(host_params: &Self::HostParams, serialized: &BTreeMap<String, String>);
 
-    fn add_remote_control(param: &Self::HostParam, page: &mut impl RemoteControlsPage);
+    fn add_remote_controls(host_params: &Self::HostParams, page: &mut impl RemoteControlsPage);
 }
 
-pub trait MirrorHostParam<Config, Value> {
-    fn mirror_host_param(
+pub trait MirrorHostParams<Config, Value> {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, Value>,
@@ -228,8 +232,8 @@ impl<Config> ToNicePlugParam<Duration> for Parameter<Config, Duration> {
     }
 }
 
-impl<Config> MirrorHostParam<Config, f32> for FloatParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, f32> for FloatParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, f32>,
@@ -241,8 +245,8 @@ impl<Config> MirrorHostParam<Config, f32> for FloatParam {
     }
 }
 
-impl<Config> MirrorHostParam<Config, f64> for FloatParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, f64> for FloatParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, f64>,
@@ -254,8 +258,8 @@ impl<Config> MirrorHostParam<Config, f64> for FloatParam {
     }
 }
 
-impl<Config> MirrorHostParam<Config, u16> for FloatParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, u16> for FloatParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, u16>,
@@ -267,8 +271,8 @@ impl<Config> MirrorHostParam<Config, u16> for FloatParam {
     }
 }
 
-impl<Config> MirrorHostParam<Config, Duration> for FloatParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, Duration> for FloatParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, Duration>,
@@ -280,8 +284,8 @@ impl<Config> MirrorHostParam<Config, Duration> for FloatParam {
     }
 }
 
-impl<Config> MirrorHostParam<Config, u8> for IntParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, u8> for IntParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, u8>,
@@ -293,8 +297,8 @@ impl<Config> MirrorHostParam<Config, u8> for IntParam {
     }
 }
 
-impl<Config> MirrorHostParam<Config, u16> for IntParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, u16> for IntParam {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, u16>,

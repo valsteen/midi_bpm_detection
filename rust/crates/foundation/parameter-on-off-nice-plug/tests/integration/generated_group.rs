@@ -12,9 +12,11 @@ use nice_plug::{
     prelude::{GuiContext, ParamFlags, ParamPtr, ParamSetter, PluginState, RemoteControlsPage},
 };
 use parameter::parameter_group;
-use parameter_nice_plug::{GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParam, nice_plugin_parameter_group};
+use parameter_nice_plug::{
+    GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParams, nice_plugin_parameter_group,
+};
 use parameter_on_off::OnOff;
-use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
+use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParams};
 
 #[parameter_group]
 #[derive(Clone, PartialEq, Debug)]
@@ -30,7 +32,7 @@ pub struct ExampleOnOffConfig {
 #[nice_plugin_parameter_group(config = ExampleOnOffConfig, group = "on_off", accessor_macro = example_on_off_accessors)]
 pub struct ExampleOnOffParams {
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub weighted_gain: OnOffParam,
+    pub weighted_gain: OnOffParams,
     pub plain_gain: FloatParam,
     pub steps: IntParam,
 }
@@ -120,14 +122,14 @@ fn either_on_off_host_parameter_emits_the_same_logical_change_notification() {
 }
 
 #[test]
-fn mirror_host_param_requests_enabled_only_change_from_boolean_parameter() {
+fn mirror_host_params_request_enabled_only_change_from_boolean_parameter() {
     let (params, mut config) = example_params(OnOff::On(0.5));
     let param_map = params.param_map();
     let enabled = param_map[0].1;
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
-    params.weighted_gain.mirror_host_param(
+    params.weighted_gain.mirror_host_params(
         &mut config,
         &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
         OnOff::Off(0.5),
@@ -140,14 +142,14 @@ fn mirror_host_param_requests_enabled_only_change_from_boolean_parameter() {
 }
 
 #[test]
-fn mirror_host_param_requests_value_only_change_from_float_parameter() {
+fn mirror_host_params_request_value_only_change_from_float_parameter() {
     let (params, mut config) = example_params(OnOff::On(0.5));
     let param_map = params.param_map();
     let value = param_map[1].1;
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
-    params.weighted_gain.mirror_host_param(
+    params.weighted_gain.mirror_host_params(
         &mut config,
         &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
         OnOff::On(0.75),
@@ -160,7 +162,7 @@ fn mirror_host_param_requests_value_only_change_from_float_parameter() {
 }
 
 #[test]
-fn mirror_host_param_requests_both_concrete_parameters_in_pair_order() {
+fn mirror_host_params_request_both_concrete_parameters_in_pair_order() {
     let (params, mut config) = example_params(OnOff::On(0.5));
     let param_map = params.param_map();
     let enabled = param_map[0].1;
@@ -168,7 +170,7 @@ fn mirror_host_param_requests_both_concrete_parameters_in_pair_order() {
     let context = RecordingGuiContext::default();
     let setter = ParamSetter::new(&context);
 
-    params.weighted_gain.mirror_host_param(
+    params.weighted_gain.mirror_host_params(
         &mut config,
         &ExampleOnOffConfig::PARAMETERS.weighted_gain(),
         OnOff::Off(0.75),

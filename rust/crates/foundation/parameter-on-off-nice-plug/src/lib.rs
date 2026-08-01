@@ -6,17 +6,17 @@ use nice_plug::{
 };
 use num_traits::ToPrimitive;
 use parameter::{Parameter, ParameterField};
-use parameter_nice_plug::{MirrorHostParam, NicePlugFieldAdapter};
+use parameter_nice_plug::{MirrorHostParams, NicePlugFieldAdapter};
 use parameter_on_off::OnOff;
 
-pub struct OnOffParam {
+pub struct OnOffParams {
     enabled_id: String,
     value_id: &'static str,
     enabled: BoolParam,
     value: FloatParam,
 }
 
-impl OnOffParam {
+impl OnOffParams {
     fn new(enabled_id: String, value_id: &'static str, enabled: BoolParam, value: FloatParam) -> Self {
         Self { enabled_id, value_id, enabled, value }
     }
@@ -29,46 +29,46 @@ impl OnOffParam {
 pub struct OnOffF32Adapter;
 
 impl<Config> NicePlugFieldAdapter<Config, OnOff<f32>> for OnOffF32Adapter {
-    type HostParam = OnOffParam;
+    type HostParams = OnOffParams;
 
-    fn to_host_param<OnChange>(
+    fn to_host_params<OnChange>(
         field: &ParameterField<Config, OnOff<f32>>,
         config: &Config,
         on_change: &OnChange,
-    ) -> Self::HostParam
+    ) -> Self::HostParams
     where
         OnChange: Fn() + Clone + Send + Sync + 'static,
     {
-        to_plugin_on_off_f32_param(field, config, on_change)
+        to_plugin_on_off_f32_params(field, config, on_change)
     }
 
-    fn set_config_from_host_param(
+    fn set_config_from_host_params(
         parameter: &Parameter<Config, OnOff<f32>>,
         config: &mut Config,
-        param: &Self::HostParam,
+        host_params: &Self::HostParams,
     ) {
-        set_config_from_on_off_f32_param(parameter, config, param);
+        set_config_from_on_off_f32_params(parameter, config, host_params);
     }
 
-    fn add_param_map(param: &Self::HostParam, params: &mut Vec<(String, ParamPtr, String)>) {
-        params.extend(param.param_map());
+    fn add_param_map(host_params: &Self::HostParams, params: &mut Vec<(String, ParamPtr, String)>) {
+        params.extend(host_params.param_map());
     }
 
-    fn serialize_fields(param: &Self::HostParam, serialized: &mut BTreeMap<String, String>) {
-        serialized.extend(Params::serialize_fields(param));
+    fn serialize_fields(host_params: &Self::HostParams, serialized: &mut BTreeMap<String, String>) {
+        serialized.extend(Params::serialize_fields(host_params));
     }
 
-    fn deserialize_fields(param: &Self::HostParam, serialized: &BTreeMap<String, String>) {
-        Params::deserialize_fields(param, serialized);
+    fn deserialize_fields(host_params: &Self::HostParams, serialized: &BTreeMap<String, String>) {
+        Params::deserialize_fields(host_params, serialized);
     }
 
-    fn add_remote_control(param: &Self::HostParam, page: &mut impl RemoteControlsPage) {
-        page.add_param(&param.enabled);
-        page.add_param(&param.value);
+    fn add_remote_controls(host_params: &Self::HostParams, page: &mut impl RemoteControlsPage) {
+        page.add_param(&host_params.enabled);
+        page.add_param(&host_params.value);
     }
 }
 
-unsafe impl Params for OnOffParam {
+unsafe impl Params for OnOffParams {
     fn param_map(&self) -> Vec<(String, ParamPtr, String)> {
         vec![
             (self.enabled_id.clone(), self.enabled.as_ptr(), String::new()),
@@ -77,11 +77,11 @@ unsafe impl Params for OnOffParam {
     }
 }
 
-pub fn to_plugin_on_off_f32_param<Config, OnChange>(
+pub fn to_plugin_on_off_f32_params<Config, OnChange>(
     field: &ParameterField<Config, OnOff<f32>>,
     config: &Config,
     on_change: &OnChange,
-) -> OnOffParam
+) -> OnOffParams
 where
     OnChange: Fn() + Clone + Send + Sync + 'static,
 {
@@ -92,19 +92,19 @@ where
         .with_callback(Arc::new(move |_| enabled_on_change()));
     let value_param = float_param_from_metadata(parameter, value.value(), on_change);
 
-    OnOffParam::new(format!("{}_enabled", field.field_name), field.field_name, enabled, value_param)
+    OnOffParams::new(format!("{}_enabled", field.field_name), field.field_name, enabled, value_param)
 }
 
-pub fn set_config_from_on_off_f32_param<Config>(
+pub fn set_config_from_on_off_f32_params<Config>(
     parameter: &Parameter<Config, OnOff<f32>>,
     config: &mut Config,
-    param: &OnOffParam,
+    host_params: &OnOffParams,
 ) {
-    (parameter.set)(config, param.read());
+    (parameter.set)(config, host_params.read());
 }
 
-impl<Config> MirrorHostParam<Config, OnOff<f32>> for OnOffParam {
-    fn mirror_host_param(
+impl<Config> MirrorHostParams<Config, OnOff<f32>> for OnOffParams {
+    fn mirror_host_params(
         &self,
         config: &mut Config,
         parameter: &Parameter<Config, OnOff<f32>>,

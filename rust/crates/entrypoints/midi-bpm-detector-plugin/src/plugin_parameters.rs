@@ -15,7 +15,7 @@ use nice_plug::{
 use nice_plug_egui::EguiState;
 use num_traits::ToPrimitive;
 use parameter_nice_plug::nice_plugin_parameter_group;
-use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
+use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParams};
 use sync::{ArcAtomicBool, ArcAtomicOptionNonZeroU16};
 
 use crate::{DeferredConfigUpdate, plugin_config::PluginConfig};
@@ -37,25 +37,25 @@ pub struct PluginDynamicParams {
     #[nice_plugin_parameter(remote_control = "spacer_after")]
     pub beats_lookback: IntParam,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub normal_distribution_weight: OnOffParam,
+    pub normal_distribution_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub time_distance_weight: OnOffParam,
+    pub time_distance_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub velocity_current_note_weight: OnOffParam,
+    pub velocity_current_note_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub velocity_note_from_weight: OnOffParam,
+    pub velocity_note_from_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub in_beat_range_weight: OnOffParam,
+    pub in_beat_range_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub multiplier_weight: OnOffParam,
+    pub multiplier_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub subdivision_weight: OnOffParam,
+    pub subdivision_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub octave_distance_weight: OnOffParam,
+    pub octave_distance_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub pitch_distance_weight: OnOffParam,
+    pub pitch_distance_weight: OnOffParams,
     #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
-    pub high_tempo_bias_weight: OnOffParam,
+    pub high_tempo_bias_weight: OnOffParams,
 }
 
 #[nice_plugin_parameter_group(
@@ -128,7 +128,7 @@ impl HostParameterChangeMarker {
         Self { current_sample, changed_at }
     }
 
-    fn notification(&self) -> impl Fn() + Clone + Send + Sync + 'static {
+    fn mark_changed_callback(&self) -> impl Fn() + Clone + Send + Sync + 'static {
         let current_sample = self.current_sample.clone();
         let changed_at = self.changed_at.clone();
         move || {
@@ -159,26 +159,27 @@ impl MidiBpmDetectorParams {
         daw_port: &ArcAtomicOptionNonZeroU16,
         send_tempo_output: ArcAtomicBool,
     ) -> Self {
-        let static_change_marker =
+        let static_config_change_marker =
             HostParameterChangeMarker::new(current_sample.clone(), static_bpm_detection_config_changed_at.clone());
-        let gui_change_marker = HostParameterChangeMarker::new(current_sample.clone(), gui_config_changed_at.clone());
-        let dynamic_change_marker =
+        let gui_config_change_marker =
+            HostParameterChangeMarker::new(current_sample.clone(), gui_config_changed_at.clone());
+        let dynamic_config_change_marker =
             HostParameterChangeMarker::new(current_sample.clone(), dynamic_bpm_detection_config_changed_at.clone());
-        let update_gui_changed_at = gui_change_marker.notification();
-        let update_static_changed_at = static_change_marker.notification();
-        let update_dynamic_changed_at = dynamic_change_marker.notification();
+        let mark_gui_config_changed = gui_config_change_marker.mark_changed_callback();
+        let mark_static_config_changed = static_config_change_marker.mark_changed_callback();
+        let mark_dynamic_config_changed = dynamic_config_change_marker.mark_changed_callback();
 
         Self {
             editor_state: EguiState::from_size(LogicalSize::new(1200.0, 600.0)),
             send_tempo: send_tempo_param(config.send_tempo, send_tempo_output),
-            gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &update_gui_changed_at),
+            gui_params: PluginGUIParams::new(&config.bpm_detection.gui_config, &mark_gui_config_changed),
             static_params: PluginStaticParams::new(
                 &config.bpm_detection.static_bpm_detection_config,
-                &update_static_changed_at,
+                &mark_static_config_changed,
             ),
             dynamic_params: PluginDynamicParams::new(
                 &config.bpm_detection.dynamic_bpm_detection_config,
-                &update_dynamic_changed_at,
+                &mark_dynamic_config_changed,
             ),
             daw_port: daw_port_param(daw_port),
         }

@@ -302,7 +302,7 @@ fn expand_constructor_field(field: &PluginParameterField, config_type: &Type) ->
                 #field_ident: <#adapter as ::parameter_nice_plug::NicePlugFieldAdapter<
                     #config_type,
                     #value,
-                >>::to_host_param(
+                >>::to_host_params(
                     &parameters.#field_field_ident(),
                     config,
                     on_change,
@@ -341,7 +341,7 @@ fn expand_readback_field(field: &PluginParameterField, config_type: &Type) -> Re
                 <#adapter as ::parameter_nice_plug::NicePlugFieldAdapter<
                     #config_type,
                     #value,
-                >>::set_config_from_host_param(&parameter, &mut config, &self.#field_ident);
+                >>::set_config_from_host_params(&parameter, &mut config, &self.#field_ident);
             }
         }
         PluginParameterFieldKind::Nested { .. } => {
@@ -476,7 +476,7 @@ fn expand_remote_control_entry(field: &PluginParameterField, config_type: &Type)
                 <#adapter as ::parameter_nice_plug::NicePlugFieldAdapter<
                     #config_type,
                     #value,
-                >>::add_remote_control(&self.#field_ident, page);
+                >>::add_remote_controls(&self.#field_ident, page);
             }
         }
         PluginParameterFieldKind::Nested { .. } => {
@@ -568,10 +568,10 @@ fn expand_mirror_method(
         )
         where
             #descriptor: ::parameter::ParameterFieldDescriptor<#config_type>,
-            #field_ty: ::parameter_nice_plug::MirrorHostParam<#config_type, #value>,
+            #field_ty: ::parameter_nice_plug::MirrorHostParams<#config_type, #value>,
         {
             let parameter = <#descriptor as ::parameter::ParameterFieldDescriptor<#config_type>>::parameter();
-            <#field_ty as ::parameter_nice_plug::MirrorHostParam<#config_type, #value>>::mirror_host_param(
+            <#field_ty as ::parameter_nice_plug::MirrorHostParams<#config_type, #value>>::mirror_host_params(
                 &self.#field_ident,
                 config,
                 &parameter,

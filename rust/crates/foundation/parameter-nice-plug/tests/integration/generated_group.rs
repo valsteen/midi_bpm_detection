@@ -14,7 +14,9 @@ use nice_plug::{
 };
 use num_traits::ToPrimitive;
 use parameter::{Asf64, parameter_group};
-use parameter_nice_plug::{GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParam, nice_plugin_parameter_group};
+use parameter_nice_plug::{
+    GeneratedNicePlugParams, MirrorChangedConfig, MirrorHostParams, nice_plugin_parameter_group,
+};
 
 #[parameter_group]
 #[derive(Clone, PartialEq, Debug)]
@@ -107,7 +109,7 @@ mod external_gain {
         prelude::{FloatRange, ParamPtr, ParamSetter, RemoteControlsPage},
     };
     use parameter::{Parameter, ParameterField};
-    use parameter_nice_plug::{MirrorHostParam, NicePlugFieldAdapter};
+    use parameter_nice_plug::{MirrorHostParams, NicePlugFieldAdapter};
 
     use crate::{ExternalAdapterConfig, ExternalGain, metadata_to_f32};
 
@@ -131,13 +133,13 @@ mod external_gain {
     }
 
     impl<Config> NicePlugFieldAdapter<Config, ExternalGain> for Adapter {
-        type HostParam = ExternalGainParam;
+        type HostParams = ExternalGainParam;
 
-        fn to_host_param<OnChange>(
+        fn to_host_params<OnChange>(
             field: &ParameterField<Config, ExternalGain>,
             config: &Config,
             on_change: &OnChange,
-        ) -> Self::HostParam
+        ) -> Self::HostParams
         where
             OnChange: Fn() + Clone + Send + Sync + 'static,
         {
@@ -154,32 +156,32 @@ mod external_gain {
             )
             .with_callback(Arc::new(move |_| on_change()));
 
-            Self::HostParam { id: field.field_name, value: host_param }
+            Self::HostParams { id: field.field_name, value: host_param }
         }
 
-        fn set_config_from_host_param(
+        fn set_config_from_host_params(
             parameter: &Parameter<Config, ExternalGain>,
             config: &mut Config,
-            param: &Self::HostParam,
+            host_params: &Self::HostParams,
         ) {
-            (parameter.set)(config, param.read());
+            (parameter.set)(config, host_params.read());
         }
 
-        fn add_param_map(param: &Self::HostParam, params: &mut Vec<(String, ParamPtr, String)>) {
-            params.extend(param.param_map());
+        fn add_param_map(host_params: &Self::HostParams, params: &mut Vec<(String, ParamPtr, String)>) {
+            params.extend(host_params.param_map());
         }
 
-        fn serialize_fields(_param: &Self::HostParam, _serialized: &mut BTreeMap<String, String>) {}
+        fn serialize_fields(_host_params: &Self::HostParams, _serialized: &mut BTreeMap<String, String>) {}
 
-        fn deserialize_fields(_param: &Self::HostParam, _serialized: &BTreeMap<String, String>) {}
+        fn deserialize_fields(_host_params: &Self::HostParams, _serialized: &BTreeMap<String, String>) {}
 
-        fn add_remote_control(param: &Self::HostParam, page: &mut impl RemoteControlsPage) {
-            page.add_param(&param.value);
+        fn add_remote_controls(host_params: &Self::HostParams, page: &mut impl RemoteControlsPage) {
+            page.add_param(&host_params.value);
         }
     }
 
-    impl MirrorHostParam<ExternalAdapterConfig, ExternalGain> for ExternalGainParam {
-        fn mirror_host_param(
+    impl MirrorHostParams<ExternalAdapterConfig, ExternalGain> for ExternalGainParam {
+        fn mirror_host_params(
             &self,
             config: &mut ExternalAdapterConfig,
             parameter: &Parameter<ExternalAdapterConfig, ExternalGain>,
@@ -429,7 +431,7 @@ fn generated_group_implements_marker_trait() {
 }
 
 #[test]
-fn mirror_host_param_updates_config_and_writes_host_param_through_setter() {
+fn mirror_host_params_update_config_and_write_host_param_through_setter() {
     let on_change = on_change();
     let source_config = ExampleParentConfig {
         gain: 1.0,
@@ -448,16 +450,16 @@ fn mirror_host_param_updates_config_and_writes_host_param_through_setter() {
     let mut child_config = config.child.clone();
     let mut duration_config = ExampleDurationConfig { delay: Duration::from_secs_f32(0.5), curve: 0.7 };
 
-    params.gain.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.gain(), 1.75, &setter);
-    params.count.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.count(), 6, &setter);
-    params.sample_rate.mirror_host_param(&mut config, &ExampleParentConfig::PARAMETERS.sample_rate(), 720, &setter);
-    params.child.child_precise.mirror_host_param(
+    params.gain.mirror_host_params(&mut config, &ExampleParentConfig::PARAMETERS.gain(), 1.75, &setter);
+    params.count.mirror_host_params(&mut config, &ExampleParentConfig::PARAMETERS.count(), 6, &setter);
+    params.sample_rate.mirror_host_params(&mut config, &ExampleParentConfig::PARAMETERS.sample_rate(), 720, &setter);
+    params.child.child_precise.mirror_host_params(
         &mut child_config,
         &ExampleChildConfig::PARAMETERS.child_precise(),
         7.25,
         &setter,
     );
-    duration_params.delay.mirror_host_param(
+    duration_params.delay.mirror_host_params(
         &mut duration_config,
         &ExampleDurationConfig::PARAMETERS.delay(),
         Duration::from_secs_f32(0.25),
