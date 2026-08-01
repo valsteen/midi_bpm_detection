@@ -121,10 +121,11 @@ runtime-owned input snapshot
 
 `BPMDetectionGUI` contains reusable view state and rendering. It has no host parameter handle, desktop controller,
 runtime command sender, or persistence owner. Desktop and WASM expose their concrete typed commit boundaries directly.
-The plugin maps host-parameter edits to nice-plug `ParamSetter` requests. An `OnOff` field's persisted enable bit is
-adapter state rather than a second automatable parameter. Changing only that bit does not create a host request or mark
-the dynamic group; the detector observes it only when a later dynamic parameter callback schedules another configuration
-task.
+The plugin maps changed GUI proposals to normal nice-plug `ParamSetter` requests; committed readback and parameter
+callbacks follow host application. Its bridge exposes each composite `OnOff<f32>` proposal as adjacent, visible,
+automatable enable and numeric host parameters. Either half uses the same logical group-change notification, which the
+audio callback coalesces at a block boundary before sending a complete typed configuration task to the background
+`BPMDetection` owner.
 
 ## Stable Project Boundaries
 

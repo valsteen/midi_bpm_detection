@@ -4,24 +4,29 @@ This document describes the CLAP/VST3 plugin path. The plugin is the production 
 
 ## Committed Parameter Path
 
-`MidiBpmDetectorParams` holds the plugin's committed host parameters and the persisted enable bits attached to `OnOff`
-parameters. Host automation and host-parameter editor gestures change nice-plug parameters. An enabled-only `OnOff`
-gesture changes its persisted adapter bit without a host gesture because that bit is not exposed as a second automatable
-parameter. It does not independently mark the dynamic group; the detector observes it when a later dynamic parameter
-callback schedules another configuration task. Parameter-backed detector configuration follows this path:
+`MidiBpmDetectorParams` holds the plugin's committed host parameters. The plugin bridge exposes each `OnOff<f32>` field
+as a visible, automatable Boolean enable parameter followed by its numeric parameter. The existing numeric parameter ID
+remains `<field>`, and the enable parameter uses `<field>_enabled`; the adapter owns no separate persisted enable bit or
+arbitrary sidecar field. Host automation and GUI requests applied by the host follow the same parameter-backed detector
+configuration path:
 
 ```text
-host automation or host-parameter editor gesture
-    -> CLAP parameter value and callback
+host automation or GUI ParamSetter request applied by the host
+    -> concrete BoolParam or FloatParam callback
     -> per-group DeferredConfigUpdate sample marker
     -> MidiBpmDetector::process audio-block boundary
-    -> concrete Task payload
+    -> complete typed config task
     -> TaskExecutor-owned BPMDetection
 ```
 
-Static, dynamic, and GUI parameter groups each have one atomic first-change marker. A callback records the current sample
-only while its group is idle, preserving the start of the coalescing window. `send_tempo` and `daw_port` are focused
-outputs instead: their callbacks update dedicated atomics and do not configure the detector.
+Both callbacks in an enable/value pair use the same logical group-change notification, so either parameter independently
+reaches this deferred path. Static, dynamic, and GUI parameter groups each have one atomic first-change marker. A
+callback records the current sample only while its group is idle, preserving the start of the coalescing window.
+`send_tempo` and `daw_port` are focused outputs instead: their callbacks update dedicated atomics and do not configure
+the detector.
+
+The dynamic remote-control source sequence places `beats_lookback` first, then one spacer, then ten adjacent enable/value
+pairs. nice-plug's eight-slot page split therefore yields 8/8/6 slots without splitting a pair.
 
 ## Editor Reconciliation and Commit
 
@@ -39,8 +44,10 @@ draft values to overwrite newer host automation.
 The editor calls `BPMDetectionGUI::prepare`, then passes nice-plug's supplied `&mut egui::Ui` and its draft to
 `BPMDetectionGUI::show`. The resulting `GuiChanges` receipt gates commit work by group. Generated
 `MirrorChangedConfig` implementations then compare individual fields within each edited group. Changed host-parameter
-values receive `ParamSetter` begin/set/end gestures. For an `OnOff` value, the numeric portion uses its `ParamSetter`;
-changing only the persisted enable bit updates the adapter state without creating a host gesture or dirty-group marker.
+values receive `ParamSetter` begin/set/end gestures. For an `OnOff` proposal, the editor issues those normal gestures
+only for the changed enable and/or numeric half. The request does not itself mutate the committed host value;
+`previous_host` advances from later host readback, and the corresponding parameter callback runs when the host applies
+the request.
 
 The plugin-only `T` shortcut toggles `draft.send_tempo` and sets the same `GuiChanges::send_tempo` flag as the visible
 control. Both routes use the same explicit `ParamSetter` gesture. Shared GUI rendering never writes a host parameter

@@ -196,14 +196,16 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
 
 - `crates/foundation/parameter-nice-plug`
   - Owns reusable nice-plug host parameter generation and mirroring for generic parameter metadata.
-  - Provides the `NicePlugFieldAdapter` and `MirrorHostParam` extension points used by optional bridge crates.
+  - Provides the `NicePlugFieldAdapter` and `MirrorHostParams` extension points used by optional bridge crates. A field
+    adapter owns a host-parameter set, which may contain one concrete parameter or several.
 
 - `crates/foundation/parameter-on-off`
   - Owns the reusable `OnOff<T>` value type and its serialization/value conversion behavior.
   - Has no nice-plug dependency.
 
 - `crates/foundation/parameter-on-off-nice-plug`
-  - Bridges `OnOff<f32>` into nice-plug through `OnOffParam` and `OnOffF32Adapter`.
+  - Bridges one `OnOff<f32>` config field into an adjacent Boolean enable and numeric value pair through `OnOffParams`
+    and `OnOffF32Adapter`, without requiring another config field.
   - Depends on the base parameter crates, not on BPM product crates.
 
 Product, domain, and application crates depend down into this foundation stack. Foundation crates have no dependencies
@@ -314,19 +316,23 @@ Each runtime mode adapts this shared config into its own host surface:
 
 ### Plugin Parameter Synchronization
 
-`MidiBpmDetectorParams` holds the plugin's committed CLAP parameters and the persisted enable bits attached to `OnOff`
-parameters. The editor retains a local `EditableSettings` draft and compares two consecutive host snapshots field by
-field. A host field that changed replaces the corresponding draft field; an unchanged host field leaves an
-unacknowledged editor proposal intact.
+`MidiBpmDetectorParams` holds the plugin's committed CLAP parameters. Each `NicePlugFieldAdapter` represents an adapted
+config field with a host-parameter set; `OnOffF32Adapter` uses `OnOffParams` to expose one `OnOff<f32>` field as a
+visible, automatable `BoolParam` followed by its `FloatParam`. The adapter has no separate persisted enable bit or
+arbitrary sidecar field. Both concrete callbacks share the field group's change notification and therefore independently
+reach the normal deferred audio-boundary path.
+
+The editor retains a local `EditableSettings` draft and compares two consecutive host snapshots field by field. A host
+field that changed replaces the corresponding draft field; an unchanged host field leaves an unacknowledged editor
+proposal intact.
 
 After `BPMDetectionGUI::show`, `PluginGuiEditor` maps only edited groups and changed host-parameter fields through
-nice-plug's `ParamSetter`. An `OnOff` field's numeric part follows that path; an enabled-only edit updates its persisted
-adapter bit without a host gesture because the bit is not a second automatable parameter. That enabled-only edit does
-not independently mark the dynamic group; the detector observes it when a later dynamic parameter callback schedules a
-configuration task. Parameter callbacks mark fixed-size dirty groups at the current sample, and
-`MidiBpmDetector::process` coalesces them on the sample clock before sending concrete `Task::ApplyStaticConfig`,
-`Task::ApplyDynamicConfig`, or `Task::RefreshGui` work. The mutable nice-plug task executor exclusively owns
-`BPMDetection`.
+nice-plug's `ParamSetter`. It sends normal begin/set/end requests only for the changed enable and/or numeric half of an
+`OnOff` proposal. Those calls do not mutate committed host values: committed readback and the corresponding parameter
+callbacks follow host application. The callbacks mark fixed-size dirty groups at the current sample, and
+`MidiBpmDetector::process` coalesces them on the sample clock before sending complete typed
+`Task::ApplyStaticConfig` or `Task::ApplyDynamicConfig` payloads, or `Task::RefreshGui` work. The mutable nice-plug task
+executor exclusively owns `BPMDetection`.
 
 The exact plugin, desktop, and WASM sequences live in [runtime lifecycle](../docs/runtime-lifecycle.md). Parameter
 readback and editor requests are detailed in [plugin flow](../docs/plugin-flow.md).

@@ -17,9 +17,9 @@ hyphen/underscore forms.
   needs an enabled/disabled state plus a value.
 - `parameter-nice-plug` maps generic parameter metadata to nice-plug host
   parameters and provides `#[nice_plugin_parameter_group]`,
-  `NicePlugFieldAdapter`, and `MirrorHostParam`.
+  `NicePlugFieldAdapter`, and `MirrorHostParams`.
 - `parameter-on-off-nice-plug` connects `OnOff<f32>` to nice-plug through
-  `OnOffParam` and `OnOffF32Adapter`.
+  `OnOffParams` and `OnOffF32Adapter`.
 
 Use only the crates your product needs. Plain config metadata does not require
 nice-plug crates, and a product that does not use `OnOff<T>` does not need the
@@ -70,14 +70,19 @@ and imports any adapters required by custom value types.
 
 ```rust
 use parameter_nice_plug::nice_plugin_parameter_group;
-use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParam};
+use parameter_on_off_nice_plug::{OnOffF32Adapter, OnOffParams};
 
 #[nice_plugin_parameter_group(config = ExampleConfig, group = "Example")]
 pub struct ExamplePluginParams {
-    #[nice_plugin_parameter(adapter = OnOffF32Adapter, callback = f32)]
-    pub gain: OnOffParam,
+    #[nice_plugin_parameter(adapter = OnOffF32Adapter)]
+    pub gain: OnOffParams,
 }
 ```
+
+A `NicePlugFieldAdapter` owns the host-parameter set for one config field. That
+set may contain one concrete host parameter or several. `OnOffF32Adapter` maps
+one `OnOff<f32>` field to its enabled/value pair, so the config and host holder
+do not need another field declaration for the enabled state.
 
 ## Automatic Changed-Config Reconciliation
 
@@ -93,7 +98,7 @@ let mirrored = params.mirror_changed_config(&before, &after, setter);
 ```
 
 `PartialEq` comparisons preserve complete variant state, adapters stay behind
-`MirrorHostParam`, and nested parameter groups recurse into their own generated
+`MirrorHostParams`, and nested parameter groups recurse into their own generated
 operations. No additional macro or duplicate field declaration is required.
 
 For the broader workspace boundaries around these crates, see

@@ -46,19 +46,20 @@ The plugin's parameter-backed configuration moves through CLAP parameters and th
 
 ```mermaid
 flowchart LR
-    H["CLAP parameter callback"] --> D["Fixed-size dirty marker"]
+    H["Host automation or host-applied GUI request"] --> P["Concrete BoolParam / FloatParam callback"]
+    P --> D["Fixed-size dirty marker"]
     D --> A["Plugin audio process"]
-    A --> T["Concrete config task payload"]
+    A --> T["Complete typed config task"]
     T --> E["FnMut task executor owns BPM detector"]
 ```
 
 ### Parameter and editor phases
 
-`MidiBpmDetectorParams` holds the committed host parameters and the persisted enable bits attached to `OnOff`
-parameters. Static, dynamic, and GUI parameter callbacks record the current sample in their `DeferredConfigUpdate`
-marker when that group is idle. An enabled-only `OnOff` edit updates its persisted bit directly because the bit is not a
-separate automatable parameter; it does not independently mark the dynamic group. The send-tempo and controller-port
-parameters update their focused atomic outputs directly.
+`MidiBpmDetectorParams` holds the committed host parameters. Each `OnOff<f32>` field appears as an adjacent, visible,
+automatable Boolean enable parameter and numeric parameter rather than an adapter-owned persisted bit or arbitrary
+sidecar field. Both concrete parameter callbacks use the same logical group's `DeferredConfigUpdate`; either callback
+records the current sample when that marker is idle. The send-tempo and controller-port parameters update their focused
+atomic outputs directly.
 
 `PluginGuiEditor` retains a draft plus the previous host snapshot. Each editor update:
 
@@ -67,13 +68,14 @@ parameters update their focused atomic outputs directly.
    snapshot;
 3. applies the plugin-only `T` shortcut to the draft when pressed;
 4. calls `BPMDetectionGUI::prepare` and `BPMDetectionGUI::show` with nice-plug's supplied UI;
-5. maps edited groups and changed host-parameter fields through `ParamSetter`, while an enabled-only `OnOff` change
-   updates its persisted adapter bit without a host gesture.
+5. issues normal `ParamSetter` begin/set/end requests for only the changed enable and/or numeric half of an `OnOff`
+   proposal.
 
 The `T` shortcut sets the same `GuiChanges::send_tempo` receipt as the visible toggle, so both use the same
 begin/set/end parameter gesture. Generated `MirrorChangedConfig` implementations compare fields within each edited group
-and issue setter calls only for fields whose draft values changed. `previous_host` advances only from host readback, so a
-setter request is not mistaken for an acknowledged host value.
+and issue setter calls only for fields whose draft values changed. A setter call is only a GUI request: `previous_host`
+advances from committed host readback, and the concrete parameter callback follows host application. The callback then
+enters the same deferred audio-block path as host automation.
 
 ### Audio-block commit
 
