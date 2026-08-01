@@ -55,6 +55,7 @@ dependency.
 use parameter::parameter_group;
 use parameter_on_off::OnOff;
 
+#[derive(Clone, PartialEq, Debug)]
 #[parameter_group]
 pub struct ExampleConfig {
     #[parameter(label = "Gain", range = 0.0..=1.0, default = OnOff::On(0.5))]

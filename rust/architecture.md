@@ -243,7 +243,7 @@ runtime-owned input snapshot
 ```
 
 `DesktopApp` and `WasmApp` call `prepare` from eframe `App::logic`, then call `show` and commit from `App::ui`.
-`PluginGuiEditor` performs the equivalent sequence explicitly around the `&mut egui::Ui` supplied by nice-plug. Shared
+`GuiEditor` performs the equivalent sequence explicitly around the `&mut egui::Ui` supplied by nice-plug. Shared
 rendering only changes the supplied proposal value and returns the four-boolean receipt; the runtime adapter owns every
 host parameter request, controller command, queue send, and persisted value update.
 
@@ -316,7 +316,7 @@ Each runtime mode adapts this shared config into its own host surface:
 
 ### Plugin Parameter Synchronization
 
-`MidiBpmDetectorParams` holds the plugin's committed CLAP parameters. Each `NicePlugFieldAdapter` represents an adapted
+`MidiBpmDetectorParams` holds the plugin's committed host parameters. Each `NicePlugFieldAdapter` represents an adapted
 config field with a host-parameter set; `OnOffF32Adapter` uses `OnOffParams` to expose one `OnOff<f32>` field as a
 visible, automatable `BoolParam` followed by its `FloatParam`. The adapter has no separate persisted enable bit or
 arbitrary sidecar field. Both concrete callbacks share the field group's change notification and therefore independently
@@ -326,7 +326,7 @@ The editor retains a local `EditableSettings` draft and compares two consecutive
 field that changed replaces the corresponding draft field; an unchanged host field leaves an unacknowledged editor
 proposal intact.
 
-After `BPMDetectionGUI::show`, `PluginGuiEditor` maps only edited groups and changed host-parameter fields through
+After `BPMDetectionGUI::show`, `GuiEditor` maps only edited groups and changed host-parameter fields through
 nice-plug's `ParamSetter`. It sends normal begin/set/end requests only for the changed enable and/or numeric half of an
 `OnOff` proposal. Those calls do not mutate committed host values: committed readback and the corresponding parameter
 callbacks follow host application. The callbacks mark fixed-size dirty groups at the current sample, and

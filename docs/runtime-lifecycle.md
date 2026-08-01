@@ -23,7 +23,7 @@ Shared rendering has no host parameter handle, runtime sender, desktop controlle
 runtime effects. The adapter interprets the receipt after rendering:
 
 - `DesktopApp` and `WasmApp` call `prepare` from eframe `App::logic`, then call `show` and commit from `App::ui`.
-- `PluginGuiEditor` invokes the same methods explicitly around the `&mut egui::Ui` supplied by nice-plug.
+- `GuiEditor` invokes the same methods explicitly around the `&mut egui::Ui` supplied by nice-plug.
 
 ## Shared Display Capabilities
 
@@ -42,7 +42,7 @@ not an ordered history of visual updates.
 
 ## Plugin Runtime
 
-The plugin's parameter-backed configuration moves through CLAP parameters and the audio-block boundary:
+The plugin's parameter-backed configuration moves through host parameters and the audio-block boundary:
 
 ```mermaid
 flowchart LR
@@ -61,7 +61,7 @@ sidecar field. Both concrete parameter callbacks use the same logical group's `D
 records the current sample when that marker is idle. The send-tempo and controller-port parameters update their focused
 atomic outputs directly.
 
-`PluginGuiEditor` retains a draft plus the previous host snapshot. Each editor update:
+`GuiEditor` retains a draft plus the previous host snapshot. Each editor update:
 
 1. reads the current host values;
 2. merges host changes into the draft field by field, replacing only fields whose host value changed since the previous

@@ -30,7 +30,7 @@ pairs. nice-plug's eight-slot page split therefore yields 8/8/6 slots without sp
 
 ## Editor Reconciliation and Commit
 
-`PluginGuiEditor` owns a local `EditableSettings` draft and the previous committed host snapshot. On every editor update,
+`GuiEditor` owns a local `EditableSettings` draft and the previous committed host snapshot. On every editor update,
 `merge_host_changes` compares consecutive host snapshots field by field:
 
 - a field whose host value changed replaces that field in the draft;
