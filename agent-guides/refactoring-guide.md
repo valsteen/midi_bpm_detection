@@ -126,6 +126,9 @@ During editing:
 
 Before finishing:
 
+- Re-read names and terminology throughout touched code against their current roles and scopes, starting with the
+  crate-public surface because its impact is greatest. Repair direct workspace consumers and report meaningful renames
+  under the engineering naming policy.
 - Re-read the diff for hidden broad access, empty enum branches, stale names, and newly generic helpers.
 - Check whether any new trait, wrapper, projection, or message exists for only one caller without narrowing a real
   dependency or lifecycle boundary.

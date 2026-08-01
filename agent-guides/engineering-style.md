@@ -64,13 +64,24 @@ invariants.
 
 Names should make responsibility legible without reconstructing the entire call graph.
 
+- Challenge names and terminology throughout touched code—including public and private types, traits, functions,
+  methods, fields, parameters, locals, and comments—against their current role, scope, lifecycle, owner, and consumer.
+  Roles drift across changes; pre-existing wording is evidence, not authority. Rename stale or mechanism-shaped terms
+  as part of the current work while keeping the cleanup within the touched boundary and its direct consumers.
+- Give crate-public `pub` names extra scrutiny because their impact is broader, not because semantic naming applies only
+  to them. For a workspace-only crate, compatibility impact is work to assess and repair, never a blocker or automatic
+  human gate: prefer the semantically correct surface, update workspace consumers, tests, and documentation, and avoid
+  API archaeology without a concrete need. `pub` alone does not establish external support. When project documentation,
+  release policy, or an explicit user decision commits a crate to downstream consumers, stop for human confirmation
+  before a breaking crate-public rename and coordinate it as a major-version change with the required migration,
+  release, and communication work.
+- Report meaningful semantic renames—especially crate-public ones—and why the previous name no longer matched the role.
 - Name shared state by its owners or readers, such as `gui_task_config`, rather than just `shared_config`.
 - Distinguish handoff or mailbox state from retained live state, such as `remote_handoff` versus `live_remote`.
 - Name source-like values as origins, inputs, snapshots, or producers. Name action-like values as commands, requests,
   publications, or effects.
 - Use plain domain verbs and nouns. A generic architectural term is useful only when it makes the concrete capability
   easier—not harder—to discover.
-- Rename stale terms when the shape changes. Do not preserve a name that describes an earlier design.
 - Do not name a type after one call path when the type represents a durable domain concept used elsewhere.
 - Treat genericity as a contract. A type named `Config`, `Manager`, or `Event` should not silently mean one specific
   runtime's configuration, owner, or message.
