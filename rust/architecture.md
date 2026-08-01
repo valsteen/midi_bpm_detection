@@ -98,7 +98,7 @@ flowchart TD
   errors --> build
 ```
 
-This graph captures the dependency rule the project is trying to preserve: `bpm_detection_config` and
+This graph captures the workspace dependency rule: `bpm_detection_config` and
 `bpm_detection_core` are BPM domain/model crates, while `gui` and `bpm_detection_midi` are separate BPM-specific UI and
 native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detection_midi` does not depend on egui. The
 `desktop` crate sits above both because it is the native desktop runtime that wires them together.
@@ -140,11 +140,16 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
 
 - `crates/bpm/gui`
   - Owns the reusable egui UI for parameters, BPM legend, and histogram rendering.
-  - Defines `GuiRemote`, the cross-thread/task bridge used to push BPM/histogram updates into the UI.
-  - Publishes histogram snapshots on a best-effort basis: a busy GUI snapshot drops that visualization update without
-    retrying, while scalar BPM publication remains independent.
-  - Depends on `bpm_detection_config` for GUI parameter metadata, but does not own the serializable app config shape.
-  - Does not own a specific runtime mode; plugin, desktop, and WASM provide the surrounding application/runtime.
+  - `BPMDetectionGUI` owns view state and the strong reference to the latest display mailbox.
+  - `BpmDisplayPublisher` is a weak producer capability that publishes BPM and histogram snapshots without keeping a
+    closed GUI alive. Histogram publication is best-effort: contention drops that visualization update, while scalar BPM
+    publication remains independent.
+  - `GuiContextHandle` is a separate weak capability for requesting repaint and inspecting whether egui wants keyboard
+    input.
+  - `EditableSettings` is a runtime adapter's local proposal value. `GuiChanges` reports whether the GUI, static
+    detection, dynamic detection, or send-tempo group was edited during one call to `BPMDetectionGUI::show`.
+  - Depends on `bpm_detection_config` for GUI parameter metadata and editable value types, but does not own a runtime's
+    serialized config, host parameters, controller, queue, or persistence effects.
 
 ### Runtime Entrypoints
 
@@ -181,7 +186,7 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
   - Native MIDI runtime used by the desktop mode.
   - Owns MIDI device discovery/input, virtual MIDI output, SysEx control messages, playback clock emission, and the
     worker threads around `BPMDetection`.
-  - Kept out of plugin and WASM builds so those modes do not inherit native MIDI service dependencies.
+  - Remains outside plugin and WASM builds, leaving those modes without native MIDI service dependencies.
 
 ## Foundation Parameter Stack
 
@@ -201,8 +206,8 @@ native MIDI service crates. `gui` does not depend on native MIDI, and `bpm_detec
   - Bridges `OnOff<f32>` into nice-plug through `OnOffParam` and `OnOffF32Adapter`.
   - Depends on the base parameter crates, not on BPM product crates.
 
-Product, domain, and application crates may depend down into this foundation stack. Foundation crates must not depend back
-up into BPM-specific crates such as `midi-bpm-detector-plugin`, `bpm_detection_core`, `bpm_detection_midi`, or `gui`.
+Product, domain, and application crates depend down into this foundation stack. Foundation crates have no dependencies
+back up into BPM-specific crates such as `midi-bpm-detector-plugin`, `bpm_detection_core`, `bpm_detection_midi`, or `gui`.
 This grouping supports the production plugin first while keeping desktop and WASM as development/demo consumers of the
 same generic metadata.
 
@@ -217,17 +222,33 @@ MIDI/key input -> runtime-specific parsing -> core note events -> BPMDetection -
 
 The important difference is where that pipeline is allowed to do work:
 
-- In plugin mode, the audio/plugin callback is the constrained boundary. It should not block, allocate, or perform heavy
-  BPM computation. It forwards compact events and schedules background work.
+- In plugin mode, the audio/plugin callback is the constrained boundary. Project-side work there uses fixed-size values
+  and nonblocking handoffs; BPM computation runs in the background executor.
 - In desktop mode, MIDI and BPM work can live in native worker threads. The desktop controller bridges
   `bpm_detection_midi` into the native GUI app without moving MIDI dependencies into `gui`.
-- In WASM mode, there are no native worker threads in the current design. Browser events and delayed recomputation are
-  coordinated through async tasks and channels.
+- WASM mode has no native worker threads. Browser events and delayed recomputation are coordinated through async tasks
+  and channels.
+
+## Shared GUI Phase Contract
+
+All three runtime adapters use the same phase contract around the shared egui surface:
+
+```text
+runtime-owned input snapshot
+    -> BPMDetectionGUI::prepare display state
+    -> BPMDetectionGUI::show editable state and collect GuiChanges
+    -> concrete runtime-owned commit
+```
+
+`DesktopApp` and `WasmApp` call `prepare` from eframe `App::logic`, then call `show` and commit from `App::ui`.
+`PluginGuiEditor` performs the equivalent sequence explicitly around the `&mut egui::Ui` supplied by nice-plug. Shared
+rendering only changes the supplied proposal value and returns the four-boolean receipt; the runtime adapter owns every
+host parameter request, controller command, queue send, and persisted value update.
 
 ## Desktop Mode
 
-Desktop mode integrates the reusable GUI with the native MIDI service. The desktop controller should expose typed
-capabilities for native MIDI service actions instead of routing behavior through a runtime-wide event enum.
+Desktop mode integrates the reusable GUI with the native MIDI service. The desktop controller exposes typed capabilities
+for native MIDI service actions rather than a runtime-wide event enum.
 
 Current boundary notes:
 
@@ -248,13 +269,13 @@ constraints:
 - The plugin `process` callback parses incoming MIDI and pushes events with `try_push` into a fixed ring buffer.
 - BPM computation runs from `nice-plug` background tasks, not directly from the audio callback.
 - Cross-thread state crossing the callback boundary uses atomics, fixed buffers, or non-blocking handoff.
-- GUI updates are indirect through `GuiRemote`; the UI can repaint from shared state without the audio callback owning UI
-  work.
+- Display updates go through `BpmDisplayPublisher`; repaint and keyboard-focus inspection use the separate
+  `GuiContextHandle`. The audio callback owns neither GUI state nor rendering work.
 
-These constraints should be treated as design rules when changing plugin-mode code. If a change requires allocation,
-blocking I/O, lock contention, or unbounded work, it belongs outside the realtime callback.
-Fixed-capacity buffers in plugin and core runtime paths are part of this contract. Do not replace them with heap-backed
-collections to satisfy test harness limits; solve those limits in tests instead.
+These constraints define the plugin-mode execution boundary. Project-owned allocation, blocking I/O, lock contention,
+and self-driven unbounded work remain outside the realtime callback; its only event loop drains the finite host block.
+Fixed-capacity buffers in plugin and core runtime paths are part of this contract, and test harnesses accommodate their
+stack requirements without changing production storage.
 
 ## Plugin Dependency Notes
 
@@ -267,15 +288,15 @@ nice-plug fork carries two downstream patches shared by several plugins:
 
 Plugin tempo feedback uses the localhost controller bridge described in [plugin flow](../docs/plugin-flow.md).
 
-The nice-plug fork should follow a forward-only policy:
+The nice-plug fork follows a forward-only policy:
 
-- prefer moving to newer upstream dependency generations over patching stale transitive crates;
-- keep fork diffs small, boring, and shaped like upstreamable compatibility work;
-- pin commits in this repository so plugin builds are reproducible;
-- periodically check whether upstream has caught up enough to drop the fork or reduce its diff.
+- newer upstream dependency generations take precedence over patches to stale transitive crates;
+- fork diffs remain small and shaped like upstreamable compatibility work;
+- pinned commits keep plugin builds reproducible;
+- periodic upstream comparison identifies patches that can be dropped or reduced.
 
-The dependency rule is forward movement over patching obsolete transitive crates. Prefer current upstream dependency
-generations, and keep fork changes limited to downstream plugin behavior that upstream nice-plug does not provide.
+The dependency rule is forward movement over patching obsolete transitive crates. Fork changes remain limited to
+downstream plugin behavior that upstream nice-plug does not provide.
 
 ## Configuration Shape
 
@@ -287,47 +308,37 @@ The BPM model has two broad config groups:
 
 Each runtime mode adapts this shared config into its own host surface:
 
-- plugin parameters in `midi-bpm-detector-plugin`
-- native GUI config in `desktop`
-- browser demo config in `wasm`
-
-The current plugin code also distinguishes whether updates originate from the DAW parameter system or the GUI. That
-origin matters because it determines which side is authoritative and which side needs to be refreshed.
+- plugin parameters in `midi-bpm-detector-plugin`;
+- `DesktopConfig` plus `DesktopControllerCommandQueue` in `desktop`;
+- `WASMConfig` plus the local `QueueItem` channel in `wasm`.
 
 ### Plugin Parameter Synchronization
 
-Plugin parameters have two interactive surfaces:
+`MidiBpmDetectorParams` holds the plugin's committed CLAP parameters and the persisted enable bits attached to `OnOff`
+parameters. The editor retains a local `EditableSettings` draft and compares two consecutive host snapshots field by
+field. A host field that changed replaces the corresponding draft field; an unchanged host field leaves an
+unacknowledged editor proposal intact.
 
-- the DAW/plugin-host parameter surface;
-- the egui plugin editor.
+After `BPMDetectionGUI::show`, `PluginGuiEditor` maps only edited groups and changed host-parameter fields through
+nice-plug's `ParamSetter`. An `OnOff` field's numeric part follows that path; an enabled-only edit updates its persisted
+adapter bit without a host gesture because the bit is not a second automatable parameter. That enabled-only edit does
+not independently mark the dynamic group; the detector observes it when a later dynamic parameter callback schedules a
+configuration task. Parameter callbacks mark fixed-size dirty groups at the current sample, and
+`MidiBpmDetector::process` coalesces them on the sample clock before sending concrete `Task::ApplyStaticConfig`,
+`Task::ApplyDynamicConfig`, or `Task::RefreshGui` work. The mutable nice-plug task executor exclusively owns
+`BPMDetection`.
 
-Both surfaces need to stay in sync, but blindly reflecting every update in both directions can create feedback loops:
-the DAW updates the plugin, the GUI mirrors the change, the GUI writes the value back through the plugin setter, and the
-host treats that as another user edit.
+The exact plugin, desktop, and WASM sequences live in [runtime lifecycle](../docs/runtime-lifecycle.md). Parameter
+readback and editor requests are detailed in [plugin flow](../docs/plugin-flow.md).
 
-The current plugin code handles this by tagging config tasks with `ParameterSyncOrigin::Host` or
-`ParameterSyncOrigin::Gui`. The origin decides which side is considered authoritative for that update and whether the
-other side must refresh its local config. The detailed host-origin and GUI-origin flows live in
-[runtime lifecycle](../docs/runtime-lifecycle.md).
+## Stable Architecture Invariants
 
-The current boundary is intentionally small: the worker task carries only the update origin, and the fixed timing and
-recompute facts stay direct at the origin-specific call sites. This is not a generic parameter framework. Do not model a
-possible third origin or shared policy layer before production code needs it.
-
-## Change Review Checklist
-
-These points are worth re-checking when changing ownership, communication, or runtime boundaries:
-
-- `bpm_detection_config` owns the serializable parameter/config surface, `bpm_detection_core` owns the algorithm and
-  core-note surface, and `bpm_detection_midi` owns native MIDI service integration. If core grows again, keep checking
-  whether new code belongs to serializable config, the algorithm model, a MIDI-protocol adapter, or a runtime mode.
-- `GuiRemote` is the shared UI update bridge, not just a plugin helper. It is used as the boundary between BPM producers
-  and egui rendering.
-- Plugin mode is the production target and drives the realtime constraints. Desktop and WASM preserve the same model but
-  can use less restrictive runtime mechanisms.
-- Plugin parameter synchronization is intentionally bidirectional. Before changing it, re-check the lifecycle docs and
-  preserve the current distinction between host-origin and GUI-origin updates. Avoid adding optional-looking policy paths
-  for states that are not actually possible at a given boundary.
-- Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
-  section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- [Runtime lifecycle](../docs/runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram.
+- `bpm_detection_config` owns serializable parameter/config values, `bpm_detection_core` owns the algorithm and core
+  note surface, and `bpm_detection_midi` owns native MIDI service integration.
+- `BPMDetectionGUI` renders runtime-owned editable values. Runtime adapters own commit effects.
+- `BpmDisplayPublisher` and `GuiContextHandle` are focused weak capabilities, not a broad GUI remote.
+- Plugin mode is the production target and defines the strict realtime constraints. Desktop and WASM use the same model
+  through runtime-appropriate commit paths.
+- Typed peer boundaries are wired during bootstrap; worker-local enums and queues remain scoped to one owner rather than
+  forming a runtime-wide event bus.
+- [Runtime lifecycle](../docs/runtime-lifecycle.md) owns the detailed data-flow and thread-boundary diagrams.

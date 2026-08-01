@@ -1,7 +1,6 @@
 # Architecture
 
-This document is a high-level map of the project. It should help contributors understand the main boundaries before
-following the detailed runtime data flows.
+This document is the high-level map of the project and routes to the detailed runtime data flows.
 
 ## Purpose
 
@@ -62,35 +61,30 @@ MIDI/key input -> runtime-specific parsing -> core note events -> BPMDetection -
 
 The important difference is where that pipeline is allowed to do work:
 
-- In plugin mode, the audio/plugin callback is the constrained boundary. It should not block, allocate, or perform heavy
-  BPM computation. It forwards compact events and schedules background work.
+- In plugin mode, the audio/plugin callback is the constrained boundary. Project-side work there uses fixed-size values
+  and nonblocking handoffs; BPM computation runs in the background executor.
 - In desktop mode, MIDI and BPM work can live in native worker threads. The desktop controller bridges the native MIDI
   runtime into the native GUI app without moving those dependencies into the shared GUI layer.
-- In WASM mode, there are no native worker threads in the current design. Browser events and delayed recomputation are
-  coordinated through async tasks and channels.
+- WASM mode has no native worker threads. Browser events and delayed recomputation are coordinated through async tasks
+  and channels.
 
 ## Tempo Feedback
 
-Tempo feedback has two historically different implementations:
+Tempo feedback has two runtime-specific implementations:
 
-- Desktop mode can act as a native virtual MIDI device. It can emit MIDI clock, play/stop,
-  and small text SysEx messages such as `TEMPO|...`. This was useful for experimenting with a standalone app that could
-  still talk to a DAW, but it makes the DAW depend on an external MIDI clock and is ergonomically limited by host clock
-  integration.
+- Desktop mode can act as a native virtual MIDI device. It emits MIDI clock, play/stop, and small text SysEx messages
+  such as `TEMPO|...`. This lets the standalone app communicate with a DAW, with the tradeoff that the DAW depends on an
+  external MIDI clock and the host's clock-integration behavior.
 - Plugin mode cannot act as a system MIDI device. It runs as a CLAP/VST3 instrument inside the host, so its production
   tempo feedback path is a localhost controller bridge. The plugin sends detected BPM to an external Bitwig controller
   extension, which can set the DAW tempo while still allowing the user to adjust tempo manually.
 
-The native MIDI clock code should be read as desktop/experimental support, not as the production plugin integration
-strategy.
+The native MIDI clock is desktop/experimental support. The localhost controller bridge is the production plugin
+integration.
 
 ## Communication Direction
 
-The project should prefer typed peer boundaries over a single runtime-wide event bus. A central bus can be useful early
-because it lists "everything that can happen" in one place, but it also tends to become a dependency magnet: the event
-enum, dispatcher, and orchestrator eventually need to know about every component.
-
-The preferred direction is:
+The project uses typed peer boundaries rather than a single runtime-wide event bus:
 
 - producers expose narrow capabilities, such as publishing BPM estimates or MIDI device changes;
 - consumers depend on those narrow capabilities, not on a whole application event enum;
@@ -98,46 +92,50 @@ The preferred direction is:
 - runtime/bootstrap code wires producers and consumers together explicitly;
 - after bootstrap, peers communicate through the connection they actually need instead of returning to a universal bus.
 
-The tradeoff is that connections become more distributed. Bootstrap therefore becomes important documentation: it should
-read like clean configuration of the runtime graph, not like a second hidden orchestrator. Pluggable components should
-follow the same shape: discover compatible producers and consumers, connect them, then let that pair communicate through
-its own protocol.
+These connections are distributed across their owners, so bootstrap records the static runtime graph. Each runtime
+connects its concrete producers and consumers directly, and each pair communicates through its focused protocol.
 
-Small explicit enums are still valid when the protocol is narrow and stable. A worker command protocol belongs to one
-worker boundary and should not try to describe the whole application.
+Small explicit enums remain local to narrow, stable protocols. A worker command protocol describes one worker boundary,
+not the whole application.
 
-### Design Goals For Communication Boundaries
+### Communication Boundary Properties
 
-These goals are guidance, not doctrine. They are inspired by existing patterns such as composition root/bootstrap wiring,
-ports and adapters, observer/signals, and actor-style worker mailboxes:
+- The core model is independent from runtime dependencies.
+- Stable runtime relationships are visible at bootstrap.
+- Ownership, thread, async-task, and realtime crossings use explicit typed messages or focused capabilities.
+- The plugin realtime ring and shared WASM detector channel use bounded, nonblocking handoffs. Native controller,
+  BPM-worker, and MIDI-output queues are unbounded; MIDI-service commands use a zero-capacity synchronous handoff. These
+  native channels remain outside the plugin realtime callback.
+- Components receive their dependencies during bootstrap rather than locating arbitrary services at runtime.
 
-- keep the core model independent from runtime dependencies;
-- make stable runtime relationships visible at bootstrap;
-- prefer small typed protocols over a catch-all application event enum;
-- use explicit messages when crossing ownership, thread, async task, or realtime boundaries;
-- keep high-volume/realtime paths predictable: bounded work, bounded queues, no accidental blocking;
-- avoid service-locator style lookup, where components can silently find anything at runtime;
-- document the wiring well enough that distributed peer connections remain understandable.
+## Cross-Runtime GUI Invariant
 
-These choices should be re-evaluated as the architecture becomes clearer. A central enum, bus, or dispatcher can still
-be the right tool for a narrow UI loop, worker mailbox, host callback adapter, or dynamic plugin/discovery boundary. The
-goal is not to ban event-driven design; it is to avoid turning early orchestration convenience into a permanent
-dependency magnet.
+Each runtime supplies an input snapshot and an editable proposal to the shared GUI, then owns the resulting commit:
 
-## Change Review Checklist
+```text
+runtime-owned input snapshot
+    -> prepare display and editable state
+    -> show UI and collect GuiChanges
+    -> concrete runtime-owned commit
+```
 
-These points are worth re-checking when changing ownership, communication, or runtime boundaries:
+`BPMDetectionGUI` contains reusable view state and rendering. It has no host parameter handle, desktop controller,
+runtime command sender, or persistence owner. Desktop and WASM expose their concrete typed commit boundaries directly.
+The plugin maps host-parameter edits to nice-plug `ParamSetter` requests. An `OnOff` field's persisted enable bit is
+adapter state rather than a second automatable parameter. Changing only that bit does not create a host request or mark
+the dynamic group; the detector observes it only when a later dynamic parameter callback schedules another configuration
+task.
 
-- Keep the Rust and Kotlin build roots separate. Do not make Cargo own the Kotlin extension, and do not make Gradle own
-  the Rust workspace.
-- Plugin mode is the production target and drives the realtime constraints. Detailed Rust-side rules live in
-  [Rust workspace architecture](../rust/architecture.md) and [Plugin flow](plugin-flow.md).
-- Plugin parameter synchronization is intentionally bidirectional. Before changing it, re-check
-  [Runtime lifecycle](runtime-lifecycle.md) and preserve the current distinction between host-origin and GUI-origin
-  updates.
-- Prefer typed peer boundaries wired at bootstrap over adding more cases to a runtime-wide event bus. If a bootstrap
-  section starts looking like a hidden orchestrator, split the peer protocol instead of centralizing more behavior.
-- [Runtime lifecycle](runtime-lifecycle.md) is the authoritative data-flow/thread-boundary diagram.
+## Stable Project Boundaries
+
+- Cargo owns the Rust build root and Gradle owns the Kotlin extension build root; neither build system owns the other.
+- Plugin mode is the production target and defines the strict realtime constraints. Detailed Rust-side boundaries live
+  in [Rust workspace architecture](../rust/architecture.md) and [Plugin flow](plugin-flow.md).
+- Every GUI runtime has an explicit commit boundary, while shared rendering remains free of runtime effects.
+- Typed peer boundaries are wired at bootstrap. Runtime-local worker protocols do not form a universal event bus.
+- The Rust plugin and Kotlin extension communicate only through the narrow localhost tempo bridge described in
+  [Bitwig tempo bridge](bitwig-tempo-bridge.md).
+- [Runtime lifecycle](runtime-lifecycle.md) owns the detailed data-flow and thread-boundary diagrams.
 
 ## Detailed Flow Notes
 

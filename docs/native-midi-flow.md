@@ -1,171 +1,127 @@
 # Native MIDI Flow
 
-This document describes the desktop/native MIDI path. It is intentionally scoped to communication boundaries: where data
-comes from, which thread owns which state, and why some boundaries use explicit messages while others use closures.
+This document describes the desktop application's native MIDI boundaries: GUI-owned values, controller commands,
+service-thread ownership, BPM work, and virtual MIDI output.
 
-## Thread Boundaries
+## Runtime Shape
 
 ```text
 desktop bootstrap
-  -> create GuiRemote
-  -> create pending DesktopController runtime
+  -> create BPMDetectionGUI, BpmDisplayPublisher, and GuiContextHandle
+  -> create PendingDesktopControllerRuntime and its command queue
   -> create MidiService
-      -> MIDI Service thread
-          -> MidiIn
-          -> midir input callback
-              -> timed MIDI message
-              -> BpmWorkerCommand, when the BPM worker can use it
-                  -> BPM worker thread
-                      -> BPMDetection
-                      -> BPMDetectionReceiver
-                      -> MidiOutputCommand, for optional tempo feedback
-                          -> MIDI output thread
-  -> create DesktopController
-  -> start DesktopController command worker
-  -> start egui
+      -> MIDI service thread owns MidiIn and the active input connection
+          -> midir callback converts useful input to BpmWorkerCommand
+              -> BPM worker thread owns BPMDetection
+                  -> BpmDisplayPublisher
+                  -> MidiOutputCommand
+                      -> MIDI output thread owns the virtual output
+  -> create DesktopController and start its command worker
+  -> create DesktopApp and start eframe
 ```
 
-## Main Terms
+The desktop entrypoint wires these owners together. The shared `gui` crate has no native MIDI dependency, and
+`bpm_detection_midi` has no egui dependency. `DesktopController` is the integration boundary between them.
 
-- Timed MIDI message: a parsed runtime MIDI message plus timestamp. Native mode uses these for SysEx parsing and for
-  forwarding useful observations into the BPM worker.
-- BPM worker command: a filtered command sent to the BPM worker. The worker only receives messages it can act on, such as
-  note-on events, config changes, or play/stop transport commands.
-- Note-on event: the core BPM input observation. It is extracted from a timed MIDI message before entering
-  `BPMDetection`.
-- MIDI output command: a side effect for the native MIDI output thread, such as play, stop, or tempo feedback SysEx.
+## Desktop-Owned GUI State
 
-## Desktop Runtime Boundary
+`DesktopApp` owns four kinds of runtime-facing state:
 
-The native desktop path starts egui directly and keeps MIDI work behind explicit service/controller boundaries.
+- an in-memory `DesktopConfig` value;
+- the `EditableSettings` proposal passed to `BPMDetectionGUI::show`;
+- a GUI-local `DeviceSelection` snapshot and its `displayed_revision`;
+- the concrete `DesktopControllerCommandQueue` used after an edit.
 
-Do not couple unrelated behavior through a runtime-wide event surface. Producers and consumers should connect during
-bootstrap through narrow typed protocols, then communicate directly through those protocols.
+`DesktopApp::logic` calls `BPMDetectionGUI::prepare` and attempts a nonblocking controller lock. `DeviceSelection`
+increments its revision when the published device list, displayed selection, or selected device changes. The app clones
+the complete controller snapshot only when that revision differs from `displayed_revision`; otherwise it retains the
+existing GUI value. A busy controller retains the previous snapshot in memory and temporarily replaces the device
+controls with the GUI-local `controller_busy` indicator.
 
-The native GUI path keeps the service boundaries explicit:
+`DesktopApp::ui` renders device controls and the shared BPM settings, then calls `DesktopApp::commit` with the returned
+`GuiChanges` and `DesktopChanges`. The commit updates the app's in-memory config mirror and invokes only the concrete
+capability associated with the edit. Configuration persistence is a separate `DesktopConfig::save` operation and is not
+part of this frame commit.
 
-- the GUI presents user-facing native MIDI controls through the desktop integration layer;
-- MIDI service operations keep explicit ownership boundaries instead of flowing through a catch-all action bus;
-- producers and consumers are connected during bootstrap through narrow typed protocols, then communicate directly
-  through those protocols;
-- async is avoided for the fixed set of native background workers unless cooperative scheduling is actually needed.
+## Controller Command Boundary
 
-## Current Desktop Startup
+`DesktopControllerCommandQueue` exposes five product commands:
 
-The native desktop binary starts egui directly and keeps MIDI work behind explicit service/controller boundaries:
+- `apply_static_config(StaticBPMDetectionConfig)`;
+- `apply_dynamic_config(DynamicBPMDetectionConfig)`;
+- `set_send_tempo(bool)`;
+- `refresh_devices(GuiContextHandle)`;
+- `select_device_index(usize)`.
 
-- `main` loads config and creates `GuiRemote`.
-- `PendingDesktopControllerRuntime` creates a command sender before `DesktopController` exists.
-- `MidiService` is created during bootstrap so native MIDI setup and macOS hotplug registration happen before the
-  desktop controller wraps the service.
-- `DesktopController` coordinates UI-facing native MIDI commands, selected input lifetime, and config propagation into
-  `MidiService`.
-- The command worker starts only after the controller exists, so queued callbacks never operate on an unset controller.
-- `AppBuilderShell` receives `DesktopBaseConfig` only after the controller/runtime are ready.
+Its generic closure-bearing `send` method is private. The command worker receives those closures and runs them against
+the single `DesktopController`. A weak queue handle supports native device-change callbacks without creating an ownership
+cycle; when the strong queue is gone, the callback stops enqueueing work.
 
-## Desktop Controller Boundary
+The controller uses `MidiService::execute` for operations that require the MIDI service thread. Selecting an input
+replaces the service-owned `Option<MidiInputConnection<()>>`; dropping that value stops the previous listener. Static and
+dynamic detector settings become explicit `BpmWorkerCommand` values through `MidiIn`.
 
-The desktop GUI uses an integration layer above `gui` and `bpm_detection_midi`.
-
-That layer should depend on both crates, but neither shared crate should depend back on it:
-
-- `gui` should stay reusable by plugin and WASM mode, so it should not learn about `midir`, `MidiInputPort`, native
-  hotplug callbacks, or desktop-only playback/clock controls.
-- `bpm_detection_midi` should stay UI-free. It should own native MIDI service mechanics, not egui widgets or window
-  lifecycle.
-- The desktop controller should own the relationship between the two: UI-facing native MIDI commands, selected input
-  lifetime, MIDI display/debug state if still useful, config propagation, and desktop-only MIDI side effects.
-
-The controller exposes capabilities that map to user intent rather than a generic action bus:
+Send-tempo changes use this focused path:
 
 ```text
-DesktopController
-  -> list MIDI inputs
-  -> select MIDI input
-  -> observe MIDI input list changes
-  -> apply static BPM config
-  -> apply dynamic BPM config
-  -> toggle native playback / MIDI clock / tempo feedback, if kept
-  -> stop native services on shutdown
+DesktopApp::commit
+    -> DesktopControllerCommandQueue::set_send_tempo
+    -> DesktopController::set_send_tempo
+    -> MidiService::set_send_tempo
+    -> MidiOutputRuntimeState::set_send_tempo
 ```
 
-These are desktop capabilities, not a runtime-wide UI action protocol. For example, `select_midi_input(port)` belongs at
-the desktop/native MIDI boundary, while keyboard navigation belongs to the GUI surface that handles it.
+The worker's detected-BPM publisher later reads that live value before queuing `MidiOutputCommand::Tempo`.
 
-The current desktop runtime uses a pending command runtime during bootstrap. The command sender exists before
-`DesktopController` exists, but the command worker is only started once the controller has been fully constructed. This
-handles the awkward native lifecycle without an `Option<DesktopController>` command target: macOS hotplug callbacks can
-be registered before other MIDI initialization, those callbacks can enqueue work if they fire early, and the queued work
-runs only after the real controller is installed.
+## Device Discovery and Selection
 
-The desktop MIDI input list refresh is platform-dependent. macOS registers CoreMIDI hotplug notifications and refreshes
-the list automatically, so the GUI should not show a manual refresh button there. Other native platforms currently rely
-on manual refresh because no equivalent hotplug callback is wired yet; the refresh still works by asking `midir` for the
-current input ports again.
+`DesktopController::refresh_devices` asks the service-owned `MidiIn` for current ports, sorts the resulting values, and
+updates `DeviceSelection` while retaining the selected device when it is still present. A selection change connects the
+new input first and publishes the new selection only after that connection succeeds.
 
-## MIDI Service Closure Boundary
+On macOS, CoreMIDI hotplug notification holds a weak controller queue and requests `refresh_devices`; the command asks
+`GuiContextHandle` for a repaint after refreshing. Other native platforms expose the manual refresh button in the desktop
+UI.
 
-`bpm_detection_midi::MidiService` owns a dedicated service thread. Callers do not send a large public enum of every
-possible service operation. Instead, they call `MidiService::execute()` with a closure.
+## Value Configuration and Live Runtime State
 
-That closure runs on the MIDI service thread with access to:
+`DesktopConfig` serializes `MidiServiceConfig` alongside BPM settings. `MidiServiceConfig` contains detached values:
 
-- `MidiIn`, which owns MIDI input setup and the worker command sender.
-- the current `Option<MidiInputConnection<()>>`, whose lifetime controls whether the selected input is still listening.
+- `device_name: String`;
+- `send_tempo: bool`;
+- `enable_midi_clock: bool`.
 
-This is deliberate. The caller can express an operation using the most suitable local data and return path, while
-`MidiService` keeps the thread-affinity and synchronization ceremony internal. If the closure needs to report back, it
-can use the caller's chosen mechanism, such as returning a `Result`, sending an app event, or mutating the input
-connection holder provided by the service thread.
+Live atomic identity is private to `bpm_detection_midi`. `MidiService::new` copies the two booleans into the crate-private
+`MidiOutputRuntimeState` and retains a clone. The BPM publisher reads the shared send-tempo atomic, and the MIDI-output
+worker reads the shared clock-enable atomic. The serialized configuration never contains or exposes either atomic.
 
-The tradeoff is that callers must move only thread-safe state into the closure and must expect execution to fail if the
-service thread is gone.
+Two other atomics have similarly narrow runtime owners:
 
-## Explicit Worker Messages
+- `MidiIn::start_timestamp` is shared with the active midir callback so native timestamps can be converted to elapsed
+  time from the current listener start;
+- native worker bootstrap creates `clock_interval_microseconds`, then shares it only with the detected-BPM publisher and
+  MIDI-output thread.
 
-The BPM worker uses explicit `BpmWorkerCommand` values instead of arbitrary closures. This boundary is narrower:
+`enable_midi_clock` is initialized from configuration and observed by the output worker. `send_tempo` also has the live
+setter shown above.
 
-- note-on observations should enter the core model;
-- static config changes should rebuild detection buffers after the debounce delay;
-- dynamic config changes should update scoring weights and trigger a delayed evaluation;
-- play/stop commands should be forwarded to the MIDI output thread.
+## MIDI Input and BPM Worker
 
-An enum is reasonable here because the worker protocol is small and part of the runtime design. It also prevents high
-volume input traffic, such as MIDI Timing Clock, from waking the BPM worker when the worker has no use for it.
+The midir callback parses each native message and establishes an elapsed timestamp. Tempo SysEx updates the display
+publisher directly. Messages convertible to the narrow `BpmWorkerCommand` protocol enter the BPM worker; unrelated
+high-volume input such as MIDI Timing Clock does not wake that worker.
+
+The worker protocol contains note-on observations, static and dynamic detector settings, and play/stop actions. Static
+configuration is retained until the evaluation debounce boundary and then rebuilds detector buffers. Dynamic
+configuration replaces the current scoring values and schedules evaluation without rebuilding the model shape.
 
 ## Output Ownership
 
-The native virtual MIDI output is owned by the MIDI output thread. The BPM worker does not call output methods directly.
-Instead it sends `MidiOutputCommand` values.
+The MIDI-output thread exclusively owns the virtual output. The BPM worker communicates with it through
+`MidiOutputCommand` values for play, stop, and detected tempo. While the clock-emitter loop is active, draining coalesces
+multiple queued tempo commands so the newest value is emitted. With clock emission disabled, the output thread dispatches
+each command received through its timed wait.
 
-This keeps clock ticks, play/stop, and optional tempo SysEx serialized through one owner. Tempo updates are coalesced
-while draining output commands: when several tempo values are queued, only the newest value is emitted.
-
-MIDI clock enablement is currently a shared atomic flag read by the output thread. That avoids blocking a GUI caller on
-the output owner, but it also means the output thread uses a short idle timeout while the clock is disabled. The current
-design keeps the clock tick path owned by one thread and avoids introducing native MIDI dependencies into `gui`.
-
-## Config Timing
-
-Static and dynamic BPM config changes are both debounce points, but they mean different things:
-
-- Static BPM config changes reshape the detection model and can rebuild buffers or precomputed data.
-- Dynamic BPM config changes alter scoring while reusing the existing detection buffers.
-
-The BPM worker delays evaluation briefly so related config changes can be applied together. Static config is applied at
-that debounce boundary, then the worker recomputes BPM once.
-
-## Validation Notes
-
-These names and boundaries are current working vocabulary, not final doctrine:
-
-- `MidiIn` is more than raw input: it also starts the BPM worker and forwards play/stop/config commands.
-- `MidiService::execute()` is flexible, but the caller still needs to reason carefully about what it moves into the
-  closure and how results should get back to the caller.
-- If behavior starts coupling through a large runtime-wide event enum, treat that as a refactor candidate rather than a
-  design rule.
-- The native MIDI clock path is desktop/experimental support. The plugin production path uses a controller bridge
-  instead of acting as a MIDI clock provider.
-- If the output thread's disabled-clock polling becomes a real problem, review an event-plus-state shape: writers update
-  cheap shared state, then wake the output owner so it can react without polling. Keep that as an output-thread ownership
-  refactor, not a reason for `gui` to learn native MIDI details.
+Detected BPM also updates `clock_interval_microseconds`. When MIDI clock is enabled, the output owner reads that interval
+and emits ticks. When clock is disabled, it waits with a short timeout so it can process output commands and observe a
+later atomic enablement change. Optional tempo feedback is encoded as `TEMPO|...` SysEx by the same output owner.
