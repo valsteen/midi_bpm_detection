@@ -112,12 +112,16 @@ private fun Settings.createStatusEnum(
             initialValue,
         )
 
-    return setting.asEnumStatusValue().statusControl()
+    return setting.asEnumStatusValue().readOnlyStatusControl(initialValue)
 }
 
 private fun SettableEnumValue.asEnumStatusValue(): EnumStatusValue =
     object : EnumStatusValue {
         override fun set(value: String) {
             this@asEnumStatusValue.set(value)
+        }
+
+        override fun addValueObserver(observer: (String) -> Unit) {
+            this@asEnumStatusValue.addValueObserver { value -> observer(value) }
         }
     }

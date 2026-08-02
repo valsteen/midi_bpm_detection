@@ -6,9 +6,15 @@ internal fun interface StatusControl {
 
 internal interface EnumStatusValue {
     fun set(value: String)
+
+    fun addValueObserver(observer: (String) -> Unit)
 }
 
-internal fun EnumStatusValue.statusControl(): StatusControl = StatusControl { value -> set(value) }
+internal fun EnumStatusValue.readOnlyStatusControl(initialValue: String): StatusControl =
+    ReadOnlyEnumStatusControl(
+        enum = this,
+        initialValue = initialValue,
+    )
 
 internal class ControllerStatusSurface internal constructor(
     private val status: StatusControl,
@@ -75,3 +81,23 @@ internal fun trackedDawPortDisappeared(
 }
 
 private fun String.parameterName(): String = split("/").last()
+
+private class ReadOnlyEnumStatusControl(
+    private val enum: EnumStatusValue,
+    initialValue: String,
+) : StatusControl {
+    private var actualValue = initialValue
+
+    init {
+        enum.addValueObserver { selectedValue ->
+            if (selectedValue != actualValue) {
+                enum.set(actualValue)
+            }
+        }
+    }
+
+    override fun set(value: String) {
+        actualValue = value
+        enum.set(value)
+    }
+}

@@ -70,14 +70,14 @@ internal class ControllerStatusSurfaceTest {
     }
 
     @Test
-    fun keepsUserSelectedEnumValue() {
+    fun restoresStatusAfterSelection() {
         val enum = RecordingEnumStatusValue()
-        val control = enum.statusControl()
+        val control = enum.readOnlyStatusControl("Waiting for Plugin")
 
         control.set("Connected")
         enum.simulateUserSelection("Listening")
 
-        assertEquals(listOf("Connected", "Listening"), enum.values)
+        assertEquals(listOf("Connected", "Listening", "Connected"), enum.values)
     }
 
     private class RecordingStatusControl : StatusControl {
@@ -93,13 +93,20 @@ internal class ControllerStatusSurfaceTest {
 
     private class RecordingEnumStatusValue : EnumStatusValue {
         val values = mutableListOf<String>()
+        private var observer: ((String) -> Unit)? = null
 
         override fun set(value: String) {
             values += value
+            observer?.invoke(value)
+        }
+
+        override fun addValueObserver(observer: (String) -> Unit) {
+            this.observer = observer
         }
 
         fun simulateUserSelection(value: String) {
             values += value
+            observer?.invoke(value)
         }
     }
 }
